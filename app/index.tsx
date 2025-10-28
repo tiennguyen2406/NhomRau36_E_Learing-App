@@ -1,4 +1,7 @@
 // index.tsx
-import App from "./App";
+import { Redirect } from "expo-router";
 
-export default App;
+// Điều hướng tự động đến màn hình chính
+export default function Index() {
+  return <Redirect href="/home" />;
+}

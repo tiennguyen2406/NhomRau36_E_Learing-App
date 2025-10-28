@@ -1,17 +1,20 @@
-import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import { MaterialIcons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useState } from "react";
 import {
-  Dimensions,
   FlatList,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
-} from 'react-native';
-import BottomTabBar from '../../components/BottomTabBar';
+  View,
+} from "react-native";
+import { RootStackParamList } from "../navigation/AppNavigator";
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 interface Course {
   id: string;
@@ -30,18 +33,18 @@ interface Instructor {
 }
 
 const courses: Course[] = [
-  { 
-    id: '1', 
-    title: 'Graphic Design Advanced', 
-    category: 'Thiết kế đồ họa',
+  {
+    id: "1",
+    title: "Graphic Design Advanced",
+    category: "Thiết kế đồ họa",
     lessons: 36,
     rating: 4.2,
     students: 7830,
   },
-  { 
-    id: '2', 
-    title: 'Advertisement Design', 
-    category: 'Thiết kế web',
+  {
+    id: "2",
+    title: "Advertisement Design",
+    category: "Thiết kế web",
     lessons: 42,
     rating: 4.2,
     students: 5600,
@@ -49,25 +52,21 @@ const courses: Course[] = [
 ];
 
 const instructors: Instructor[] = [
-  { id: '1', name: 'Sonja' },
-  { id: '2', name: 'Jensen' },
-  { id: '3', name: 'Victoria' },
-  { id: '4', name: 'Castaldo' },
+  { id: "1", name: "Sonja" },
+  { id: "2", name: "Jensen" },
+  { id: "3", name: "Victoria" },
+  { id: "4", name: "Castaldo" },
 ];
 
-const categories = ['3D Design', 'Arts & Humanities', 'Graphic Design'];
-const courseFilters = ['All', 'Graphic Design', '3D Design', 'Arts & Hu'];
+const categories = ["3D Design", "Arts & Humanities", "Graphic Design"];
+const courseFilters = ["All", "Graphic Design", "3D Design", "Arts & Hu"];
 
-const { width } = Dimensions.get('window');
+// Dimensions.get("window") có thể được sử dụng khi cần thiết
 
 const HomeScreen: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('home');
+  const navigation = useNavigation<NavigationProp>();
   const [selectedCategory, setSelectedCategory] = useState(1);
   const [selectedFilter, setSelectedFilter] = useState(1);
-
-  const handleTabPress = (tabName: string) => {
-    setActiveTab(tabName);
-  };
 
   const renderCourseCard = ({ item }: { item: Course }) => (
     <TouchableOpacity style={styles.courseCard} activeOpacity={0.8}>
@@ -78,7 +77,9 @@ const HomeScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
       <Text style={styles.courseCategory}>{item.category}</Text>
-      <Text style={styles.courseTitle} numberOfLines={2}>{item.title}</Text>
+      <Text style={styles.courseTitle} numberOfLines={2}>
+        {item.title}
+      </Text>
       <View style={styles.courseStats}>
         <Text style={styles.lessonCount}>{item.lessons} bài</Text>
         <View style={styles.ratingContainer}>
@@ -109,20 +110,30 @@ const HomeScreen: React.FC = () => {
             <Text style={styles.subGreeting}>Bạn muốn học gì vào hôm nay?</Text>
           </View>
           <TouchableOpacity style={styles.notificationButton}>
-            <MaterialIcons name="notifications-none" size={24} color="#20B2AA" />
+            <MaterialIcons
+              name="notifications-none"
+              size={24}
+              color="#20B2AA"
+            />
           </TouchableOpacity>
         </View>
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
+          <TouchableOpacity
+            style={styles.searchBar}
+            onPress={() => navigation.navigate("Search")}
+            activeOpacity={0.8}
+          >
             <MaterialIcons name="search" size={20} color="#999" />
             <TextInput
               style={styles.searchInput}
               placeholder="Tìm kiếm..."
               placeholderTextColor="#999"
+              editable={false}
+              pointerEvents="none"
             />
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.filterButton}>
             <MaterialIcons name="tune" size={20} color="#20B2AA" />
           </TouchableOpacity>
@@ -130,7 +141,7 @@ const HomeScreen: React.FC = () => {
 
         {/* Banner */}
         <LinearGradient
-          colors={['#20B2AA', '#2E8B57']}
+          colors={["#20B2AA", "#2E8B57"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.banner}
@@ -139,7 +150,8 @@ const HomeScreen: React.FC = () => {
             <Text style={styles.bannerDiscount}>25% OFF*</Text>
             <Text style={styles.bannerTitle}>Ưu đãi hôm nay!</Text>
             <Text style={styles.bannerDescription}>
-              Nhận ưu đãi giảm giá cho mỗi khóa học — chỉ áp dụng trong hôm nay thôi!
+              Nhận ưu đãi giảm giá cho mỗi khóa học — chỉ áp dụng trong hôm nay
+              thôi!
             </Text>
           </View>
           <View style={styles.bannerDots}>
@@ -153,24 +165,30 @@ const HomeScreen: React.FC = () => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Khám phá</Text>
-            <TouchableOpacity>
-              <Text style={styles.viewAllText}>XEM TẤT CẢ {'>'}</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("Category")}>
+              <Text style={styles.viewAllText}>XEM TẤT CẢ {">"}</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoriesContainer}
+          >
             {categories.map((category, index) => (
               <TouchableOpacity
                 key={index}
                 style={[
                   styles.categoryChip,
-                  selectedCategory === index && styles.categoryChipActive
+                  selectedCategory === index && styles.categoryChipActive,
                 ]}
                 onPress={() => setSelectedCategory(index)}
               >
-                <Text style={[
-                  styles.categoryText,
-                  selectedCategory === index && styles.categoryTextActive
-                ]}>
+                <Text
+                  style={[
+                    styles.categoryText,
+                    selectedCategory === index && styles.categoryTextActive,
+                  ]}
+                >
                   {category}
                 </Text>
               </TouchableOpacity>
@@ -183,23 +201,29 @@ const HomeScreen: React.FC = () => {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Khóa học phổ biến</Text>
             <TouchableOpacity>
-              <Text style={styles.viewAllText}>XEM TẤT CẢ {'>'}</Text>
+              <Text style={styles.viewAllText}>XEM TẤT CẢ {">"}</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filtersContainer}
+          >
             {courseFilters.map((filter, index) => (
               <TouchableOpacity
                 key={index}
                 style={[
                   styles.filterChip,
-                  selectedFilter === index && styles.filterChipActive
+                  selectedFilter === index && styles.filterChipActive,
                 ]}
                 onPress={() => setSelectedFilter(index)}
               >
-                <Text style={[
-                  styles.filterText,
-                  selectedFilter === index && styles.filterTextActive
-                ]}>
+                <Text
+                  style={[
+                    styles.filterText,
+                    selectedFilter === index && styles.filterTextActive,
+                  ]}
+                >
                   {filter}
                 </Text>
               </TouchableOpacity>
@@ -220,7 +244,7 @@ const HomeScreen: React.FC = () => {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Người hướng dẫn hàng đầu</Text>
             <TouchableOpacity>
-              <Text style={styles.viewAllText}>XEM TẤT CẢ {'>'}</Text>
+              <Text style={styles.viewAllText}>XEM TẤT CẢ {">"}</Text>
             </TouchableOpacity>
           </View>
           <FlatList
@@ -233,9 +257,6 @@ const HomeScreen: React.FC = () => {
           />
         </View>
       </ScrollView>
-
-      {/* Bottom Tab Bar */}
-      <BottomTabBar activeTab={activeTab} onTabPress={handleTabPress} />
     </View>
   );
 };
@@ -245,12 +266,12 @@ export default HomeScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 20,
@@ -260,33 +281,33 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 4,
   },
   subGreeting: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
   },
   notificationButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f0f9ff',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#f0f9ff",
+    justifyContent: "center",
+    alignItems: "center",
   },
   searchContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 20,
     marginBottom: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   searchBar: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -296,53 +317,53 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 8,
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   filterButton: {
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#f0f9ff',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#f0f9ff",
+    justifyContent: "center",
+    alignItems: "center",
   },
   banner: {
     marginHorizontal: 20,
     borderRadius: 16,
     padding: 20,
     marginBottom: 30,
-    position: 'relative',
+    position: "relative",
   },
   bannerContent: {
     marginBottom: 20,
   },
   bannerDiscount: {
     fontSize: 16,
-    color: '#fff',
-    fontWeight: '600',
+    color: "#fff",
+    fontWeight: "600",
     marginBottom: 4,
   },
   bannerTitle: {
     fontSize: 20,
-    color: '#fff',
-    fontWeight: 'bold',
+    color: "#fff",
+    fontWeight: "bold",
     marginBottom: 8,
   },
   bannerDescription: {
     fontSize: 14,
-    color: '#fff',
+    color: "#fff",
     opacity: 0.9,
     lineHeight: 20,
   },
   bannerDots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
   },
   bannerDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     marginHorizontal: 3,
     opacity: 0.6,
   },
@@ -350,21 +371,21 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     marginBottom: 15,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   viewAllText: {
     fontSize: 14,
-    color: '#20B2AA',
-    fontWeight: '500',
+    color: "#20B2AA",
+    fontWeight: "500",
   },
   categoriesContainer: {
     paddingLeft: 20,
@@ -374,18 +395,18 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 12,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   categoryChipActive: {
-    backgroundColor: '#20B2AA',
+    backgroundColor: "#20B2AA",
   },
   categoryText: {
     fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
+    color: "#666",
+    fontWeight: "500",
   },
   categoryTextActive: {
-    color: '#fff',
+    color: "#fff",
   },
   filtersContainer: {
     paddingLeft: 20,
@@ -396,18 +417,18 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 12,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   filterChipActive: {
-    backgroundColor: '#20B2AA',
+    backgroundColor: "#20B2AA",
   },
   filterText: {
     fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
+    color: "#666",
+    fontWeight: "500",
   },
   filterTextActive: {
-    color: '#fff',
+    color: "#fff",
   },
   coursesContainer: {
     paddingLeft: 20,
@@ -415,99 +436,99 @@ const styles = StyleSheet.create({
   courseCard: {
     width: 200,
     marginRight: 15,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
   courseImageContainer: {
-    position: 'relative',
+    position: "relative",
     height: 120,
     marginBottom: 12,
   },
   courseImagePlaceholder: {
     flex: 1,
-    backgroundColor: '#333',
+    backgroundColor: "#333",
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
   bookmarkButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     right: 8,
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
   },
   courseCategory: {
     fontSize: 12,
-    color: '#999',
+    color: "#999",
     marginBottom: 4,
     paddingHorizontal: 12,
   },
   courseTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 8,
     paddingHorizontal: 12,
   },
   courseStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingBottom: 12,
   },
   lessonCount: {
     fontSize: 12,
-    color: '#20B2AA',
-    fontWeight: '500',
+    color: "#20B2AA",
+    fontWeight: "500",
     marginRight: 12,
   },
   ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginRight: 12,
   },
   rating: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginLeft: 2,
   },
   studentCount: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
   },
   instructorsContainer: {
     paddingLeft: 20,
   },
   instructorItem: {
-    alignItems: 'center',
+    alignItems: "center",
     marginRight: 20,
   },
   instructorAvatar: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#333',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#333",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 8,
   },
   instructorInitial: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff",
   },
   instructorName: {
     fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
+    color: "#333",
+    fontWeight: "500",
   },
 });

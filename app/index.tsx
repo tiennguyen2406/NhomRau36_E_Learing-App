@@ -3,5 +3,5 @@ import { Redirect } from "expo-router";
 
 // Điều hướng tự động đến màn hình chính
 export default function Index() {
-  return <Redirect href="/home" />;
+  return <Redirect href="/screens/LoginScreen" />;
 }

@@ -2,7 +2,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   FlatList,
   ScrollView,
@@ -67,6 +68,18 @@ const HomeScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const [selectedCategory, setSelectedCategory] = useState(1);
   const [selectedFilter, setSelectedFilter] = useState(1);
+  const [username, setUsername] = useState<string>("KhaiTien");
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem('currentUsername');
+        if (stored && isMounted) setUsername(stored);
+      } catch {}
+    })();
+    return () => { isMounted = false; };
+  }, []);
 
   const renderCourseCard = ({ item }: { item: Course }) => (
     <TouchableOpacity style={styles.courseCard} activeOpacity={0.8}>
@@ -106,7 +119,7 @@ const HomeScreen: React.FC = () => {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.greetingContainer}>
-            <Text style={styles.greeting}>Xin chào, KhaiTien</Text>
+            <Text style={styles.greeting}>Xin chào, {username}</Text>
             <Text style={styles.subGreeting}>Bạn muốn học gì vào hôm nay?</Text>
           </View>
           <TouchableOpacity style={styles.notificationButton}>

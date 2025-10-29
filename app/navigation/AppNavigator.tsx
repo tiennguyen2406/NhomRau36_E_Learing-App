@@ -18,6 +18,7 @@ import SearchScreen from "../screens/SearchScreen";
 // Định nghĩa kiểu cho routes trong ứng dụng
 export type RootStackParamList = {
   Auth: undefined;
+  Home: undefined; // fallback so navigate('Home') is valid
   MainTabs: undefined;
   Search: undefined;
   Category: undefined;
@@ -163,20 +164,21 @@ const EmptyPlaceholder = () => (
 
 // Root Navigator
 const AppNavigator = () => {
-  const isAuthenticated = true; // Thay đổi logic xác thực thực tế ở đây
+  const isAuthenticated = false; // Thay đổi logic xác thực thực tế ở đây
 
   return (
-    <RootStack.Navigator screenOptions={{ headerShown: false }}>
-      {!isAuthenticated ? (
-        <RootStack.Screen name="Auth" component={AuthNavigator} />
-      ) : (
-        <>
-          <RootStack.Screen name="MainTabs" component={TabNavigator} />
-          <RootStack.Screen name="Search" component={SearchScreen} />
-          <RootStack.Screen name="Category" component={CategoryScreen} />
-          <RootStack.Screen name="CourseList" component={CourseListScreen} />
-        </>
-      )}
+    <RootStack.Navigator
+      screenOptions={{ headerShown: false }}
+      initialRouteName={isAuthenticated ? "MainTabs" : "Auth"}
+    >
+      {/* Always register all routes so navigation is possible from nested stacks */}
+      <RootStack.Screen name="Auth" component={AuthNavigator} />
+      {/* Fallback alias so any navigate('Home') still works */}
+      <RootStack.Screen name="Home" component={HomeScreen} />
+      <RootStack.Screen name="MainTabs" component={TabNavigator} />
+      <RootStack.Screen name="Search" component={SearchScreen} />
+      <RootStack.Screen name="Category" component={CategoryScreen} />
+      <RootStack.Screen name="CourseList" component={CourseListScreen} />
     </RootStack.Navigator>
   );
 };

@@ -1,7 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   FlatList,
   Image,
@@ -9,64 +9,69 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
 import { RootStackParamList } from "../navigation/AppNavigator";
+import { getCategories } from "../api/api";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 interface Category {
   id: string;
   name: string;
-  iconSource: any;
+  iconUrl?: string;
+  description?: string;
+  courseCount?: number;
+  isActive?: boolean;
 }
+
+const getIconSource = (categoryName: string) => {
+  switch (categoryName) {
+    case "3D Design": 
+      return require("../../assets/images/3DDesignICON.png");
+    case "Graphic Design": 
+      return require("../../assets/images/GraphicDesignICON.png");
+    case "Web Development": 
+      return require("../../assets/images/WebDevelopmentICON.png");
+    case "SEO & Marketing": 
+      return require("../../assets/images/SEO&MarketingICON.png");
+    case "Finance & Accounting": 
+      return require("../../assets/images/Finance&AccountingICON.png");
+    case "Personal Development": 
+      return require("../../assets/images/PersonalDevelopmentICON.png");
+    case "Office Productivity": 
+      return require("../../assets/images/OfficeProductivityICON.png");
+    case "HR Management": 
+      return require("../../assets/images/HRManagementICON.png");
+    default: 
+      return require("../../assets/images/WebDevelopmentICON.png");
+  }
+};
 
 const CategoryScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-
-  const categories: Category[] = [
-    {
-      id: "1",
-      name: "3D Design",
-      iconSource: require("../../assets/images/3DDesignICON.png"),
-    },
-    {
-      id: "2",
-      name: "Graphic Design",
-      iconSource: require("../../assets/images/GraphicDesignICON.png"),
-    },
-    {
-      id: "3",
-      name: "Web Development",
-      iconSource: require("../../assets/images/WebDevelopmentICON.png"),
-    },
-    {
-      id: "4",
-      name: "SEO & Marketing",
-      iconSource: require("../../assets/images/SEO&MarketingICON.png"),
-    },
-    {
-      id: "5",
-      name: "Finance & Accounting",
-      iconSource: require("../../assets/images/Finance&AccountingICON.png"),
-    },
-    {
-      id: "6",
-      name: "Personal Development",
-      iconSource: require("../../assets/images/PersonalDevelopmentICON.png"),
-    },
-    {
-      id: "7",
-      name: "Office Productivity",
-      iconSource: require("../../assets/images/OfficeProductivityICON.png"),
-    },
-    {
-      id: "8",
-      name: "HR Management",
-      iconSource: require("../../assets/images/HRManagementICON.png"),
-    },
-  ];
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
+  
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setLoading(true);
+        const data = await getCategories();
+        setCategories(data);
+      } catch (err) {
+        console.error("Lỗi khi tải danh mục:", err);
+        setError("Không thể tải danh mục, vui lòng thử lại sau");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchCategories();
+  }, []);
 
   const renderCategoryItem = ({
     item,
@@ -76,6 +81,7 @@ const CategoryScreen: React.FC = () => {
     index: number;
   }) => {
     const isEven = index % 2 === 0;
+    const iconSource = getIconSource(item.name);
 
     return (
       <View
@@ -88,21 +94,55 @@ const CategoryScreen: React.FC = () => {
           style={styles.categoryItem}
           activeOpacity={0.7}
           onPress={() =>
-            navigation.navigate("CourseList", { categoryName: item.name })
+            navigation.navigate("CourseList", { categoryName: item.name, categoryId: item.id })
           }
         >
           <View style={styles.iconContainer}>
             <Image
-              source={item.iconSource}
+              source={iconSource}
               style={styles.categoryIcon}
               resizeMode="contain"
             />
           </View>
           <ThemedText style={styles.categoryName}>{item.name}</ThemedText>
+          {item.courseCount !== undefined && (
+            <ThemedText style={styles.courseCount}>{item.courseCount} khóa học</ThemedText>
+          )}
         </TouchableOpacity>
       </View>
     );
   };
+
+  if (loading) {
+    return (
+      <ThemedView style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#20B2AA" />
+        <ThemedText style={{marginTop: 16}}>Đang tải danh mục...</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (error) {
+    return (
+      <ThemedView style={[styles.container, styles.centerContent]}>
+        <MaterialIcons name="error-outline" size={40} color="#e74c3c" />
+        <ThemedText style={{marginTop: 16}}>{error}</ThemedText>
+        <TouchableOpacity 
+          style={styles.retryButton} 
+          onPress={() => {
+            setLoading(true);
+            setError("");
+            getCategories()
+              .then(data => setCategories(data))
+              .catch(err => setError("Không thể tải danh mục"))
+              .finally(() => setLoading(false));
+          }}
+        >
+          <ThemedText style={styles.retryText}>Thử lại</ThemedText>
+        </TouchableOpacity>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -113,7 +153,7 @@ const CategoryScreen: React.FC = () => {
         >
           <MaterialIcons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>All Category</ThemedText>
+        <ThemedText style={styles.headerTitle}>Danh mục</ThemedText>
       </View>
 
       {/* Search Bar */}
@@ -121,7 +161,7 @@ const CategoryScreen: React.FC = () => {
         <View style={styles.searchBar}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search for..."
+            placeholder="Tìm kiếm..."
             placeholderTextColor="#999"
           />
         </View>
@@ -139,6 +179,12 @@ const CategoryScreen: React.FC = () => {
         contentContainerStyle={styles.categoriesContainer}
         columnWrapperStyle={styles.categoryRow}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <MaterialIcons name="category" size={40} color="#ccc" />
+            <ThemedText style={styles.emptyText}>Không có danh mục nào</ThemedText>
+          </View>
+        }
       />
     </ThemedView>
   );
@@ -148,6 +194,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8f8f8",
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: "row",
@@ -233,8 +283,38 @@ const styles = StyleSheet.create({
   },
   categoryName: {
     fontSize: 14,
+    fontWeight: 'bold',
     textAlign: "center",
     color: "#333",
+    marginBottom: 4,
+  },
+  courseCount: {
+    fontSize: 12,
+    color: "#666",
+    textAlign: "center",
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#999',
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#20B2AA',
+    borderRadius: 20,
+  },
+  retryText: {
+    color: '#fff',
+    fontWeight: '500',
   },
 });
 

@@ -24,6 +24,7 @@ export type RootStackParamList = {
   Category: undefined;
   CourseList: {
     categoryName: string;
+    categoryId: string;
   };
 };
 

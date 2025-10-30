@@ -37,8 +37,31 @@ export const getUsers = async () => {
 export const getCategories = async () => {
   return requestJson(`${BASE_URL}/categories`);
 };
+
+export const getCategoryById = async (categoryId: string) => {
+  return requestJson(`${BASE_URL}/categories/${categoryId}`);
+};
+
 export const getCourses = async () => {
   return requestJson(`${BASE_URL}/courses`);
+};
+
+export const getCoursesByCategory = async (
+  categoryId: string,
+  onlyPublished: boolean = true
+) => {
+  const queryParams = onlyPublished ? "?published=true" : "";
+  return requestJson(
+    `${BASE_URL}/courses/category/${categoryId}${queryParams}`
+  );
+};
+
+// API để cập nhật số lượng khóa học cho tất cả danh mục
+export const updateAllCategoryCounts = async () => {
+  return requestJson(`${BASE_URL}/categories/update-counts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
 };
 
 // Thêm export mặc định để tránh lỗi Expo Router

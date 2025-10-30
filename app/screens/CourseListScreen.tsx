@@ -1,24 +1,28 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FlatList,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
 import { RootStackParamList } from "../navigation/AppNavigator";
+import { getCategoryById, getCoursesByCategory } from "../api/api";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 interface Course {
   id: string;
   title: string;
-  category: string;
+  category: string; // ID của danh mục
+  categoryName?: string; // Tên danh mục (thêm từ API)
+  categoryId?: string; // ID danh mục (dự phòng)
   originalPrice: number;
   currentPrice: number;
   rating: number;
@@ -27,20 +31,56 @@ interface Course {
 
 interface RouteParams {
   categoryName: string;
+  categoryId: string;
 }
 
 const CourseListScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
-  const { categoryName } = route.params as RouteParams;
+  const { categoryName: initialCategoryName, categoryId } =
+    route.params as RouteParams;
   const [activeTab, setActiveTab] = useState("courses");
-  const [searchText, setSearchText] = useState(
-    categoryName || "Graphic Design"
+  const [categoryName, setCategoryName] = useState<string>(
+    initialCategoryName || ""
   );
+  const [searchText, setSearchText] = useState("");
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
   const [savedCourses, setSavedCourses] = useState<{ [key: string]: boolean }>({
     // Khởi tạo với các khóa học đã được lưu
     "2": true, // ID của khóa học thứ 2
   });
+
+  // Lấy thông tin chi tiết về danh mục và khóa học khi component mount
+  useEffect(() => {
+    const fetchCategoryAndCourses = async () => {
+      try {
+        setLoading(true);
+
+        // Nếu đã có đủ thông tin categoryName chi tiết từ trước, không cần fetch lại
+        if (!initialCategoryName) {
+          // Lấy thông tin chi tiết về danh mục
+          const categoryData = await getCategoryById(categoryId);
+          setCategoryName(categoryData.name);
+          setSearchText(categoryData.name);
+        } else {
+          setSearchText(initialCategoryName);
+        }
+
+        // Lấy danh sách khóa học thuộc danh mục này
+        const coursesData = await getCoursesByCategory(categoryId);
+        setCourses(coursesData);
+      } catch (error) {
+        console.error("Lỗi khi tải dữ liệu:", error);
+        setError("Không thể tải thông tin. Vui lòng thử lại sau.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategoryAndCourses();
+  }, [categoryId, initialCategoryName]);
 
   // Hàm xử lý khi người dùng nhấn vào bookmark
   const toggleBookmark = (courseId: string) => {
@@ -50,88 +90,90 @@ const CourseListScreen: React.FC = () => {
     }));
   };
 
-  // Danh sách khóa học mẫu
-  const courses: Course[] = [
-    {
-      id: "1",
-      title: "Graphic Design Advanced",
-      category: "Graphic Design",
-      originalPrice: 42,
-      currentPrice: 28,
-      rating: 4.2,
-      students: 7830,
-    },
-    {
-      id: "2",
-      title: "Advance Diploma in Graphic Design",
-      category: "Graphic Design",
-      originalPrice: 56,
-      currentPrice: 39,
-      rating: 4.0,
-      students: 12880,
-    },
-    {
-      id: "3",
-      title: "Graphic Design Advanced",
-      category: "Graphic Design",
-      originalPrice: 41,
-      currentPrice: 37,
-      rating: 4.2,
-      students: 990,
-    },
-    {
-      id: "4",
-      title: "Web Developer concepts",
-      category: "Web Development",
-      originalPrice: 65,
-      currentPrice: 55,
-      rating: 4.5,
-      students: 8200,
-    },
-  ];
+  // Không sử dụng dữ liệu mẫu nữa, dùng state courses đã được fetch từ API
 
-  const renderCourseItem = ({ item }: { item: Course }) => (
-    <View style={styles.courseItem}>
-      <View style={styles.courseImageContainer}>
-        <View style={styles.courseImagePlaceholder} />
-      </View>
-      <View style={styles.courseContent}>
-        <ThemedText style={styles.courseCategory}>{item.category}</ThemedText>
-        <ThemedText style={styles.courseTitle} numberOfLines={2}>
-          {item.title}
-        </ThemedText>
-        <View style={styles.priceContainer}>
-          <ThemedText style={styles.currentPrice}>
-            ${item.currentPrice}
-          </ThemedText>
-          <ThemedText style={styles.originalPrice}>
-            ${item.originalPrice}
-          </ThemedText>
+  const renderCourseItem = ({ item }: { item: Course }) => {
+    // Hiển thị tên danh mục nếu có, hoặc dùng categoryName từ state, hoặc dùng placeholder
+    const categoryDisplay = item.categoryName || categoryName || "Danh mục";
+
+    return (
+      <View style={styles.courseItem}>
+        <View style={styles.courseImageContainer}>
+          <View style={styles.courseImagePlaceholder} />
         </View>
-        <View style={styles.courseStats}>
-          <View style={styles.ratingContainer}>
-            <MaterialIcons name="star" size={14} color="#FFD700" />
-            <ThemedText style={styles.rating}>{item.rating}</ThemedText>
+        <View style={styles.courseContent}>
+          <ThemedText style={styles.courseCategory}>
+            {categoryDisplay}
+          </ThemedText>
+          <ThemedText style={styles.courseTitle} numberOfLines={2}>
+            {item.title}
+          </ThemedText>
+          <View style={styles.priceContainer}>
+            <ThemedText style={styles.currentPrice}>
+              ${item.currentPrice}
+            </ThemedText>
+            <ThemedText style={styles.originalPrice}>
+              ${item.originalPrice}
+            </ThemedText>
           </View>
-          <ThemedText style={styles.studentCount}>
-            {item.students} Std
-          </ThemedText>
+          <View style={styles.courseStats}>
+            <View style={styles.ratingContainer}>
+              <MaterialIcons name="star" size={14} color="#FFD700" />
+              <ThemedText style={styles.rating}>{item.rating}</ThemedText>
+            </View>
+            <ThemedText style={styles.studentCount}>
+              {item.students} Std
+            </ThemedText>
+          </View>
+        </View>
+        <View style={styles.courseActions}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => toggleBookmark(item.id)}
+          >
+            <MaterialIcons
+              name={savedCourses[item.id] ? "bookmark" : "bookmark-border"}
+              size={20}
+              color={savedCourses[item.id] ? "#20B2AA" : "#666"}
+            />
+          </TouchableOpacity>
         </View>
       </View>
-      <View style={styles.courseActions}>
+    );
+  };
+
+  // Hiển thị trạng thái loading
+  if (loading) {
+    return (
+      <ThemedView style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color="#20B2AA" />
+        <ThemedText style={styles.loadingText}>Đang tải khóa học...</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  // Hiển thị trạng thái lỗi
+  if (error) {
+    return (
+      <ThemedView style={[styles.container, styles.errorContainer]}>
+        <MaterialIcons name="error-outline" size={40} color="#e74c3c" />
+        <ThemedText style={styles.errorText}>{error}</ThemedText>
         <TouchableOpacity
-          style={styles.iconButton}
-          onPress={() => toggleBookmark(item.id)}
+          style={styles.retryButton}
+          onPress={() => {
+            setLoading(true);
+            setError("");
+            getCoursesByCategory(categoryId)
+              .then((data) => setCourses(data))
+              .catch((err) => setError("Không thể tải thông tin"))
+              .finally(() => setLoading(false));
+          }}
         >
-          <MaterialIcons
-            name={savedCourses[item.id] ? "bookmark" : "bookmark-border"}
-            size={20}
-            color={savedCourses[item.id] ? "#20B2AA" : "#666"}
-          />
+          <ThemedText style={styles.retryButtonText}>Thử lại</ThemedText>
         </TouchableOpacity>
-      </View>
-    </View>
-  );
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -142,7 +184,7 @@ const CourseListScreen: React.FC = () => {
         >
           <MaterialIcons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>Online Courses</ThemedText>
+        <ThemedText style={styles.headerTitle}>{categoryName}</ThemedText>
       </View>
 
       {/* Search Bar */}
@@ -201,13 +243,15 @@ const CourseListScreen: React.FC = () => {
       {/* Result Count */}
       <View style={styles.resultContainer}>
         <ThemedText style={styles.resultText}>
-          Result for{" "}
+          Kết quả cho{" "}
           <ThemedText style={styles.resultHighlight}>
             &quot;{searchText}&quot;
           </ThemedText>
         </ThemedText>
         <TouchableOpacity style={styles.resultCountButton}>
-          <ThemedText style={styles.resultCount}>2480 FOUNDS</ThemedText>
+          <ThemedText style={styles.resultCount}>
+            {courses.length} FOUND
+          </ThemedText>
           <MaterialIcons name="chevron-right" size={20} color="#20B2AA" />
         </TouchableOpacity>
       </View>
@@ -219,6 +263,13 @@ const CourseListScreen: React.FC = () => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.courseList}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <ThemedText style={styles.emptyText}>
+              Không tìm thấy khóa học nào trong danh mục này
+            </ThemedText>
+          </View>
+        }
       />
     </ThemedView>
   );
@@ -410,7 +461,50 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  // Các style khác có thể được thêm vào đây khi cần
+  // Styles cho các trạng thái
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#666",
+  },
+  errorContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#e74c3c",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: "#20B2AA",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 10,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontWeight: "500",
+  },
+  emptyContainer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    height: 200,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#999",
+    textAlign: "center",
+  },
 });
 
 export default CourseListScreen;

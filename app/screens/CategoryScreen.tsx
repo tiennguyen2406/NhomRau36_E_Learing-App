@@ -14,7 +14,7 @@ import {
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
 import { RootStackParamList } from "../navigation/AppNavigator";
-import { getCategories } from "../api/api";
+import { getCategories, updateAllCategoryCounts } from "../api/api";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -54,6 +54,7 @@ const CategoryScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [updating, setUpdating] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   
   useEffect(() => {
@@ -154,6 +155,32 @@ const CategoryScreen: React.FC = () => {
           <MaterialIcons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <ThemedText style={styles.headerTitle}>Danh mục</ThemedText>
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={async () => {
+            try {
+              setUpdating(true);
+              const result = await updateAllCategoryCounts();
+              // Sau khi cập nhật, tải lại danh sách danh mục
+              const updatedCategories = await getCategories();
+              setCategories(updatedCategories);
+              // Hiển thị thông báo thành công nếu muốn
+            } catch (error) {
+              console.error("Lỗi khi cập nhật số lượng khóa học:", error);
+              setError("Không thể cập nhật số lượng khóa học");
+            } finally {
+              setUpdating(false);
+            }
+          }}
+          disabled={updating}
+        >
+          <MaterialIcons 
+            name="refresh" 
+            size={22} 
+            color={updating ? "#999" : "#20B2AA"} 
+          />
+          {updating && <ActivityIndicator size="small" color="#20B2AA" style={styles.updateIndicator} />}
+        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
@@ -211,9 +238,26 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   headerTitle: {
+    flex: 1,
     fontSize: 20,
     fontWeight: "bold",
     color: "#333",
+  },
+  refreshButton: {
+    position: "relative",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#f0f9ff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  updateIndicator: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    left: 0,
+    bottom: 0,
   },
   searchContainer: {
     flexDirection: "row",

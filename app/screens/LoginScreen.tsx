@@ -59,8 +59,25 @@ const LoginScreen: React.FC = () => {
       setLoginData({ username: registerData.username, password: registerData.password });
       setRegisterData({ email: '', username: '', password: '' });
     } catch (error) {
-      console.error(error);
-      Alert.alert('Lỗi', 'Đăng ký thất bại');
+      console.error('Đăng ký lỗi:', error);
+      let message = 'Đăng ký thất bại';
+      const err: any = error;
+      if (typeof err?.message === 'string') {
+        // Match JSON {"error":"..."}
+        const match = err.message.match(/\{"error"\s*:\s*"([^"]+)"\}/);
+        if (match && match[1]) {
+          message = match[1];
+        } else {
+          const colonIdx = err.message.indexOf(':');
+          if (colonIdx !== -1) {
+            message = err.message.slice(colonIdx + 1).trim();
+          } else {
+            message = err.message;
+          }
+        }
+      }
+      setErrorMessage(message); // Thêm hiện ngay dưới form
+      Alert.alert('Lỗi', message);
     }
   };
 
@@ -139,6 +156,9 @@ const LoginScreen: React.FC = () => {
 
             {/* Form */}
             <View style={styles.formContainer}>
+              {!isLogin && errorMessage && (
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              )}
               {!isLogin && (
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Địa chỉ email</Text>

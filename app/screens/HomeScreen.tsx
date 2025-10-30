@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { RootStackParamList } from "../navigation/AppNavigator";
+import { getCategories, getCourses } from '../api/api';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -21,7 +22,7 @@ interface Course {
   id: string;
   title: string;
   category: string;
-  lessons: number;
+  totalLessons: number;
   rating: number;
   students: number;
   image?: string;
@@ -33,25 +34,6 @@ interface Instructor {
   image?: string;
 }
 
-const courses: Course[] = [
-  {
-    id: "1",
-    title: "Graphic Design Advanced",
-    category: "Thiết kế đồ họa",
-    lessons: 36,
-    rating: 4.2,
-    students: 7830,
-  },
-  {
-    id: "2",
-    title: "Advertisement Design",
-    category: "Thiết kế web",
-    lessons: 42,
-    rating: 4.2,
-    students: 5600,
-  },
-];
-
 const instructors: Instructor[] = [
   { id: "1", name: "Sonja" },
   { id: "2", name: "Jensen" },
@@ -59,16 +41,15 @@ const instructors: Instructor[] = [
   { id: "4", name: "Castaldo" },
 ];
 
-const categories = ["3D Design", "Arts & Humanities", "Graphic Design"];
-const courseFilters = ["All", "Graphic Design", "3D Design", "Arts & Hu"];
-
-// Dimensions.get("window") có thể được sử dụng khi cần thiết
-
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-  const [selectedCategory, setSelectedCategory] = useState(1);
-  const [selectedFilter, setSelectedFilter] = useState(1);
+  const [selectedCategory, setSelectedCategory] = useState(0);
+  const [selectedFilter, setSelectedFilter] = useState(0);
   const [username, setUsername] = useState<string>("KhaiTien");
+  const [categories, setCategories] = useState<any[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -80,6 +61,24 @@ const HomeScreen: React.FC = () => {
     })();
     return () => { isMounted = false; };
   }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      getCategories(),
+      getCourses()
+    ]).then(([cat, cou]) => {
+      setCategories(cat);
+      setCourses(cou);
+      setLoading(false);
+    }).catch((err) => {
+      setError("Không tải được dữ liệu. Kiểm tra kết nối backend!");
+      setLoading(false);
+    });
+  }, []);
+
+  const courseFilters = categories.length ? ["Tất cả", ...categories.map(c => c.name)] : ["Tất cả"];
+  const popularCoursesData = selectedFilter === 0 ? courses : courses.filter((course) => course.category === courseFilters[selectedFilter]);
 
   const renderCourseCard = ({ item }: { item: Course }) => (
     <TouchableOpacity style={styles.courseCard} activeOpacity={0.8}>
@@ -94,7 +93,7 @@ const HomeScreen: React.FC = () => {
         {item.title}
       </Text>
       <View style={styles.courseStats}>
-        <Text style={styles.lessonCount}>{item.lessons} bài</Text>
+        <Text style={styles.lessonCount}>{item.totalLessons} bài</Text>
         <View style={styles.ratingContainer}>
           <MaterialIcons name="star" size={14} color="#FFD700" />
           <Text style={styles.rating}>{item.rating}</Text>
@@ -112,6 +111,9 @@ const HomeScreen: React.FC = () => {
       <Text style={styles.instructorName}>{item.name}</Text>
     </View>
   );
+
+  if (loading) return <View style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text>Đang tải...</Text></View>;
+  if (error) return <View style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text>{error}</Text></View>;
 
   return (
     <View style={styles.container}>
@@ -189,7 +191,7 @@ const HomeScreen: React.FC = () => {
           >
             {categories.map((category, index) => (
               <TouchableOpacity
-                key={index}
+                key={category.id}
                 style={[
                   styles.categoryChip,
                   selectedCategory === index && styles.categoryChipActive,
@@ -202,7 +204,7 @@ const HomeScreen: React.FC = () => {
                     selectedCategory === index && styles.categoryTextActive,
                   ]}
                 >
-                  {category}
+                  {category.name}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -222,9 +224,9 @@ const HomeScreen: React.FC = () => {
             showsHorizontalScrollIndicator={false}
             style={styles.filtersContainer}
           >
-            {courseFilters.map((filter, index) => (
+            {courseFilters.slice(0, 4).map((filter, index) => (
               <TouchableOpacity
-                key={index}
+                key={filter}
                 style={[
                   styles.filterChip,
                   selectedFilter === index && styles.filterChipActive,
@@ -243,7 +245,7 @@ const HomeScreen: React.FC = () => {
             ))}
           </ScrollView>
           <FlatList
-            data={courses}
+            data={popularCoursesData}
             renderItem={renderCourseCard}
             keyExtractor={(item) => item.id}
             horizontal

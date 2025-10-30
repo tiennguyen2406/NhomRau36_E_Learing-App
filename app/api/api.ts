@@ -26,3 +26,10 @@ export const createUser = async (data: any) => {
 export const getUsers = async () => {
   return requestJson(`${BASE_URL}/users`);
 };
+
+export const getCategories = async () => {
+  return requestJson(`${BASE_URL}/categories`);
+};
+export const getCourses = async () => {
+  return requestJson(`${BASE_URL}/courses`);
+};

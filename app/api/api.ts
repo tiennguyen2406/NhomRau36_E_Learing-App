@@ -34,6 +34,11 @@ export const getUsers = async () => {
   return requestJson(`${BASE_URL}/users`);
 };
 
+export const getUserByUsername = async (username: string) => {
+  const users = await requestJson(`${BASE_URL}/users`);
+  return users.find((user: any) => user.username === username);
+};
+
 export const getCategories = async () => {
   return requestJson(`${BASE_URL}/categories`);
 };

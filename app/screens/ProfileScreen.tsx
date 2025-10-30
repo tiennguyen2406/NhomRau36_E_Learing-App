@@ -1,11 +1,21 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { 
+  ActivityIndicator, 
+  Alert, 
+  Image,
+  ScrollView, 
+  StyleSheet, 
+  TouchableOpacity, 
+  View 
+} from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
 import { RootStackParamList } from "../navigation/AppNavigator";
+import { getUserByUsername } from "../api/api";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -17,63 +27,132 @@ interface MenuItem {
   value?: string;
 }
 
+interface User {
+  uid: string;
+  username: string;
+  email: string;
+  fullName?: string;
+  profileImage?: string;
+  role?: string;
+  preferences?: {
+    language: string;
+    darkMode: boolean;
+    notifications: boolean;
+  };
+}
+
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        setLoading(true);
+        // Lấy username từ AsyncStorage
+        const username = await AsyncStorage.getItem('currentUsername');
+        
+        if (!username) {
+          // Nếu không có username, chuyển hướng về trang đăng nhập
+          navigation.getParent()?.navigate('Auth' as never);
+          return;
+        }
+        
+        // Lấy thông tin chi tiết của user từ API
+        const userData = await getUserByUsername(username);
+        if (userData) {
+          setUser(userData);
+        } else {
+          setError('Không tìm thấy thông tin người dùng');
+          Alert.alert(
+            'Lỗi', 
+            'Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.'
+          );
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải thông tin người dùng:', err);
+        setError('Có lỗi xảy ra khi tải thông tin người dùng');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUserProfile();
+  }, [navigation]);
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('currentUsername');
+      Alert.alert('Thành công', 'Đăng xuất thành công');
+      navigation.getParent()?.navigate('Auth' as never);
+    } catch (err) {
+      console.error('Lỗi khi đăng xuất:', err);
+      Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
+    }
+  };
 
   const menuItems: MenuItem[] = [
     {
       id: "edit_profile",
-      label: "Edit Profile",
+      label: "Chỉnh sửa hồ sơ",
       icon: "edit",
       iconType: "MaterialIcons",
     },
     {
       id: "payment",
-      label: "Payment Option",
+      label: "Phương thức thanh toán",
       icon: "payment",
       iconType: "MaterialIcons",
     },
     {
       id: "notifications",
-      label: "Notifications",
+      label: "Thông báo",
       icon: "notifications-none",
       iconType: "MaterialIcons",
     },
     {
       id: "security",
-      label: "Security",
+      label: "Bảo mật",
       icon: "security",
       iconType: "MaterialIcons",
     },
     {
       id: "language",
-      label: "Language",
+      label: "Ngôn ngữ",
       icon: "language",
       iconType: "MaterialIcons",
-      value: "English (US)",
+      value: "Tiếng Việt",
     },
     {
       id: "dark_mode",
-      label: "Dark Mode",
+      label: "Chế độ tối",
       icon: "dark-mode",
       iconType: "MaterialIcons",
     },
     {
       id: "terms",
-      label: "Terms & Conditions",
+      label: "Điều khoản & Điều kiện",
       icon: "description",
       iconType: "MaterialIcons",
     },
     {
       id: "help",
-      label: "Help Center",
+      label: "Trung tâm trợ giúp",
       icon: "help-outline",
       iconType: "MaterialIcons",
     },
     {
       id: "invite",
-      label: "Invite Friends",
+      label: "Mời bạn bè",
       icon: "people-outline",
+      iconType: "MaterialIcons",
+    },
+    {
+      id: "logout",
+      label: "Đăng xuất",
+      icon: "logout",
       iconType: "MaterialIcons",
     },
   ];
@@ -86,7 +165,18 @@ const ProfileScreen: React.FC = () => {
   };
 
   const renderMenuItem = (item: MenuItem) => (
-    <TouchableOpacity key={item.id} style={styles.menuItem}>
+    <TouchableOpacity 
+      key={item.id} 
+      style={styles.menuItem}
+      onPress={() => {
+        if (item.id === 'logout') {
+          handleLogout();
+        } else {
+          // Xử lý các menu item khác ở đây
+          Alert.alert('Thông báo', `Tính năng ${item.label} đang được phát triển`);
+        }
+      }}
+    >
       <View style={styles.menuItemLeft}>
         <View style={styles.iconContainer}>{renderIcon(item)}</View>
         <ThemedText style={styles.menuItemText}>{item.label}</ThemedText>
@@ -100,6 +190,29 @@ const ProfileScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
+  // Hiển thị trạng thái loading
+  if (loading) {
+    return (
+      <ThemedView style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#20B2AA" />
+        <ThemedText style={styles.loadingText}>Đang tải thông tin...</ThemedText>
+      </ThemedView>
+    );
+  }
+  
+  // Hiển thị trạng thái lỗi
+  if (error) {
+    return (
+      <ThemedView style={[styles.container, styles.centerContent]}>
+        <MaterialIcons name="error-outline" size={40} color="#e74c3c" />
+        <ThemedText style={styles.errorText}>{error}</ThemedText>
+        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.getParent()?.navigate('Auth' as never)}>
+          <ThemedText style={styles.retryButtonText}>Quay lại đăng nhập</ThemedText>
+        </TouchableOpacity>
+      </ThemedView>
+    );
+  }
+
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
@@ -109,21 +222,42 @@ const ProfileScreen: React.FC = () => {
         >
           <MaterialIcons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>Profile</ThemedText>
+        <ThemedText style={styles.headerTitle}>Tài khoản</ThemedText>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
-            <View style={styles.avatar} />
+            <View style={styles.avatar}>
+              {user?.profileImage ? (
+                <Image 
+                  source={{ uri: user.profileImage }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <ThemedText style={styles.avatarText}>
+                  {user?.username?.charAt(0).toUpperCase() || '?'}
+                </ThemedText>
+              )}
+            </View>
             <View style={styles.editAvatarButton}>
               <MaterialIcons name="photo-camera" size={18} color="#fff" />
             </View>
           </View>
-          <ThemedText style={styles.profileName}>James S. Hernandez</ThemedText>
-          <ThemedText style={styles.profileEmail}>
-            hernandez.redfal@gmail.ac.in
+          <ThemedText style={styles.profileName}>
+            {user?.fullName || user?.username || 'Chưa cập nhật tên'}
           </ThemedText>
+          <ThemedText style={styles.profileEmail}>
+            {user?.email || 'Chưa cập nhật email'}
+          </ThemedText>
+          {user?.role && (
+            <View style={styles.roleContainer}>
+              <ThemedText style={styles.roleText}>
+                {user.role === 'student' ? 'Học viên' : 
+                 user.role === 'teacher' ? 'Giảng viên' : user.role}
+              </ThemedText>
+            </View>
+          )}
         </View>
 
         <View style={styles.menuSection}>{menuItems.map(renderMenuItem)}</View>
@@ -136,6 +270,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8f8f8",
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: "row",
@@ -173,6 +311,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
     borderWidth: 3,
     borderColor: "#20B2AA",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarText: {
+    fontSize: 40,
+    fontWeight: "bold",
+    color: "#20B2AA",
   },
   editAvatarButton: {
     position: "absolute",
@@ -190,10 +340,24 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 4,
     color: "#333",
+    textAlign: 'center',
   },
   profileEmail: {
     fontSize: 14,
     color: "#777",
+    marginBottom: 8,
+  },
+  roleContainer: {
+    backgroundColor: '#e6f7f5',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 16,
+    marginTop: 6,
+  },
+  roleText: {
+    fontSize: 12,
+    color: '#20B2AA',
+    fontWeight: '500',
   },
   menuSection: {
     backgroundColor: "#fff",
@@ -234,6 +398,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#20B2AA",
     marginRight: 8,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#e74c3c',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#20B2AA',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 10,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: '500',
   },
 });
 

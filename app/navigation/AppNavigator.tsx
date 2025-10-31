@@ -9,6 +9,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 // Màn hình
 import CategoryScreen from "../screens/CategoryScreen";
+import MyCoursesScreen from "../screens/MyCoursesScreen";
 import CourseListScreen from "../screens/CourseListScreen";
 import HomeScreen from "../screens/HomeScreen";
 import LoginScreen from "../screens/LoginScreen";
@@ -134,7 +135,7 @@ const TabNavigator = () => {
       />
       <Tab.Screen
         name="Courses"
-        component={EmptyPlaceholder}
+        component={MyCoursesScreen}
         options={{ tabBarLabel: "MY COURSES" }}
       />
       <Tab.Screen

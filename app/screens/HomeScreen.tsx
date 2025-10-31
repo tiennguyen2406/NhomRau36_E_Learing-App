@@ -12,9 +12,11 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Image,
+  RefreshControl,
 } from "react-native";
 import { RootStackParamList } from "../navigation/AppNavigator";
-import { getCategories, getCourses } from '../api/api';
+import { getCategories, getCourses, getCoursesByCategory, getUsers } from '../api/api';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -22,6 +24,7 @@ interface Course {
   id: string;
   title: string;
   category: string;
+  description?: string;
   totalLessons: number;
   rating: number;
   students: number;
@@ -29,17 +32,10 @@ interface Course {
 }
 
 interface Instructor {
-  id: string;
-  name: string;
-  image?: string;
+  uid: string;
+  fullName: string;
+  profileImage?: string;
 }
-
-const instructors: Instructor[] = [
-  { id: "1", name: "Sonja" },
-  { id: "2", name: "Jensen" },
-  { id: "3", name: "Victoria" },
-  { id: "4", name: "Castaldo" },
-];
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -48,8 +44,11 @@ const HomeScreen: React.FC = () => {
   const [username, setUsername] = useState<string>("KhaiTien");
   const [categories, setCategories] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
+  const [popularCourses, setPopularCourses] = useState<any[]>([]);
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -62,23 +61,52 @@ const HomeScreen: React.FC = () => {
     return () => { isMounted = false; };
   }, []);
 
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      getCategories(),
-      getCourses()
-    ]).then(([cat, cou]) => {
+  const fetchAll = async (isInitial: boolean = false) => {
+    try {
+      if (isInitial) setLoading(true); else setRefreshing(true);
+      const [cat, cou, users] = await Promise.all([
+        getCategories(),
+        getCourses(),
+        getUsers(),
+      ]);
       setCategories(cat);
       setCourses(cou);
-      setLoading(false);
-    }).catch((err) => {
+      setPopularCourses(cou);
+      const instructorUsers = (users || []).filter((u: any) => (u.role || "").toLowerCase() === "instructor");
+      setInstructors(instructorUsers.map((u: any) => ({ uid: u.uid, fullName: u.fullName || u.username || "Instructor", profileImage: u.profileImage })));
+    } catch (err) {
       setError("Không tải được dữ liệu. Kiểm tra kết nối backend!");
-      setLoading(false);
-    });
+    } finally {
+      if (isInitial) setLoading(false); else setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAll(true);
   }, []);
 
   const courseFilters = categories.length ? ["Tất cả", ...categories.map(c => c.name)] : ["Tất cả"];
-  const popularCoursesData = selectedFilter === 0 ? courses : courses.filter((course) => course.category === courseFilters[selectedFilter]);
+
+  // Refetch popular courses when filter changes (backend by category)
+  useEffect(() => {
+    const fetchByFilter = async () => {
+      try {
+        if (selectedFilter === 0) {
+          const all = await getCourses();
+          setPopularCourses(all);
+        } else {
+          const categoryIndex = selectedFilter - 1; // because 0 is "Tất cả"
+          const category = categories[categoryIndex];
+          if (!category) return;
+          const byCategory = await getCoursesByCategory(category.id);
+          setPopularCourses(byCategory);
+        }
+      } catch (e) {
+        // Keep previous data on error; optionally set error toast/state
+      }
+    };
+    fetchByFilter();
+  }, [selectedFilter, categories]);
 
   const renderCourseCard = ({ item }: { item: Course }) => (
     <TouchableOpacity style={styles.courseCard} activeOpacity={0.8}>
@@ -88,7 +116,7 @@ const HomeScreen: React.FC = () => {
           <MaterialIcons name="bookmark-border" size={20} color="#666" />
         </TouchableOpacity>
       </View>
-      <Text style={styles.courseCategory}>{item.category}</Text>
+      <Text style={styles.courseCategory} numberOfLines={2} ellipsizeMode="tail">{item.description}</Text>
       <Text style={styles.courseTitle} numberOfLines={2}>
         {item.title}
       </Text>
@@ -105,10 +133,14 @@ const HomeScreen: React.FC = () => {
 
   const renderInstructor = ({ item }: { item: Instructor }) => (
     <View style={styles.instructorItem}>
-      <View style={styles.instructorAvatar}>
-        <Text style={styles.instructorInitial}>{item.name.charAt(0)}</Text>
-      </View>
-      <Text style={styles.instructorName}>{item.name}</Text>
+      {item.profileImage ? (
+        <Image source={{ uri: item.profileImage }} style={styles.instructorAvatar} />
+      ) : (
+        <View style={styles.instructorAvatar}>
+          <Text style={styles.instructorInitial}>{(item.fullName || "?").charAt(0)}</Text>
+        </View>
+      )}
+      <Text style={styles.instructorName} numberOfLines={1}>{item.fullName}</Text>
     </View>
   );
 
@@ -117,7 +149,10 @@ const HomeScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchAll(false)} />}
+      >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.greetingContainer}>
@@ -206,6 +241,13 @@ const HomeScreen: React.FC = () => {
                 >
                   {category.name}
                 </Text>
+                {category.iconUrl ? (
+                  <Image
+                    source={{ uri: category.iconUrl }}
+                    style={styles.categoryImage}
+                    resizeMode="cover"
+                  />
+                ) : null}
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -224,7 +266,7 @@ const HomeScreen: React.FC = () => {
             showsHorizontalScrollIndicator={false}
             style={styles.filtersContainer}
           >
-            {courseFilters.slice(0, 4).map((filter, index) => (
+            {courseFilters.map((filter, index) => (
               <TouchableOpacity
                 key={filter}
                 style={[
@@ -245,7 +287,7 @@ const HomeScreen: React.FC = () => {
             ))}
           </ScrollView>
           <FlatList
-            data={popularCoursesData}
+            data={popularCourses}
             renderItem={renderCourseCard}
             keyExtractor={(item) => item.id}
             horizontal
@@ -265,7 +307,7 @@ const HomeScreen: React.FC = () => {
           <FlatList
             data={instructors}
             renderItem={renderInstructor}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.uid}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.instructorsContainer}
@@ -406,22 +448,48 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
   },
   categoryChip: {
-    paddingHorizontal: 16,
+    width: 120,
+    alignItems: "center",
+    flexDirection: "column",
+    justifyContent: "flex-start",
+    paddingHorizontal: 0,
     paddingVertical: 8,
     borderRadius: 20,
-    marginRight: 12,
+    marginRight: 18,
     backgroundColor: "#f5f5f5",
+    height: 128,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 1,
+    elevation: 1,
   },
   categoryChipActive: {
     backgroundColor: "#20B2AA",
   },
   categoryText: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: 15,
+    color: "#444",
     fontWeight: "500",
+    textAlign: "center",
+    maxWidth: 116,
+    minHeight: 40,
+    lineHeight: 20,
+    marginBottom: 0,
+    marginTop: 4,
+    flexShrink: 0,
+    flexGrow: 0,
+    overflow: 'hidden',
   },
   categoryTextActive: {
     color: "#fff",
+  },
+  categoryImage: {
+    width: 54,
+    height: 54,
+    borderRadius: 5,
+    marginTop: 10,
+    backgroundColor: '#eee',
   },
   filtersContainer: {
     paddingLeft: 20,
@@ -485,6 +553,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#999",
     marginBottom: 4,
+    lineHeight: 16,
+    minHeight: 32,
     paddingHorizontal: 12,
   },
   courseTitle: {

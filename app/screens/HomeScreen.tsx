@@ -29,6 +29,7 @@ interface Course {
   rating: number;
   students: number;
   image?: string;
+  thumbnailUrl?: string;
 }
 
 interface Instructor {
@@ -109,9 +110,13 @@ const HomeScreen: React.FC = () => {
   }, [selectedFilter, categories]);
 
   const renderCourseCard = ({ item }: { item: Course }) => (
-    <TouchableOpacity style={styles.courseCard} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.courseCard} activeOpacity={0.8} onPress={() => navigation.navigate('CourseDetail' as never, { courseId: item.id } as never)}>
       <View style={styles.courseImageContainer}>
-        <View style={styles.courseImagePlaceholder} />
+        { (item.thumbnailUrl || item.image) ? (
+          <Image source={{ uri: (item.thumbnailUrl || item.image) as string }} style={styles.courseImage} resizeMode="cover" />
+        ) : (
+          <View style={styles.courseImagePlaceholder} />
+        ) }
         <TouchableOpacity style={styles.bookmarkButton}>
           <MaterialIcons name="bookmark-border" size={20} color="#666" />
         </TouchableOpacity>
@@ -537,6 +542,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#333",
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
+  },
+  courseImage: {
+    flex: 1,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    backgroundColor: "#222",
   },
   bookmarkButton: {
     position: "absolute",

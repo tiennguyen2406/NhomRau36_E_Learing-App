@@ -1,4 +1,4 @@
-const BASE_URL = "http://192.168.1.77:4000"; // thay bằng URL backend của bạn
+const BASE_URL = "https://three6learningbackend.onrender.com"; // thay bằng URL backend của bạn
 
 async function requestJson(url: string, init?: RequestInit) {
   const res = await fetch(url, init);
@@ -61,6 +61,34 @@ export const getCategoryById = async (categoryId: string) => {
 
 export const getCourses = async () => {
   return requestJson(`${BASE_URL}/courses`);
+};
+
+export const getCourseById = async (courseId: string) => {
+  return requestJson(`${BASE_URL}/courses/${courseId}`);
+};
+
+export const getLessonCountByCourse = async (courseId: string) => {
+  return requestJson(`${BASE_URL}/lessons/count/${courseId}`);
+};
+
+export const enrollCourse = async (uid: string, courseId: string) => {
+  return requestJson(`${BASE_URL}/users/${uid}/enroll`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ courseId }),
+  });
+};
+
+export const unenrollCourse = async (uid: string, courseId: string) => {
+  return requestJson(`${BASE_URL}/users/${uid}/unenroll`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ courseId }),
+  });
+};
+
+export const getLessonsByCourse = async (courseId: string) => {
+  return requestJson(`${BASE_URL}/lessons/by-course/${courseId}`);
 };
 
 export const getCoursesByCategory = async (

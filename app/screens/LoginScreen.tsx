@@ -98,7 +98,6 @@ const LoginScreen: React.FC = () => {
       if (user) {
         setErrorMessage(null);
         await AsyncStorage.setItem('currentUsername', user.username);
-        Alert.alert('Thành công', `Tài khoản tồn tại. Xin chào ${user.username}`);
         navigation.getParent()?.navigate('MainTabs' as never);
       } else {
         setErrorMessage('Tài khoản không tồn tại hoặc mật khẩu sai');

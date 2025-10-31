@@ -24,6 +24,7 @@ interface Course {
   id: string;
   title: string;
   category: string;
+  categoryName?: string;
   description?: string;
   totalLessons: number;
   rating: number;
@@ -70,9 +71,17 @@ const HomeScreen: React.FC = () => {
         getCourses(),
         getUsers(),
       ]);
-      setCategories(cat);
+      // Sort categories để đảm bảo thứ tự nhất quán
+      const sortedCategories = [...(cat || [])].sort((a, b) => {
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+      setCategories(sortedCategories);
       setCourses(cou);
       setPopularCourses(cou);
+      setSelectedFilter(0); // Reset filter về "Tất cả" khi load lại
+      console.log('Categories loaded:', sortedCategories.map(c => `${c.name} (${c.id})`));
       const instructorUsers = (users || []).filter((u: any) => (u.role || "").toLowerCase() === "instructor");
       setInstructors(instructorUsers.map((u: any) => ({ uid: u.uid, fullName: u.fullName || u.username || "Instructor", profileImage: u.profileImage })));
     } catch (err) {
@@ -88,8 +97,19 @@ const HomeScreen: React.FC = () => {
 
   const courseFilters = categories.length ? ["Tất cả", ...categories.map(c => c.name)] : ["Tất cả"];
 
+  // Reset selectedFilter nếu không hợp lệ khi categories thay đổi
+  useEffect(() => {
+    const maxFilterIndex = categories.length; // "Tất cả" = 0, categories = 1..n
+    if (selectedFilter > maxFilterIndex && maxFilterIndex >= 0) {
+      setSelectedFilter(0);
+    }
+  }, [categories.length]); // Chỉ check khi categories.length thay đổi
+
   // Refetch popular courses when filter changes (backend by category)
   useEffect(() => {
+    // Chờ categories load xong
+    if (categories.length === 0 && selectedFilter > 0) return;
+    
     const fetchByFilter = async () => {
       try {
         if (selectedFilter === 0) {
@@ -97,17 +117,47 @@ const HomeScreen: React.FC = () => {
           setPopularCourses(all);
         } else {
           const categoryIndex = selectedFilter - 1; // because 0 is "Tất cả"
+          if (categoryIndex < 0 || categoryIndex >= categories.length) {
+            // Index không hợp lệ, reset về "Tất cả"
+            console.warn(`Invalid categoryIndex: ${categoryIndex}, categories.length: ${categories.length}`);
+            setSelectedFilter(0);
+            const all = await getCourses();
+            setPopularCourses(all);
+            return;
+          }
           const category = categories[categoryIndex];
-          if (!category) return;
+          if (!category || !category.id) {
+            // Category không hợp lệ, reset về "Tất cả"
+            console.warn(`Invalid category at index ${categoryIndex}:`, category);
+            setSelectedFilter(0);
+            const all = await getCourses();
+            setPopularCourses(all);
+            return;
+          }
+          console.log(`Fetching courses for category: ${category.name} (ID: ${category.id})`);
           const byCategory = await getCoursesByCategory(category.id);
-          setPopularCourses(byCategory);
+          console.log(`Found ${byCategory?.length || 0} courses for category ${category.name}`);
+          console.log(`Courses data:`, byCategory?.map(c => ({ id: c.id, title: c.title })) || []);
+          // Tạo array mới để đảm bảo re-render
+          const coursesArray = Array.isArray(byCategory) ? [...byCategory] : [];
+          console.log(`Setting popularCourses with ${coursesArray.length} courses`);
+          setPopularCourses(coursesArray);
         }
-      } catch (e) {
-        // Keep previous data on error; optionally set error toast/state
+      } catch (e: any) {
+        console.error("Error fetching courses by filter:", e);
+        // Giữ dữ liệu cũ khi lỗi
       }
     };
     fetchByFilter();
   }, [selectedFilter, categories]);
+
+  // Debug: Log popularCourses khi thay đổi
+  useEffect(() => {
+    console.log(`popularCourses updated: ${popularCourses.length} courses`);
+    if (popularCourses.length > 0) {
+      console.log('First course:', popularCourses[0]?.title, popularCourses[0]?.id);
+    }
+  }, [popularCourses]);
 
   const renderCourseCard = ({ item }: { item: Course }) => (
     <TouchableOpacity style={styles.courseCard} activeOpacity={0.8} onPress={() => navigation.navigate('CourseDetail' as never, { courseId: item.id } as never)}>
@@ -121,7 +171,7 @@ const HomeScreen: React.FC = () => {
           <MaterialIcons name="bookmark-border" size={20} color="#666" />
         </TouchableOpacity>
       </View>
-      <Text style={styles.courseCategory} numberOfLines={2} ellipsizeMode="tail">{item.description}</Text>
+      <Text style={styles.courseCategory} numberOfLines={1}>{item.categoryName || item.category || 'Course'}</Text>
       <Text style={styles.courseTitle} numberOfLines={2}>
         {item.title}
       </Text>
@@ -278,7 +328,15 @@ const HomeScreen: React.FC = () => {
                   styles.filterChip,
                   selectedFilter === index && styles.filterChipActive,
                 ]}
-                onPress={() => setSelectedFilter(index)}
+                onPress={() => {
+                  console.log(`Filter selected: "${filter}" at index ${index}`);
+                  if (index > 0) {
+                    const categoryIndex = index - 1;
+                    const category = categories[categoryIndex];
+                    console.log(`Category at index ${categoryIndex}:`, category ? `${category.name} (${category.id})` : 'undefined');
+                  }
+                  setSelectedFilter(index);
+                }}
               >
                 <Text
                   style={[
@@ -291,14 +349,25 @@ const HomeScreen: React.FC = () => {
               </TouchableOpacity>
             ))}
           </ScrollView>
-          <FlatList
-            data={popularCourses}
-            renderItem={renderCourseCard}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.coursesContainer}
-          />
+          {popularCourses.length === 0 ? (
+            <View style={{ padding: 20, alignItems: 'center', minHeight: 200 }}>
+              <Text style={{ color: '#999' }}>Không có khóa học nào (count: {popularCourses.length})</Text>
+              <Text style={{ color: '#999', fontSize: 12, marginTop: 5 }}>
+                Filter: {selectedFilter}, Categories: {categories.length}
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={popularCourses}
+              renderItem={renderCourseCard}
+              keyExtractor={(item) => item.id || Math.random().toString()}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.coursesContainer}
+              extraData={selectedFilter}
+              nestedScrollEnabled={true}
+            />
+          )}
         </View>
 
         {/* Người hướng dẫn hàng đầu Section */}
@@ -534,19 +603,21 @@ const styles = StyleSheet.create({
   },
   courseImageContainer: {
     position: "relative",
+    width: "100%",
     height: 120,
     marginBottom: 12,
+    overflow: "hidden",
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   courseImagePlaceholder: {
-    flex: 1,
+    width: "100%",
+    height: "100%",
     backgroundColor: "#333",
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
   },
   courseImage: {
-    flex: 1,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    width: "100%",
+    height: "100%",
     backgroundColor: "#222",
   },
   bookmarkButton: {
@@ -562,10 +633,8 @@ const styles = StyleSheet.create({
   },
   courseCategory: {
     fontSize: 12,
-    color: "#999",
+    color: "#FF8C00",
     marginBottom: 4,
-    lineHeight: 16,
-    minHeight: 32,
     paddingHorizontal: 12,
   },
   courseTitle: {

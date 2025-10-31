@@ -11,6 +11,7 @@ import { StyleSheet, Text, View } from "react-native";
 import CategoryScreen from "../screens/CategoryScreen";
 import MyCoursesScreen from "../screens/MyCoursesScreen";
 import CourseListScreen from "../screens/CourseListScreen";
+import EditProfileScreen from "../screens/EditProfileScreen";
 import HomeScreen from "../screens/HomeScreen";
 import LoginScreen from "../screens/LoginScreen";
 import ProfileScreen from "../screens/ProfileScreen";
@@ -47,6 +48,7 @@ export type HomeStackParamList = {
 
 export type ProfileStackParamList = {
   Profile: undefined;
+  EditProfile: undefined;
 };
 
 // Navigation Props
@@ -85,6 +87,7 @@ const ProfileStackNavigator = () => {
   return (
     <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
       <ProfileStack.Screen name="Profile" component={ProfileScreen} />
+      <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} />
     </ProfileStack.Navigator>
   );
 };

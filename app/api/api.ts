@@ -1,4 +1,4 @@
-const BASE_URL = "http://192.168.1.147:4000"; // thay bằng URL backend của bạn
+const BASE_URL = "http://192.168.1.77:4000"; // thay bằng URL backend của bạn
 
 async function requestJson(url: string, init?: RequestInit) {
   const res = await fetch(url, init);
@@ -41,6 +41,14 @@ export const getUserByUsername = async (username: string) => {
 
 export const getUserCourses = async (uid: string) => {
   return requestJson(`${BASE_URL}/users/${uid}/courses`);
+};
+
+export const updateUser = async (uid: string, data: any) => {
+  return requestJson(`${BASE_URL}/users/${uid}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
 };
 
 export const getCategories = async () => {

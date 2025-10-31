@@ -1,23 +1,23 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useEffect, useState } from "react";
-import { 
-  ActivityIndicator, 
-  Alert, 
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
   Image,
-  ScrollView, 
-  StyleSheet, 
-  TouchableOpacity, 
-  View 
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
-import { RootStackParamList } from "../navigation/AppNavigator";
+import { ProfileStackParamList } from "../navigation/AppNavigator";
 import { getUserByUsername } from "../api/api";
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type NavigationProp = NativeStackNavigationProp<ProfileStackParamList>;
 
 interface MenuItem {
   id: string;
@@ -47,49 +47,59 @@ const ProfileScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadUserProfile = async () => {
-      try {
-        setLoading(true);
-        // Lấy username từ AsyncStorage
-        const username = await AsyncStorage.getItem('currentUsername');
-        
-        if (!username) {
-          // Nếu không có username, chuyển hướng về trang đăng nhập
-          navigation.getParent()?.navigate('Auth' as never);
-          return;
-        }
-        
-        // Lấy thông tin chi tiết của user từ API
-        const userData = await getUserByUsername(username);
-        if (userData) {
-          setUser(userData);
-        } else {
-          setError('Không tìm thấy thông tin người dùng');
-          Alert.alert(
-            'Lỗi', 
-            'Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.'
-          );
-        }
-      } catch (err) {
-        console.error('Lỗi khi tải thông tin người dùng:', err);
-        setError('Có lỗi xảy ra khi tải thông tin người dùng');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadUserProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null); // Reset lỗi trước mỗi lần tải
 
-    loadUserProfile();
+      // Lấy username từ AsyncStorage
+      const username = await AsyncStorage.getItem("currentUsername");
+
+      if (!username) {
+        // Nếu không có username, chuyển hướng về trang đăng nhập
+        navigation.getParent()?.navigate("Auth" as never);
+        return;
+      }
+
+      // Lấy thông tin chi tiết của user từ API
+      const userData = await getUserByUsername(username);
+      if (userData) {
+        setUser(userData);
+      } else {
+        setError("Không tìm thấy thông tin người dùng");
+        Alert.alert(
+          "Lỗi",
+          "Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại."
+        );
+      }
+    } catch (err) {
+      console.error("Lỗi khi tải thông tin người dùng:", err);
+      setError("Có lỗi xảy ra khi tải thông tin người dùng");
+    } finally {
+      setLoading(false);
+    }
   }, [navigation]);
+
+  // Chạy khi component mount
+  useEffect(() => {
+    loadUserProfile();
+  }, [loadUserProfile]);
+
+  // Chạy khi focus vào màn hình (ví dụ: sau khi chỉnh sửa profile và quay lại)
+  useFocusEffect(
+    useCallback(() => {
+      loadUserProfile();
+    }, [loadUserProfile])
+  );
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.removeItem('currentUsername');
-      Alert.alert('Thành công', 'Đăng xuất thành công');
-      navigation.getParent()?.navigate('Auth' as never);
+      await AsyncStorage.removeItem("currentUsername");
+      Alert.alert("Thành công", "Đăng xuất thành công");
+      navigation.getParent()?.navigate("Auth" as never);
     } catch (err) {
-      console.error('Lỗi khi đăng xuất:', err);
-      Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
+      console.error("Lỗi khi đăng xuất:", err);
+      Alert.alert("Lỗi", "Không thể đăng xuất. Vui lòng thử lại.");
     }
   };
 
@@ -165,15 +175,20 @@ const ProfileScreen: React.FC = () => {
   };
 
   const renderMenuItem = (item: MenuItem) => (
-    <TouchableOpacity 
-      key={item.id} 
+    <TouchableOpacity
+      key={item.id}
       style={styles.menuItem}
       onPress={() => {
-        if (item.id === 'logout') {
+        if (item.id === "logout") {
           handleLogout();
+        } else if (item.id === "edit_profile") {
+          navigation.navigate("EditProfile");
         } else {
           // Xử lý các menu item khác ở đây
-          Alert.alert('Thông báo', `Tính năng ${item.label} đang được phát triển`);
+          Alert.alert(
+            "Thông báo",
+            `Tính năng ${item.label} đang được phát triển`
+          );
         }
       }}
     >
@@ -195,19 +210,26 @@ const ProfileScreen: React.FC = () => {
     return (
       <ThemedView style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color="#20B2AA" />
-        <ThemedText style={styles.loadingText}>Đang tải thông tin...</ThemedText>
+        <ThemedText style={styles.loadingText}>
+          Đang tải thông tin...
+        </ThemedText>
       </ThemedView>
     );
   }
-  
+
   // Hiển thị trạng thái lỗi
   if (error) {
     return (
       <ThemedView style={[styles.container, styles.centerContent]}>
         <MaterialIcons name="error-outline" size={40} color="#e74c3c" />
         <ThemedText style={styles.errorText}>{error}</ThemedText>
-        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.getParent()?.navigate('Auth' as never)}>
-          <ThemedText style={styles.retryButtonText}>Quay lại đăng nhập</ThemedText>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => navigation.getParent()?.navigate("Auth" as never)}
+        >
+          <ThemedText style={styles.retryButtonText}>
+            Quay lại đăng nhập
+          </ThemedText>
         </TouchableOpacity>
       </ThemedView>
     );
@@ -230,13 +252,13 @@ const ProfileScreen: React.FC = () => {
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
               {user?.profileImage ? (
-                <Image 
+                <Image
                   source={{ uri: user.profileImage }}
                   style={styles.avatarImage}
                 />
               ) : (
                 <ThemedText style={styles.avatarText}>
-                  {user?.username?.charAt(0).toUpperCase() || '?'}
+                  {user?.username?.charAt(0).toUpperCase() || "?"}
                 </ThemedText>
               )}
             </View>
@@ -245,16 +267,19 @@ const ProfileScreen: React.FC = () => {
             </View>
           </View>
           <ThemedText style={styles.profileName}>
-            {user?.fullName || user?.username || 'Chưa cập nhật tên'}
+            {user?.fullName || user?.username || "Chưa cập nhật tên"}
           </ThemedText>
           <ThemedText style={styles.profileEmail}>
-            {user?.email || 'Chưa cập nhật email'}
+            {user?.email || "Chưa cập nhật email"}
           </ThemedText>
           {user?.role && (
             <View style={styles.roleContainer}>
               <ThemedText style={styles.roleText}>
-                {user.role === 'student' ? 'Học viên' : 
-                 user.role === 'teacher' ? 'Giảng viên' : user.role}
+                {user.role === "student"
+                  ? "Học viên"
+                  : user.role === "teacher"
+                  ? "Giảng viên"
+                  : user.role}
               </ThemedText>
             </View>
           )}
@@ -272,8 +297,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8f8f8",
   },
   centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     flexDirection: "row",
@@ -340,7 +365,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 4,
     color: "#333",
-    textAlign: 'center',
+    textAlign: "center",
   },
   profileEmail: {
     fontSize: 14,
@@ -348,7 +373,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   roleContainer: {
-    backgroundColor: '#e6f7f5',
+    backgroundColor: "#e6f7f5",
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 16,
@@ -356,8 +381,8 @@ const styles = StyleSheet.create({
   },
   roleText: {
     fontSize: 12,
-    color: '#20B2AA',
-    fontWeight: '500',
+    color: "#20B2AA",
+    fontWeight: "500",
   },
   menuSection: {
     backgroundColor: "#fff",
@@ -402,25 +427,25 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: "#666",
   },
   errorText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#e74c3c',
-    textAlign: 'center',
+    color: "#e74c3c",
+    textAlign: "center",
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#20B2AA',
+    backgroundColor: "#20B2AA",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
     marginTop: 10,
   },
   retryButtonText: {
-    color: '#fff',
-    fontWeight: '500',
+    color: "#fff",
+    fontWeight: "500",
   },
 });
 

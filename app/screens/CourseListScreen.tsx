@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
@@ -27,6 +28,8 @@ interface Course {
   currentPrice: number;
   rating: number;
   students: number;
+  thumbnailUrl?: string;
+  image?: string;
 }
 
 interface RouteParams {
@@ -97,9 +100,13 @@ const CourseListScreen: React.FC = () => {
     const categoryDisplay = item.categoryName || categoryName || "Danh mục";
 
     return (
-      <View style={styles.courseItem}>
+      <TouchableOpacity style={styles.courseItem} activeOpacity={0.8} onPress={() => navigation.navigate('CourseDetail' as never, { courseId: item.id } as never)}>
         <View style={styles.courseImageContainer}>
-          <View style={styles.courseImagePlaceholder} />
+          { (item.thumbnailUrl || item.image) ? (
+            <Image source={{ uri: (item.thumbnailUrl || item.image) as string }} style={styles.courseImage} resizeMode="cover" />
+          ) : (
+            <View style={styles.courseImagePlaceholder} />
+          ) }
         </View>
         <View style={styles.courseContent}>
           <ThemedText style={styles.courseCategory}>
@@ -138,7 +145,7 @@ const CourseListScreen: React.FC = () => {
             />
           </TouchableOpacity>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -398,6 +405,11 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     backgroundColor: "#333",
+  },
+  courseImage: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#222",
   },
   courseContent: {
     flex: 1,

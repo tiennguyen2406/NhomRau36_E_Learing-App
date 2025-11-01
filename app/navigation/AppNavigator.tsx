@@ -16,6 +16,9 @@ import HomeScreen from "../screens/HomeScreen";
 import LoginScreen from "../screens/LoginScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import SearchScreen from "../screens/SearchScreen";
+import CourseDetailScreen from "../screens/CourseDetailScreen";
+import CourseLessonsScreen from "../screens/CourseLessonsScreen";
+import VideoPlayerScreen from "../screens/VideoPlayerScreen";
 
 // Định nghĩa kiểu cho routes trong ứng dụng
 export type RootStackParamList = {
@@ -28,6 +31,9 @@ export type RootStackParamList = {
     categoryName: string;
     categoryId: string;
   };
+  CourseDetail: { courseId: string };
+  CourseLessons: { courseId: string; title?: string };
+  VideoPlayer: { videoUrl: string; title?: string };
 };
 
 export type AuthStackParamList = {
@@ -184,6 +190,9 @@ const AppNavigator = () => {
       <RootStack.Screen name="Search" component={SearchScreen} />
       <RootStack.Screen name="Category" component={CategoryScreen} />
       <RootStack.Screen name="CourseList" component={CourseListScreen} />
+      <RootStack.Screen name="CourseDetail" component={CourseDetailScreen} />
+      <RootStack.Screen name="CourseLessons" component={CourseLessonsScreen} />
+      <RootStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
     </RootStack.Navigator>
   );
 };

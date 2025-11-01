@@ -1,10 +1,12 @@
 import { MaterialIcons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -13,7 +15,7 @@ import {
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RootStackParamList } from "../navigation/AppNavigator";
-import { getUserByUsername, getUserCourses } from "../api/api";
+import { getUserByUsername, getUserCourses, unenrollCourse } from "../api/api";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -21,40 +23,109 @@ interface Course {
   id: string;
   title: string;
   category?: string;
+  categoryName?: string;
   description?: string;
   currentPrice?: number;
   originalPrice?: number;
   rating?: number;
   students?: number;
   totalLessons?: number;
+  thumbnailUrl?: string;
+  image?: string;
 }
 
 const MyCoursesScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-  const [activeTab, setActiveTab] = useState<'completed' | 'ongoing'>('completed');
+  const [activeTab, setActiveTab] = useState<'completed' | 'ongoing'>('ongoing');
   const [searchText, setSearchText] = useState("");
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [unenrollingId, setUnenrollingId] = useState<string | null>(null);
+
+  const loadCourses = async () => {
+    try {
+      const stored = await AsyncStorage.getItem('currentUsername');
+      const username = stored || 'instructor01';
+      const user = await getUserByUsername(username);
+      if (!user) throw new Error('User not found');
+      const userCourses = await getUserCourses(user.uid);
+      setCourses(userCourses || []);
+      setError(""); // Clear error nếu thành công
+    } catch (e) {
+      setError('Không thể tải khóa học của bạn');
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
+    (async () => {
       try {
         setLoading(true);
-        const stored = await AsyncStorage.getItem('currentUsername');
-        const username = stored || 'instructor01';
-        const user = await getUserByUsername(username);
-        if (!user) throw new Error('User not found');
-        const userCourses = await getUserCourses(user.uid);
-        setCourses(userCourses || []);
-      } catch (e) {
-        setError('Không thể tải khóa học của bạn');
+        await loadCourses();
       } finally {
         setLoading(false);
       }
-    };
-    load();
+    })();
   }, []);
+
+  // Tự động refresh khi quay lại màn hình này
+  useFocusEffect(
+    useCallback(() => {
+      // Refresh mỗi khi màn hình được focus (quay lại từ màn hình khác)
+      const timer = setTimeout(() => {
+        loadCourses().catch(() => {});
+      }, 100); // Delay nhỏ để tránh conflict với loading ban đầu
+      return () => clearTimeout(timer);
+    }, [])
+  );
+
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      setError("");
+      await loadCourses();
+    } catch (e) {
+      setError('Không thể tải khóa học của bạn');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleUnenroll = async (courseId: string, courseTitle: string) => {
+    Alert.alert(
+      'Xác nhận',
+      `Bạn có chắc muốn hủy tham gia khóa học "${courseTitle}"?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xác nhận',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setUnenrollingId(courseId);
+              const stored = await AsyncStorage.getItem('currentUsername');
+              const username = stored || 'instructor01';
+              const user = await getUserByUsername(username);
+              if (!user || !user.uid) {
+                Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng');
+                return;
+              }
+              await unenrollCourse(user.uid, courseId);
+              Alert.alert('Thành công', 'Đã hủy tham gia khóa học');
+              // Refresh danh sách
+              await loadCourses();
+            } catch (e: any) {
+              const msg = e?.message || 'Không thể hủy tham gia khóa học';
+              Alert.alert('Lỗi', msg);
+            } finally {
+              setUnenrollingId(null);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const filtered = courses.filter(c =>
     !searchText || (c.title || '').toLowerCase().includes(searchText.toLowerCase())
@@ -78,11 +149,23 @@ const MyCoursesScreen: React.FC = () => {
   }
 
   const renderItem = ({ item }: { item: Course }) => (
-    <View style={styles.card}>
-      <View style={styles.thumb} />
+    <TouchableOpacity 
+      style={styles.card} 
+      activeOpacity={0.8}
+      onPress={() => navigation.navigate('CourseLessons' as never, { courseId: item.id, title: item.title } as never)}
+    >
+      {(item.thumbnailUrl || item.image) ? (
+        <Image 
+          source={{ uri: (item.thumbnailUrl || item.image) as string }} 
+          style={styles.thumb} 
+          resizeMode="cover" 
+        />
+      ) : (
+        <View style={styles.thumb} />
+      )}
       <View style={styles.cardBody}>
-        <Text style={styles.category} numberOfLines={1}>{item.category || 'Course'}</Text>
-        <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
+        <Text style={styles.category} numberOfLines={1}>{item.categoryName || item.category || 'Course'}</Text>
+        <Text style={styles.title} numberOfLines={2}>{item.title || item.id}</Text>
         <View style={styles.metaRow}>
           <View style={styles.ratingRow}>
             <MaterialIcons name="star" size={14} color="#FFD700" />
@@ -90,11 +173,30 @@ const MyCoursesScreen: React.FC = () => {
           </View>
           <Text style={styles.mutedSmall}>{item.totalLessons ?? 0} bài</Text>
         </View>
-        <TouchableOpacity style={styles.cta}>
-          <Text style={styles.ctaText}>VIEW CERTIFICATE</Text>
-        </TouchableOpacity>
+        <View style={styles.ctaRow}>
+          <TouchableOpacity style={styles.cta} onPress={(e) => {
+            e.stopPropagation();
+            // TODO: Navigate to certificate screen
+          }}>
+            <Text style={styles.ctaText}>VIEW CERTIFICATE</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.unenrollBtn, unenrollingId === item.id && styles.unenrollBtnDisabled]} 
+            onPress={(e) => {
+              e.stopPropagation();
+              handleUnenroll(item.id, item.title || item.id);
+            }}
+            disabled={unenrollingId === item.id}
+          >
+            {unenrollingId === item.id ? (
+              <ActivityIndicator size="small" color="#e74c3c" />
+            ) : (
+              <Text style={styles.unenrollText} numberOfLines={1}>Hủy</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -143,6 +245,8 @@ const MyCoursesScreen: React.FC = () => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         ListEmptyComponent={<Text style={[styles.muted, { textAlign: 'center', marginTop: 40 }]}>Chưa có khóa học</Text>}
       />
     </View>
@@ -170,8 +274,12 @@ const styles = StyleSheet.create({
   title: { color: '#333', fontSize: 14, fontWeight: '700', marginBottom: 6 },
   metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', marginRight: 12 },
-  cta: { alignSelf: 'flex-start', borderRadius: 14, backgroundColor: '#e8f8f7', paddingHorizontal: 12, paddingVertical: 6 },
+  ctaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' },
+  cta: { borderRadius: 14, backgroundColor: '#e8f8f7', paddingHorizontal: 12, paddingVertical: 6, marginRight: 8 },
   ctaText: { color: '#20B2AA', fontSize: 12, fontWeight: '700' },
+  unenrollBtn: { borderRadius: 14, backgroundColor: '#fee', paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: '#fcc', justifyContent: 'center', alignItems: 'center' },
+  unenrollBtnDisabled: { opacity: 0.6 },
+  unenrollText: { color: '#e74c3c', fontSize: 12, fontWeight: '700' },
   muted: { color: '#777' },
   mutedSmall: { color: '#777', fontSize: 12, marginLeft: 4 },
   error: { color: '#e74c3c', marginTop: 16, textAlign: 'center' },

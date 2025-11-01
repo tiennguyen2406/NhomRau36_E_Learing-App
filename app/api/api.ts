@@ -1,4 +1,4 @@
-const BASE_URL = "http://192.168.1.77:4000"; // thay bằng URL backend của bạn
+const BASE_URL = "https://three6learningbackend.onrender.com"; // thay bằng URL backend của bạn
 
 async function requestJson(url: string, init?: RequestInit) {
   const res = await fetch(url, init);

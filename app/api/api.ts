@@ -1,10 +1,11 @@
-const BASE_URL = "https://three6learningbackend.onrender.com"; // thay bằng URL backend của bạn
+// Thay đổi URL này thành địa chỉ server local của bạn
+// const BASE_URL = "http://localhost:4000";
+const BASE_URL = "https://three6learningbackend.onrender.com";
 
 async function requestJson(url: string, init?: RequestInit) {
   const res = await fetch(url, init);
   const contentType = res.headers.get("content-type") || "";
   if (!res.ok) {
-    // Try to extract text for better error message
     const bodyText = await res.text().catch(() => "");
     throw new Error(
       `HTTP ${res.status} ${res.statusText}: ${bodyText.slice(0, 200)}`
@@ -21,6 +22,15 @@ async function requestJson(url: string, init?: RequestInit) {
   }
   return res.json();
 }
+
+// Hàm đăng nhập - gọi đến endpoint /users/login
+export const loginUser = async (username: string, password: string) => {
+  return requestJson(`${BASE_URL}/users/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+};
 
 export const createUser = async (data: any) => {
   return requestJson(`${BASE_URL}/users`, {
@@ -109,7 +119,6 @@ export const updateAllCategoryCounts = async () => {
   });
 };
 
-// Thêm export mặc định để tránh lỗi Expo Router
 export default function API() {
   return null;
 }

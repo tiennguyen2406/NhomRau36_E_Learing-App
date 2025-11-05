@@ -19,6 +19,8 @@ import SearchScreen from "../screens/SearchScreen";
 import CourseDetailScreen from "../screens/CourseDetailScreen";
 import CourseLessonsScreen from "../screens/CourseLessonsScreen";
 import VideoPlayerScreen from "../screens/VideoPlayerScreen";
+import InstructorDetailScreen from "../screens/InstructorDetailScreen";
+import MentorListScreen from "../screens/MentorListScreen";
 
 // Định nghĩa kiểu cho routes trong ứng dụng
 export type RootStackParamList = {
@@ -27,6 +29,8 @@ export type RootStackParamList = {
   MainTabs: undefined;
   Search: undefined;
   Category: undefined;
+  MentorList: undefined;
+  InstructorDetail: { instructorId: string };
   CourseList: {
     categoryName: string;
     categoryId: string;
@@ -189,6 +193,8 @@ const AppNavigator = () => {
       <RootStack.Screen name="MainTabs" component={TabNavigator} />
       <RootStack.Screen name="Search" component={SearchScreen} />
       <RootStack.Screen name="Category" component={CategoryScreen} />
+      <RootStack.Screen name="MentorList" component={MentorListScreen} />
+      <RootStack.Screen name="InstructorDetail" component={InstructorDetailScreen} />
       <RootStack.Screen name="CourseList" component={CourseListScreen} />
       <RootStack.Screen name="CourseDetail" component={CourseDetailScreen} />
       <RootStack.Screen name="CourseLessons" component={CourseLessonsScreen} />

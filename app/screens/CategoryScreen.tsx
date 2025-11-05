@@ -29,23 +29,23 @@ interface Category {
 
 const getIconSource = (categoryName: string) => {
   switch (categoryName) {
-    case "3D Design": 
+    case "3D Design":
       return require("../../assets/images/3DDesignICON.png");
-    case "Graphic Design": 
+    case "Graphic Design":
       return require("../../assets/images/GraphicDesignICON.png");
-    case "Web Development": 
+    case "Web Development":
       return require("../../assets/images/WebDevelopmentICON.png");
-    case "SEO & Marketing": 
+    case "SEO & Marketing":
       return require("../../assets/images/SEO&MarketingICON.png");
-    case "Finance & Accounting": 
+    case "Finance & Accounting":
       return require("../../assets/images/Finance&AccountingICON.png");
-    case "Personal Development": 
+    case "Personal Development":
       return require("../../assets/images/PersonalDevelopmentICON.png");
-    case "Office Productivity": 
+    case "Office Productivity":
       return require("../../assets/images/OfficeProductivityICON.png");
-    case "HR Management": 
+    case "HR Management":
       return require("../../assets/images/HRManagementICON.png");
-    default: 
+    default:
       return require("../../assets/images/WebDevelopmentICON.png");
   }
 };
@@ -56,11 +56,20 @@ const CategoryScreen: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [updating, setUpdating] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
-  
+
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         setLoading(true);
+        // Cập nhật số lượng khóa học cho tất cả danh mục trước
+        try {
+          await updateAllCategoryCounts();
+        } catch (updateErr) {
+          console.log(
+            "Không thể tự động cập nhật courseCount, tiếp tục tải dữ liệu..."
+          );
+        }
+        // Sau đó load danh sách categories
         const data = await getCategories();
         setCategories(data);
       } catch (err) {
@@ -70,7 +79,7 @@ const CategoryScreen: React.FC = () => {
         setLoading(false);
       }
     };
-    
+
     fetchCategories();
   }, []);
 
@@ -95,7 +104,10 @@ const CategoryScreen: React.FC = () => {
           style={styles.categoryItem}
           activeOpacity={0.7}
           onPress={() =>
-            navigation.navigate("CourseList", { categoryName: item.name, categoryId: item.id })
+            navigation.navigate("CourseList", {
+              categoryName: item.name,
+              categoryId: item.id,
+            })
           }
         >
           <View style={styles.iconContainer}>
@@ -107,7 +119,9 @@ const CategoryScreen: React.FC = () => {
           </View>
           <ThemedText style={styles.categoryName}>{item.name}</ThemedText>
           {item.courseCount !== undefined && (
-            <ThemedText style={styles.courseCount}>{item.courseCount} khóa học</ThemedText>
+            <ThemedText style={styles.courseCount}>
+              {item.courseCount} khóa học
+            </ThemedText>
           )}
         </TouchableOpacity>
       </View>
@@ -118,7 +132,7 @@ const CategoryScreen: React.FC = () => {
     return (
       <ThemedView style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color="#20B2AA" />
-        <ThemedText style={{marginTop: 16}}>Đang tải danh mục...</ThemedText>
+        <ThemedText style={{ marginTop: 16 }}>Đang tải danh mục...</ThemedText>
       </ThemedView>
     );
   }
@@ -127,15 +141,15 @@ const CategoryScreen: React.FC = () => {
     return (
       <ThemedView style={[styles.container, styles.centerContent]}>
         <MaterialIcons name="error-outline" size={40} color="#e74c3c" />
-        <ThemedText style={{marginTop: 16}}>{error}</ThemedText>
-        <TouchableOpacity 
-          style={styles.retryButton} 
+        <ThemedText style={{ marginTop: 16 }}>{error}</ThemedText>
+        <TouchableOpacity
+          style={styles.retryButton}
           onPress={() => {
             setLoading(true);
             setError("");
             getCategories()
-              .then(data => setCategories(data))
-              .catch(err => setError("Không thể tải danh mục"))
+              .then((data) => setCategories(data))
+              .catch((err) => setError("Không thể tải danh mục"))
               .finally(() => setLoading(false));
           }}
         >
@@ -174,12 +188,18 @@ const CategoryScreen: React.FC = () => {
           }}
           disabled={updating}
         >
-          <MaterialIcons 
-            name="refresh" 
-            size={22} 
-            color={updating ? "#999" : "#20B2AA"} 
+          <MaterialIcons
+            name="refresh"
+            size={22}
+            color={updating ? "#999" : "#20B2AA"}
           />
-          {updating && <ActivityIndicator size="small" color="#20B2AA" style={styles.updateIndicator} />}
+          {updating && (
+            <ActivityIndicator
+              size="small"
+              color="#20B2AA"
+              style={styles.updateIndicator}
+            />
+          )}
         </TouchableOpacity>
       </View>
 
@@ -209,7 +229,9 @@ const CategoryScreen: React.FC = () => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialIcons name="category" size={40} color="#ccc" />
-            <ThemedText style={styles.emptyText}>Không có danh mục nào</ThemedText>
+            <ThemedText style={styles.emptyText}>
+              Không có danh mục nào
+            </ThemedText>
           </View>
         }
       />
@@ -223,8 +245,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8f8f8",
   },
   centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     flexDirection: "row",
@@ -327,7 +349,7 @@ const styles = StyleSheet.create({
   },
   categoryName: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     textAlign: "center",
     color: "#333",
     marginBottom: 4,
@@ -339,26 +361,26 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 20,
   },
   emptyText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#999',
-    textAlign: 'center',
+    color: "#999",
+    textAlign: "center",
   },
   retryButton: {
     marginTop: 20,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    backgroundColor: '#20B2AA',
+    backgroundColor: "#20B2AA",
     borderRadius: 20,
   },
   retryText: {
-    color: '#fff',
-    fontWeight: '500',
+    color: "#fff",
+    fontWeight: "500",
   },
 });
 

@@ -19,7 +19,7 @@ import {
   Alert,
 } from "react-native";
 
-import { createUser, getUsers } from "../api/api";
+import { createUser, loginUser } from "../api/api";
 
 const { width, height } = Dimensions.get("window");
 
@@ -101,24 +101,37 @@ const LoginScreen: React.FC = () => {
     }
 
     try {
-      const users = await getUsers();
-      const user = users.find(
-        (u: any) =>
-          u.username === loginData.username && u.password === loginData.password
-      );
+      const response = await loginUser(loginData.username, loginData.password);
 
-      if (user) {
+      if (response && response.user) {
         setErrorMessage(null);
-        await AsyncStorage.setItem("currentUsername", user.username);
+        await AsyncStorage.setItem("currentUsername", response.user.username);
+        Alert.alert("Thành công", "Đăng nhập thành công!");
         navigation.getParent()?.navigate("MainTabs" as never);
       } else {
         setErrorMessage("Tài khoản không tồn tại hoặc mật khẩu sai");
         Alert.alert("Lỗi", "Tài khoản không tồn tại hoặc mật khẩu sai");
       }
     } catch (error) {
-      console.error(error);
-      setErrorMessage("Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại.");
-      Alert.alert("Lỗi", "Đăng nhập thất bại");
+      console.error("Đăng nhập lỗi:", error);
+      let message = "Đăng nhập thất bại";
+      const err: any = error;
+      if (typeof err?.message === "string") {
+        // Match JSON {"error":"..."}
+        const match = err.message.match(/\{"error"\s*:\s*"([^"]+)"\}/);
+        if (match && match[1]) {
+          message = match[1];
+        } else {
+          const colonIdx = err.message.indexOf(":");
+          if (colonIdx !== -1) {
+            message = err.message.slice(colonIdx + 1).trim();
+          } else {
+            message = err.message;
+          }
+        }
+      }
+      setErrorMessage(message);
+      Alert.alert("Lỗi", message);
     }
   };
 
@@ -269,7 +282,7 @@ const LoginScreen: React.FC = () => {
                 onPress={isLogin ? handleLogin : handleRegister}
               >
                 <Text style={styles.submitButtonText}>
-                  {isLogin ? "Login" : "Đăng ký"}
+                  {isLogin ? "Đăng nhập" : "Đăng ký"}
                 </Text>
               </TouchableOpacity>
 

@@ -17,7 +17,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { RootStackParamList } from "../navigation/AppNavigator";
-import { getCategories, getCourses, getCoursesByCategory, getUsers } from '../api/api';
+import { getCategories, getCourses, getCoursesByCategory, getUsers, updateAllCategoryCounts } from '../api/api';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -76,6 +76,15 @@ const HomeScreen: React.FC = () => {
   const fetchAll = async (isInitial: boolean = false) => {
     try {
       if (isInitial) setLoading(true); else setRefreshing(true);
+      
+      // Cập nhật số lượng khóa học cho tất cả danh mục trước
+      try {
+        await updateAllCategoryCounts();
+        console.log('✅ Đã cập nhật courseCount cho tất cả danh mục');
+      } catch (updateErr) {
+        console.log('⚠️ Không thể tự động cập nhật courseCount, tiếp tục tải dữ liệu...');
+      }
+      
       const [cat, cou, users] = await Promise.all([
         getCategories(),
         getCourses(),
@@ -88,10 +97,10 @@ const HomeScreen: React.FC = () => {
         return nameA.localeCompare(nameB);
       });
       setCategories(sortedCategories);
+      console.log('Categories với courseCount:', sortedCategories.map(c => `${c.name}: ${c.courseCount || 0} khóa học`));
       setCourses(cou);
       setPopularCourses(cou);
       setSelectedFilter(0); // Reset filter về "Tất cả" khi load lại
-      console.log('Categories loaded:', sortedCategories.map(c => `${c.name} (${c.id})`));
       const instructorUsers = (users || []).filter((u: any) => (u.role || "").toLowerCase() === "instructor");
       setInstructors(instructorUsers.map((u: any) => ({ uid: u.uid, fullName: u.fullName || u.username || "Instructor", profileImage: u.profileImage })));
     } catch (err) {
@@ -342,6 +351,14 @@ const HomeScreen: React.FC = () => {
                 >
                   {category.name}
                 </Text>
+                <Text
+                  style={[
+                    styles.categoryCountText,
+                    selectedCategory === index && styles.categoryCountTextActive,
+                  ]}
+                >
+                  {category.courseCount ?? 0} khóa học
+                </Text>
                 {category.iconUrl ? (
                   <Image
                     source={{ uri: category.iconUrl }}
@@ -577,7 +594,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 18,
     backgroundColor: "#f5f5f5",
-    height: 128,
+    minHeight: 140,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
@@ -588,21 +605,34 @@ const styles = StyleSheet.create({
     backgroundColor: "#20B2AA",
   },
   categoryText: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#444",
-    fontWeight: "500",
+    fontWeight: "600",
     textAlign: "center",
     maxWidth: 116,
-    minHeight: 40,
-    lineHeight: 20,
+    lineHeight: 18,
     marginBottom: 0,
-    marginTop: 4,
+    marginTop: 6,
+    paddingHorizontal: 4,
     flexShrink: 0,
     flexGrow: 0,
     overflow: 'hidden',
   },
   categoryTextActive: {
     color: "#fff",
+  },
+  categoryCountText: {
+    fontSize: 11,
+    color: "#888",
+    fontWeight: "500",
+    textAlign: "center",
+    marginTop: 4,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  categoryCountTextActive: {
+    color: "#fff",
+    opacity: 0.9,
   },
   categoryImage: {
     width: 54,

@@ -113,8 +113,35 @@ export const updateUser = async (uid: string, data: any) => {
   });
 };
 
+// May not be supported on backend yet
+export const deleteUser = async (uid: string) => {
+  return requestJson(`${BASE_URL}/users/${uid}`, { method: "DELETE" as any });
+};
+
 export const getCategories = async () => {
   return requestJson(`${BASE_URL}/categories`);
+};
+
+export const createCategory = async (data: any) => {
+  return requestJson(`${BASE_URL}/categories`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+};
+
+// May not be supported on backend yet
+export const updateCategory = async (id: string, data: any) => {
+  return requestJson(`${BASE_URL}/categories/${id}`, {
+    method: "PUT" as any,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+};
+
+// May not be supported on backend yet
+export const deleteCategory = async (id: string) => {
+  return requestJson(`${BASE_URL}/categories/${id}`, { method: "DELETE" as any });
 };
 
 export const getCategoryById = async (categoryId: string) => {
@@ -151,6 +178,32 @@ export const unenrollCourse = async (uid: string, courseId: string) => {
 
 export const getLessonsByCourse = async (courseId: string) => {
   return requestJson(`${BASE_URL}/lessons/by-course/${courseId}`);
+};
+
+export const getLessons = async () => {
+  return requestJson(`${BASE_URL}/lessons`);
+};
+
+export const createLesson = async (data: any) => {
+  return requestJson(`${BASE_URL}/lessons`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+};
+
+// May not be supported on backend yet
+export const updateLesson = async (id: string, data: any) => {
+  return requestJson(`${BASE_URL}/lessons/${id}`, {
+    method: "PUT" as any,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+};
+
+// May not be supported on backend yet
+export const deleteLesson = async (id: string) => {
+  return requestJson(`${BASE_URL}/lessons/${id}`, { method: "DELETE" as any });
 };
 
 export const getCoursesByCategory = async (

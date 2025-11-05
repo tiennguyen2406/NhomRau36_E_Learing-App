@@ -4,8 +4,9 @@ import {
   createNativeStackNavigator,
   NativeStackNavigationProp,
 } from "@react-navigation/native-stack";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Màn hình
 import CategoryScreen from "../screens/CategoryScreen";
@@ -21,6 +22,8 @@ import CourseLessonsScreen from "../screens/CourseLessonsScreen";
 import VideoPlayerScreen from "../screens/VideoPlayerScreen";
 import InstructorDetailScreen from "../screens/InstructorDetailScreen";
 import MentorListScreen from "../screens/MentorListScreen";
+import AdminManageScreen from "../screens/AdminManageScreen";
+import AdminStatsScreen from "../screens/AdminStatsScreen";
 
 // Định nghĩa kiểu cho routes trong ứng dụng
 export type RootStackParamList = {
@@ -45,11 +48,15 @@ export type AuthStackParamList = {
 };
 
 export type MainTabParamList = {
+  // Tabs for normal user
   HomeStack: undefined;
   Courses: undefined;
   Inbox: undefined;
   Games: undefined;
   ProfileStack: undefined;
+  // Tabs for admin
+  AdminManage: undefined;
+  AdminStats: undefined;
 };
 
 export type HomeStackParamList = {
@@ -104,6 +111,21 @@ const ProfileStackNavigator = () => {
 
 // Tab Navigator
 const TabNavigator = () => {
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const username = await AsyncStorage.getItem("currentUsername");
+        if (mounted) setIsAdmin(username === "admin");
+      } catch {}
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -113,6 +135,12 @@ const TabNavigator = () => {
           switch (route.name) {
             case "HomeStack":
               iconName = "home";
+              break;
+            case "AdminManage":
+              iconName = "admin-panel-settings";
+              break;
+            case "AdminStats":
+              iconName = "assessment";
               break;
             case "Courses":
               iconName = "book";
@@ -141,31 +169,60 @@ const TabNavigator = () => {
         tabBarLabelStyle: styles.tabLabel,
       })}
     >
+      {/* Common: HOME */}
       <Tab.Screen
         name="HomeStack"
         component={HomeStackNavigator}
         options={{ tabBarLabel: "HOME" }}
       />
-      <Tab.Screen
-        name="Courses"
-        component={MyCoursesScreen}
-        options={{ tabBarLabel: "MY COURSES" }}
-      />
-      <Tab.Screen
-        name="Inbox"
-        component={EmptyPlaceholder}
-        options={{ tabBarLabel: "INBOX" }}
-      />
-      <Tab.Screen
-        name="Games"
-        component={EmptyPlaceholder}
-        options={{ tabBarLabel: "GAMES" }}
-      />
-      <Tab.Screen
-        name="ProfileStack"
-        component={ProfileStackNavigator}
-        options={{ tabBarLabel: "PROFILE" }}
-      />
+
+      {isAdmin ? (
+        <>
+          <Tab.Screen
+            name="AdminManage"
+            component={AdminManageScreen}
+            options={{ tabBarLabel: "QUẢN LÝ" }}
+          />
+          {/* <Tab.Screen
+            name="AdminStats"
+            component={AdminStatsScreen}
+            options={{ tabBarLabel: "TÌM KIẾM" }}
+          /> */}
+          <Tab.Screen
+            name="AdminStats"
+            component={AdminStatsScreen}
+            options={{ tabBarLabel: "THỐNG KÊ" }}
+          />
+          <Tab.Screen
+            name="ProfileStack"
+            component={ProfileStackNavigator}
+            options={{ tabBarLabel: "PROFILE" }}
+          />
+        </>
+      ) : (
+        <>
+          <Tab.Screen
+            name="Courses"
+            component={MyCoursesScreen}
+            options={{ tabBarLabel: "MY COURSES" }}
+          />
+          <Tab.Screen
+            name="Inbox"
+            component={EmptyPlaceholder}
+            options={{ tabBarLabel: "INBOX" }}
+          />
+          <Tab.Screen
+            name="Games"
+            component={EmptyPlaceholder}
+            options={{ tabBarLabel: "GAMES" }}
+          />
+          <Tab.Screen
+            name="ProfileStack"
+            component={ProfileStackNavigator}
+            options={{ tabBarLabel: "PROFILE" }}
+          />
+        </>
+      )}
     </Tab.Navigator>
   );
 };

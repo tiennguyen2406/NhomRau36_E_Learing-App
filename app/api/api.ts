@@ -1,6 +1,37 @@
-// Thay đổi URL này thành địa chỉ server local của bạn
-// const BASE_URL = "http://localhost:4000";
-const BASE_URL = "https://three6learningbackend.onrender.com";
+const BASE_URL = "https://three6learningbackend.onrender.com"; // Local backend server
+
+function normalizeMongoData(data: any): any {
+  if (Array.isArray(data)) {
+    return data.map(normalizeMongoData);
+  }
+  if (data && typeof data === "object") {
+    const normalized: any = { ...data };
+    // Nếu có _id nhưng không có id, copy _id thành id
+    if (normalized._id && !normalized.id) {
+      normalized.id = normalized._id.toString();
+    }
+    // Nếu có _id nhưng không có uid (cho user), copy _id thành uid
+    if (
+      normalized._id &&
+      !normalized.uid &&
+      (normalized.username || normalized.email)
+    ) {
+      normalized.uid = normalized._id.toString();
+    }
+    // Xóa _id để tránh confusion
+    if (normalized._id) {
+      delete normalized._id;
+    }
+    // Recursively normalize nested objects
+    Object.keys(normalized).forEach((key) => {
+      if (normalized[key] && typeof normalized[key] === "object") {
+        normalized[key] = normalizeMongoData(normalized[key]);
+      }
+    });
+    return normalized;
+  }
+  return data;
+}
 
 async function requestJson(url: string, init?: RequestInit) {
   const res = await fetch(url, init);
@@ -20,7 +51,9 @@ async function requestJson(url: string, init?: RequestInit) {
       )}`
     );
   }
-  return res.json();
+  const data = await res.json();
+  // Normalize MongoDB data để đảm bảo format nhất quán
+  return normalizeMongoData(data);
 }
 
 // Hàm đăng nhập - gọi đến endpoint /users/login
@@ -40,13 +73,32 @@ export const createUser = async (data: any) => {
   });
 };
 
+export const login = async (username: string, password: string) => {
+  return requestJson(`${BASE_URL}/users/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+};
+
 export const getUsers = async () => {
   return requestJson(`${BASE_URL}/users`);
 };
 
 export const getUserByUsername = async (username: string) => {
-  const users = await requestJson(`${BASE_URL}/users`);
-  return users.find((user: any) => user.username === username);
+  try {
+    const users = await requestJson(`${BASE_URL}/users`);
+    const user = users.find((user: any) => user.username === username);
+    return user || null;
+  } catch (error) {
+    console.error("Error fetching user by username:", error);
+    throw error;
+  }
+};
+
+// Thêm function để lấy user theo ID (MongoDB _id hoặc uid)
+export const getUserById = async (uid: string) => {
+  return requestJson(`${BASE_URL}/users/${uid}`);
 };
 
 export const getUserCourses = async (uid: string) => {

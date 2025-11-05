@@ -19,7 +19,7 @@ import {
   Alert,
 } from "react-native";
 
-import { createUser, loginUser } from "../api/api";
+import { createUser, getUsers } from "../api/api";
 
 const { width, height } = Dimensions.get("window");
 
@@ -101,33 +101,24 @@ const LoginScreen: React.FC = () => {
     }
 
     try {
-      // Gọi API đăng nhập - gửi username và password
-      const response = await loginUser(loginData.username, loginData.password);
+      const users = await getUsers();
+      const user = users.find(
+        (u: any) =>
+          u.username === loginData.username && u.password === loginData.password
+      );
 
-      if (response && response.user) {
+      if (user) {
         setErrorMessage(null);
-        // Lưu thông tin user vào AsyncStorage
-        await AsyncStorage.setItem("currentUsername", response.user.username);
-        await AsyncStorage.setItem("currentUserId", response.user.uid);
-        Alert.alert("Thành công", "Đăng nhập thành công!");
+        await AsyncStorage.setItem("currentUsername", user.username);
         navigation.getParent()?.navigate("MainTabs" as never);
       } else {
-        setErrorMessage("Đăng nhập thất bại");
-        Alert.alert("Lỗi", "Đăng nhập thất bại");
+        setErrorMessage("Tài khoản không tồn tại hoặc mật khẩu sai");
+        Alert.alert("Lỗi", "Tài khoản không tồn tại hoặc mật khẩu sai");
       }
     } catch (error) {
-      console.error("Login error:", error);
-      let message = "Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại.";
-      const err: any = error;
-      if (typeof err?.message === "string") {
-        // Match JSON {"error":"..."}
-        const match = err.message.match(/\{"error"\s*:\s*"([^"]+)"\}/);
-        if (match && match[1]) {
-          message = match[1];
-        }
-      }
-      setErrorMessage(message);
-      Alert.alert("Lỗi", message);
+      console.error(error);
+      setErrorMessage("Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại.");
+      Alert.alert("Lỗi", "Đăng nhập thất bại");
     }
   };
 

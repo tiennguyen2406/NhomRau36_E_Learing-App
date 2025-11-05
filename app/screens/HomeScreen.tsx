@@ -2,7 +2,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useWindowDimensions } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   FlatList,
@@ -51,6 +52,15 @@ const HomeScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  // Auto promo carousel
+  const promotions = [
+    { id: "promo-1", title: "Ưu đãi hôm nay!", desc: "Giảm 25% cho khóa học hot." },
+    { id: "promo-2", title: "Giảm giá cuối tuần", desc: "Nhận voucher 50k cho đơn đầu tiên." },
+    { id: "promo-3", title: "Học nhóm siêu rẻ", desc: "Mua 2 tặng 1 cho bạn bè." },
+  ];
+  const promoRef = useRef<FlatList>(null as any);
+  const [promoIndex, setPromoIndex] = useState(0);
+  const { width: screenWidth } = useWindowDimensions();
 
   useEffect(() => {
     let isMounted = true;
@@ -95,6 +105,16 @@ const HomeScreen: React.FC = () => {
     fetchAll(true);
   }, []);
 
+  // Auto-rotate promotions
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const next = (promoIndex + 1) % promotions.length;
+      setPromoIndex(next);
+      promoRef.current?.scrollToIndex?.({ index: next, animated: true });
+    }, 3500);
+    return () => clearInterval(timer);
+  }, [promoIndex]);
+
   const courseFilters = categories.length ? ["Tất cả", ...categories.map(c => c.name)] : ["Tất cả"];
 
   // Reset selectedFilter nếu không hợp lệ khi categories thay đổi
@@ -137,7 +157,7 @@ const HomeScreen: React.FC = () => {
           console.log(`Fetching courses for category: ${category.name} (ID: ${category.id})`);
           const byCategory = await getCoursesByCategory(category.id);
           console.log(`Found ${byCategory?.length || 0} courses for category ${category.name}`);
-          console.log(`Courses data:`, byCategory?.map(c => ({ id: c.id, title: c.title })) || []);
+          console.log(`Courses data:`, byCategory?.map((c: any) => ({ id: c.id, title: c.title })) || []);
           // Tạo array mới để đảm bảo re-render
           const coursesArray = Array.isArray(byCategory) ? [...byCategory] : [];
           console.log(`Setting popularCourses with ${coursesArray.length} courses`);
@@ -160,7 +180,7 @@ const HomeScreen: React.FC = () => {
   }, [popularCourses]);
 
   const renderCourseCard = ({ item }: { item: Course }) => (
-    <TouchableOpacity style={styles.courseCard} activeOpacity={0.8} onPress={() => navigation.navigate('CourseDetail' as never, { courseId: item.id } as never)}>
+    <TouchableOpacity style={styles.courseCard} activeOpacity={0.8} onPress={() => navigation.navigate('CourseDetail', { courseId: item.id })}>
       <View style={styles.courseImageContainer}>
         { (item.thumbnailUrl || item.image) ? (
           <Image source={{ uri: (item.thumbnailUrl || item.image) as string }} style={styles.courseImage} resizeMode="cover" />
@@ -187,7 +207,11 @@ const HomeScreen: React.FC = () => {
   );
 
   const renderInstructor = ({ item }: { item: Instructor }) => (
-    <View style={styles.instructorItem}>
+    <TouchableOpacity
+      style={styles.instructorItem}
+      activeOpacity={0.85}
+      onPress={() => navigation.navigate('InstructorDetail', { instructorId: item.uid })}
+    >
       {item.profileImage ? (
         <Image source={{ uri: item.profileImage }} style={styles.instructorAvatar} />
       ) : (
@@ -196,7 +220,7 @@ const HomeScreen: React.FC = () => {
         </View>
       )}
       <Text style={styles.instructorName} numberOfLines={1}>{item.fullName}</Text>
-    </View>
+    </TouchableOpacity>
   );
 
   if (loading) return <View style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text>Đang tải...</Text></View>;
@@ -244,34 +268,51 @@ const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Banner */}
-        <LinearGradient
-          colors={["#20B2AA", "#2E8B57"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.banner}
-        >
-          <View style={styles.bannerContent}>
-            <Text style={styles.bannerDiscount}>25% OFF*</Text>
-            <Text style={styles.bannerTitle}>Ưu đãi hôm nay!</Text>
-            <Text style={styles.bannerDescription}>
-              Nhận ưu đãi giảm giá cho mỗi khóa học — chỉ áp dụng trong hôm nay
-              thôi!
-            </Text>
-          </View>
+        {/* Banner Carousel */}
+        <View style={{ height: 150 }}>
+          <FlatList
+            ref={promoRef}
+            data={promotions}
+            keyExtractor={(i) => i.id}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={screenWidth}
+            decelerationRate="fast"
+            getItemLayout={(data, index) => ({ length: screenWidth, offset: screenWidth * index, index })}
+            renderItem={({ item }) => (
+              <LinearGradient
+                colors={["#20B2AA", "#2E8B57"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.banner, { width: screenWidth - 40 }]}
+              >
+                <View style={styles.bannerContent}>
+                  <Text style={styles.bannerDiscount}>SPECIAL</Text>
+                  <Text style={styles.bannerTitle}>{item.title}</Text>
+                  <Text style={styles.bannerDescription}>{item.desc}</Text>
+                </View>
+              </LinearGradient>
+            )}
+            onMomentumScrollEnd={(e) => {
+              const width = screenWidth || e.nativeEvent.layoutMeasurement.width;
+              const index = Math.round((e.nativeEvent.contentOffset.x || 0) / width);
+              if (!Number.isNaN(index)) setPromoIndex(index);
+            }}
+          />
           <View style={styles.bannerDots}>
-            <View style={styles.bannerDot} />
-            <View style={styles.bannerDot} />
-            <View style={styles.bannerDot} />
+            {promotions.map((p, i) => (
+              <View key={p.id} style={[styles.bannerDot, i === promoIndex && { opacity: 1 }]} />
+            ))}
           </View>
-        </LinearGradient>
+        </View>
 
         {/* Khám phá Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Khám phá</Text>
             <TouchableOpacity onPress={() => navigation.navigate("Category")}>
-              <Text style={styles.viewAllText}>XEM TẤT CẢ {">"}</Text>
+              <Text style={styles.viewAllText}>XEM TẤT CẢ</Text>
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -286,7 +327,12 @@ const HomeScreen: React.FC = () => {
                   styles.categoryChip,
                   selectedCategory === index && styles.categoryChipActive,
                 ]}
-                onPress={() => setSelectedCategory(index)}
+                onPress={() => {
+                  setSelectedCategory(index);
+                  if (category?.id && category?.name) {
+                    navigation.navigate('CourseList', { categoryName: category.name, categoryId: category.id });
+                  }
+                }}
               >
                 <Text
                   style={[
@@ -313,7 +359,7 @@ const HomeScreen: React.FC = () => {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Khóa học phổ biến</Text>
             <TouchableOpacity>
-              <Text style={styles.viewAllText}>XEM TẤT CẢ {">"}</Text>
+              <Text style={styles.viewAllText}>XEM TẤT CẢ</Text>
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -374,8 +420,8 @@ const HomeScreen: React.FC = () => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Người hướng dẫn hàng đầu</Text>
-            <TouchableOpacity>
-              <Text style={styles.viewAllText}>XEM TẤT CẢ {">"}</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('MentorList')}>
+              <Text style={styles.viewAllText}>XEM TẤT CẢ</Text>
             </TouchableOpacity>
           </View>
           <FlatList
@@ -675,19 +721,29 @@ const styles = StyleSheet.create({
   },
   instructorItem: {
     alignItems: "center",
-    marginRight: 20,
+    marginRight: 16,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    width: 120,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 1,
+    elevation: 1,
   },
   instructorAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#333",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#e0e0e0",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
   },
   instructorInitial: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
     color: "#fff",
   },
@@ -695,5 +751,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#333",
     fontWeight: "500",
+    textAlign: 'center',
   },
 });

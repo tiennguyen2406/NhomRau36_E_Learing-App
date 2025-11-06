@@ -17,10 +17,11 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Dropdown } from "react-native-element-dropdown";
+import * as ImagePicker from "expo-image-picker";
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
 import { ProfileStackParamList } from "../navigation/AppNavigator";
-import { getUserByUsername, updateUser } from "../api/api";
+import { getUserByUsername, updateUser, createProof, uploadProofFile } from "../api/api";
 
 type NavigationProp = NativeStackNavigationProp<ProfileStackParamList>;
 
@@ -62,6 +63,9 @@ const EditProfileScreen: React.FC = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [gender, setGender] = useState<string | null>(null);
   const [role, setRole] = useState("");
+  const [originalRole, setOriginalRole] = useState<string | null>(null);
+  const [proofFile, setProofFile] = useState<{ uri: string; mimeType?: string; name?: string } | null>(null);
+  const [verificationMsg, setVerificationMsg] = useState<string>("");
   const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -88,6 +92,7 @@ const EditProfileScreen: React.FC = () => {
           setPhoneNumber(userData.phoneNumber || "");
           setGender(userData.gender || null);
           setRole(userData.role || "student");
+          setOriginalRole(userData.role || "student");
 
           // Xử lý ngày sinh nếu có
           if (userData.dateOfBirth) {
@@ -108,11 +113,16 @@ const EditProfileScreen: React.FC = () => {
     loadUserData();
   }, [navigation]);
 
+  const uploadViaBackend = async (localUri: string, mimeType?: string, name?: string) => {
+    return uploadProofFile({ uri: localUri, type: mimeType, name });
+  };
+
   const handleUpdateProfile = async () => {
     if (!user) return;
 
     try {
       setSaving(true);
+      setVerificationMsg("");
 
       const updatedData = {
         fullName,
@@ -129,6 +139,21 @@ const EditProfileScreen: React.FC = () => {
 
       await updateUser(user.uid, updatedData);
 
+      // Nếu đổi role so với ban đầu, và có minh chứng -> upload cloudinary và lưu MinhChung
+      if (originalRole && role && role !== originalRole) {
+        if (proofFile?.uri) {
+          try {
+            const url = await uploadViaBackend(proofFile.uri, proofFile.mimeType, proofFile.name);
+            await createProof(user.uid, url, proofFile.mimeType || undefined, { name: proofFile.name });
+          } catch (e: any) {
+            // Không chặn luồng chính, chỉ cảnh báo
+            console.warn("Upload proof failed:", e?.message || e);
+            Alert.alert("Cảnh báo", "Tải minh chứng thất bại. Bạn có thể thử lại sau.");
+          }
+        }
+        setVerificationMsg("Hệ thống đang xác thực");
+      }
+
       // Quay về màn hình Profile trước
       navigation.goBack();
 
@@ -144,6 +169,28 @@ const EditProfileScreen: React.FC = () => {
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const pickProofFromLibrary = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (perm.status !== "granted") {
+        Alert.alert("Quyền truy cập", "Ứng dụng cần quyền truy cập thư viện để chọn minh chứng.");
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsEditing: false,
+        quality: 1,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const a = result.assets[0];
+        setProofFile({ uri: a.uri, mimeType: a.mimeType || undefined, name: a.fileName || undefined });
+      }
+    } catch (e) {
+      console.warn(e);
+      Alert.alert("Lỗi", "Không thể chọn tệp minh chứng.");
     }
   };
 
@@ -329,20 +376,34 @@ const EditProfileScreen: React.FC = () => {
               />
             </View>
 
-            {/* Role - Disabled */}
+            {/* Role - chọn student/instructor */}
             <View style={styles.inputGroup}>
               <ThemedText style={styles.inputLabel}>Vai trò</ThemedText>
-              <TextInput
-                style={[styles.textInput, styles.disabledInput]}
-                value={
-                  role === "student"
-                    ? "Học viên"
-                    : role === "teacher"
-                    ? "Giảng viên"
-                    : role
-                }
-                editable={false}
+              <Dropdown
+                style={styles.dropdown}
+                placeholderStyle={styles.dropdownPlaceholderText}
+                selectedTextStyle={styles.dropdownSelectedText}
+                data={[{ label: "Học viên", value: "student" }, { label: "Giảng viên", value: "instructor" }]}
+                maxHeight={300}
+                labelField="label"
+                valueField="value"
+                placeholder="Chọn vai trò"
+                value={role}
+                onChange={(item) => setRole(item.value)}
               />
+            </View>
+
+            {/* Minh chứng (ảnh/video/tài liệu) */}
+            <View style={styles.inputGroup}>
+              <ThemedText style={styles.inputLabel}>Minh chứng (khi đổi vai trò)</ThemedText>
+              <TouchableOpacity style={styles.textInput} onPress={pickProofFromLibrary}>
+                <View style={styles.datePickerButton}>
+                  <MaterialIcons name="attach-file" size={20} color="#666" style={styles.dateIcon} />
+                  <ThemedText style={styles.dateText}>
+                    {proofFile?.name || proofFile?.uri?.split("/").pop() || "Chọn tệp minh chứng"}
+                  </ThemedText>
+                </View>
+              </TouchableOpacity>
             </View>
 
             {/* Update Button */}
@@ -362,6 +423,9 @@ const EditProfileScreen: React.FC = () => {
                 <MaterialIcons name="arrow-forward" size={24} color="#fff" />
               )}
             </TouchableOpacity>
+            {verificationMsg ? (
+              <ThemedText style={{ color: "#20B2AA", marginTop: 8 }}>{verificationMsg}</ThemedText>
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

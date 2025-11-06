@@ -224,6 +224,49 @@ export const updateAllCategoryCounts = async () => {
   });
 };
 
+// Proofs (MinhChung)
+export const createProof = async (userId: string, url: string, type?: string, metadata?: any) => {
+  return requestJson(`${BASE_URL}/proofs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, url, type, metadata }),
+  });
+};
+
+export const uploadProofFile = async (file: { uri: string; name?: string; type?: string }) => {
+  const form = new FormData();
+
+  const isWeb = typeof window !== "undefined" && typeof document !== "undefined";
+  const uri = file.uri;
+
+  if (isWeb) {
+    // Trên web, cần Blob/File thật sự
+    const resp = await fetch(uri);
+    const blob = await resp.blob();
+    const filename = file.name || "proof";
+    // @ts-ignore - File tồn tại trên web
+    const webFile = new File([blob], filename, { type: file.type || blob.type || "application/octet-stream" });
+    // @ts-ignore
+    form.append("file", webFile);
+  } else {
+    // Trên RN native
+    // @ts-ignore RN FormData
+    form.append("file", { uri, name: file.name || "proof", type: file.type || "application/octet-stream" } as any);
+  }
+
+  const res = await fetch(`${BASE_URL}/proofs/upload`, {
+    method: "POST",
+    // KHÔNG set Content-Type để fetch tự thêm boundary đúng
+    body: form as any,
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Upload failed: ${t.slice(0,200)}`);
+  }
+  const data = await res.json();
+  return data.url as string;
+};
+
 export default function API() {
   return null;
 }

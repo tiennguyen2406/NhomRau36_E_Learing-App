@@ -124,13 +124,24 @@ const EditProfileScreen: React.FC = () => {
       setSaving(true);
       setVerificationMsg("");
 
+      const wantsInstructor =
+        originalRole === "student" && role === "instructor";
+
+      if (wantsInstructor && !proofFile?.uri) {
+        Alert.alert(
+          "Thiếu minh chứng",
+          "Vui lòng chọn tệp minh chứng khi đăng ký làm giảng viên."
+        );
+        return;
+      }
+
       const updatedData = {
         fullName,
         nickName,
         email,
         phoneNumber,
         gender,
-        role,
+        role: wantsInstructor ? originalRole : role,
         dateOfBirth: dateOfBirth
           ? dateOfBirth.toISOString().split("T")[0]
           : undefined,
@@ -139,28 +150,41 @@ const EditProfileScreen: React.FC = () => {
 
       await updateUser(user.uid, updatedData);
 
-      // Nếu đổi role so với ban đầu, và có minh chứng -> upload cloudinary và lưu MinhChung
-      if (originalRole && role && role !== originalRole) {
-        if (proofFile?.uri) {
-          try {
-            const url = await uploadViaBackend(proofFile.uri, proofFile.mimeType, proofFile.name);
-            await createProof(user.uid, url, proofFile.mimeType || undefined, { name: proofFile.name });
-          } catch (e: any) {
-            // Không chặn luồng chính, chỉ cảnh báo
-            console.warn("Upload proof failed:", e?.message || e);
-            Alert.alert("Cảnh báo", "Tải minh chứng thất bại. Bạn có thể thử lại sau.");
-          }
+      if (wantsInstructor && proofFile?.uri) {
+        try {
+          const url = await uploadViaBackend(
+            proofFile.uri,
+            proofFile.mimeType,
+            proofFile.name
+          );
+          await createProof(
+            user.uid,
+            url,
+            proofFile.mimeType || undefined,
+            { name: proofFile.name },
+            "instructor"
+          );
+          setVerificationMsg("Đang xem xét");
+          Alert.alert(
+            "Đã gửi yêu cầu",
+            "Hệ thống đang xem xét yêu cầu trở thành giảng viên. Bạn sẽ được thông báo khi hoàn tất."
+          );
+          setRole(originalRole || "student");
+          setProofFile(null);
+        } catch (e: any) {
+          console.warn("Upload proof failed:", e?.message || e);
+          Alert.alert(
+            "Cảnh báo",
+            "Tải minh chứng thất bại. Bạn có thể thử lại sau."
+          );
         }
-        setVerificationMsg("Hệ thống đang xác thực");
+      } else {
+        navigation.goBack();
+
+        setTimeout(() => {
+          Alert.alert("Thành công", "Đã cập nhật thông tin cá nhân");
+        }, 100);
       }
-
-      // Quay về màn hình Profile trước
-      navigation.goBack();
-
-      // Sau đó hiển thị thông báo thành công
-      setTimeout(() => {
-        Alert.alert("Thành công", "Đã cập nhật thông tin cá nhân");
-      }, 100);
     } catch (err) {
       console.error("Lỗi khi cập nhật thông tin:", err);
       Alert.alert(
@@ -383,34 +407,61 @@ const EditProfileScreen: React.FC = () => {
                 style={styles.dropdown}
                 placeholderStyle={styles.dropdownPlaceholderText}
                 selectedTextStyle={styles.dropdownSelectedText}
-                data={[{ label: "Học viên", value: "student" }, { label: "Giảng viên", value: "instructor" }]}
+                data={[
+                  { label: "Học viên", value: "student" },
+                  { label: "Giảng viên", value: "instructor" },
+                ]}
                 maxHeight={300}
                 labelField="label"
                 valueField="value"
                 placeholder="Chọn vai trò"
                 value={role}
-                onChange={(item) => setRole(item.value)}
+                onChange={(item) => {
+                  setRole(item.value);
+                  if (!(originalRole === "student" && item.value === "instructor")) {
+                    setProofFile(null);
+                    setVerificationMsg("");
+                  }
+                }}
               />
             </View>
 
-            {/* Minh chứng (ảnh/video/tài liệu) */}
-            <View style={styles.inputGroup}>
-              <ThemedText style={styles.inputLabel}>Minh chứng (khi đổi vai trò)</ThemedText>
-              <TouchableOpacity style={styles.textInput} onPress={pickProofFromLibrary}>
-                <View style={styles.datePickerButton}>
-                  <MaterialIcons name="attach-file" size={20} color="#666" style={styles.dateIcon} />
-                  <ThemedText style={styles.dateText}>
-                    {proofFile?.name || proofFile?.uri?.split("/").pop() || "Chọn tệp minh chứng"}
-                  </ThemedText>
-                </View>
-              </TouchableOpacity>
-            </View>
+            {originalRole === "student" && role === "instructor" && (
+              <View style={styles.inputGroup}>
+                <ThemedText style={styles.inputLabel}>
+                  Minh chứng (ảnh/video/tài liệu)
+                </ThemedText>
+                <TouchableOpacity
+                  style={styles.textInput}
+                  onPress={pickProofFromLibrary}
+                >
+                  <View style={styles.datePickerButton}>
+                    <MaterialIcons
+                      name="attach-file"
+                      size={20}
+                      color="#666"
+                      style={styles.dateIcon}
+                    />
+                    <ThemedText style={styles.dateText}>
+                      {proofFile?.name ||
+                        proofFile?.uri?.split("/").pop() ||
+                        "Chọn tệp minh chứng"}
+                    </ThemedText>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Update Button */}
             <TouchableOpacity
               style={styles.updateButton}
               onPress={handleUpdateProfile}
-              disabled={saving}
+              disabled={
+                saving ||
+                (originalRole === "student" &&
+                  role === "instructor" &&
+                  !proofFile?.uri)
+              }
             >
               <ThemedText style={styles.updateButtonText}>Cập nhật</ThemedText>
               {saving ? (
@@ -424,7 +475,7 @@ const EditProfileScreen: React.FC = () => {
               )}
             </TouchableOpacity>
             {verificationMsg ? (
-              <ThemedText style={{ color: "#20B2AA", marginTop: 8 }}>{verificationMsg}</ThemedText>
+              <ThemedText style={styles.reviewNote}>{verificationMsg}</ThemedText>
             ) : null}
           </View>
         </ScrollView>
@@ -604,6 +655,13 @@ const styles = StyleSheet.create({
   },
   buttonLoader: {
     marginLeft: 10,
+  },
+  reviewNote: {
+    marginTop: 12,
+    color: "#ff8c00",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "left",
   },
   loadingText: {
     marginTop: 16,

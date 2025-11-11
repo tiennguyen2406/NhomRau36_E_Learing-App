@@ -152,6 +152,14 @@ export const getCourses = async () => {
   return requestJson(`${BASE_URL}/courses`);
 };
 
+export const createCourse = async (data: any) => {
+  return requestJson(`${BASE_URL}/courses`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+};
+
 export const getCourseById = async (courseId: string) => {
   return requestJson(`${BASE_URL}/courses/${courseId}`);
 };
@@ -225,11 +233,17 @@ export const updateAllCategoryCounts = async () => {
 };
 
 // Proofs (MinhChung)
-export const createProof = async (userId: string, url: string, type?: string, metadata?: any) => {
+export const createProof = async (
+  userId: string,
+  url: string,
+  type?: string,
+  metadata?: any,
+  requestedRole?: string
+) => {
   return requestJson(`${BASE_URL}/proofs`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, url, type, metadata }),
+    body: JSON.stringify({ userId, url, type, metadata, requestedRole }),
   });
 };
 
@@ -265,6 +279,47 @@ export const uploadProofFile = async (file: { uri: string; name?: string; type?:
   }
   const data = await res.json();
   return data.url as string;
+};
+
+export const getProofs = async () => {
+  return requestJson(`${BASE_URL}/proofs`);
+};
+
+export const updateProofStatus = async (
+  proofId: string,
+  status: "approved" | "rejected",
+  adminComment?: string
+) => {
+  return requestJson(`${BASE_URL}/proofs/${proofId}`, {
+    method: "PATCH" as any,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status, adminComment }),
+  });
+};
+
+// ProofCourse - duyệt tạo khoá học
+export const createProofCourse = async (userId: string, payload: any) => {
+  return requestJson(`${BASE_URL}/proof-courses`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, payload }),
+  });
+};
+
+export const updateProofCourseStatus = async (
+  proofCourseId: string,
+  status: "approved" | "rejected",
+  adminComment?: string
+) => {
+  return requestJson(`${BASE_URL}/proof-courses/${proofCourseId}`, {
+    method: "PATCH" as any,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status, adminComment }),
+  });
+};
+
+export const getProofCourses = async () => {
+  return requestJson(`${BASE_URL}/proof-courses`);
 };
 
 export default function API() {

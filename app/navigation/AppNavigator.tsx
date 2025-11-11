@@ -7,6 +7,7 @@ import {
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getUserByUsername } from "../api/api";
 
 // Màn hình
 import CategoryScreen from "../screens/CategoryScreen";
@@ -24,6 +25,8 @@ import InstructorDetailScreen from "../screens/InstructorDetailScreen";
 import MentorListScreen from "../screens/MentorListScreen";
 import AdminManageScreen from "../screens/AdminManageScreen";
 import AdminStatsScreen from "../screens/AdminStatsScreen";
+import CreateCourseScreen from "../screens/CreateCourseScreen";
+import CreateQuizLessonScreen from "../screens/CreateQuizLessonScreen";
 
 // Định nghĩa kiểu cho routes trong ứng dụng
 export type RootStackParamList = {
@@ -31,6 +34,7 @@ export type RootStackParamList = {
   Home: undefined; // fallback so navigate('Home') is valid
   MainTabs: undefined;
   Search: undefined;
+  CreateQuizLesson: undefined;
   Category: undefined;
   MentorList: undefined;
   InstructorDetail: { instructorId: string };
@@ -112,6 +116,7 @@ const ProfileStackNavigator = () => {
 // Tab Navigator
 const TabNavigator = () => {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isInstructor, setIsInstructor] = useState<boolean>(false);
 
   useEffect(() => {
     let mounted = true;
@@ -119,6 +124,12 @@ const TabNavigator = () => {
       try {
         const username = await AsyncStorage.getItem("currentUsername");
         if (mounted) setIsAdmin(username === "admin");
+        if (username) {
+          try {
+            const user = await getUserByUsername(username);
+            if (mounted) setIsInstructor((user?.role || "").toLowerCase() === "instructor");
+          } catch {}
+        }
       } catch {}
     })();
     return () => {
@@ -213,8 +224,8 @@ const TabNavigator = () => {
           />
           <Tab.Screen
             name="Games"
-            component={EmptyPlaceholder}
-            options={{ tabBarLabel: "GAMES" }}
+            component={isInstructor ? CreateCourseScreen : EmptyPlaceholder}
+            options={{ tabBarLabel: isInstructor ? "TẠO KHÓA HỌC" : "GAMES" }}
           />
           <Tab.Screen
             name="ProfileStack"
@@ -256,6 +267,7 @@ const AppNavigator = () => {
       <RootStack.Screen name="CourseDetail" component={CourseDetailScreen} />
       <RootStack.Screen name="CourseLessons" component={CourseLessonsScreen} />
       <RootStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
+      <RootStack.Screen name="CreateQuizLesson" component={CreateQuizLessonScreen} />
     </RootStack.Navigator>
   );
 };

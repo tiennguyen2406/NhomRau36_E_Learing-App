@@ -9,6 +9,10 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Linking,
+  Modal,
+  Image,
+  Dimensions,
 } from "react-native";
 import {
   createCategory,
@@ -19,14 +23,16 @@ import {
   deleteUser,
   getCategories,
   getCourses,
+  getProofs,
   getLessons,
   getUsers,
   updateCategory,
   updateLesson,
   updateUser,
+  updateProofStatus,
 } from "../api/api";
 
-type EntityType = "users" | "categories" | "lessons";
+type EntityType = "users" | "categories" | "lessons" | "proofs";
 
 const AdminManageScreen: React.FC = () => {
   const [entity, setEntity] = useState<EntityType>("users");
@@ -35,6 +41,9 @@ const AdminManageScreen: React.FC = () => {
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedProof, setSelectedProof] = useState<any | null>(null);
+  const [previewProof, setPreviewProof] = useState<any | null>(null);
+  const [previewVisible, setPreviewVisible] = useState<boolean>(false);
 
   // Form states for each entity
   const [userForm, setUserForm] = useState({
@@ -70,6 +79,8 @@ const AdminManageScreen: React.FC = () => {
         return ["id", "name", "courseCount", "isActive"]; 
       case "lessons":
         return ["id", "courseId", "title", "order", "duration"]; 
+      case "proofs":
+        return ["id", "username", "requestedRole", "statusLabel", "createdAtLabel"];
       default:
         return [];
     }
@@ -84,9 +95,26 @@ const AdminManageScreen: React.FC = () => {
       } else if (entity === "categories") {
         const data = await getCategories();
         setItems(Array.isArray(data) ? data : []);
-      } else {
+      } else if (entity === "lessons") {
         const data = await getLessons();
         setItems(Array.isArray(data) ? data : []);
+      } else {
+        const data = await getProofs();
+        const normalized = Array.isArray(data)
+          ? data.map((p: any) => {
+              const statusRaw = (p.status || "pending").toLowerCase();
+              return {
+                ...p,
+                requestedRole: p.requestedRole || "instructor",
+                status: statusRaw,
+                statusLabel: statusRaw.toUpperCase(),
+                createdAtLabel: p.createdAt
+                  ? new Date(p.createdAt).toLocaleString()
+                  : "",
+              };
+            })
+          : [];
+        setItems(normalized);
       }
     } catch (err: any) {
       Alert.alert("Lỗi", err?.message || "Không thể tải dữ liệu");
@@ -120,12 +148,16 @@ const AdminManageScreen: React.FC = () => {
 
   const resetForms = () => {
     setEditingId(null);
+    setSelectedProof(null);
+    setPreviewProof(null);
+    setPreviewVisible(false);
     setUserForm({ email: "", username: "", password: "", fullName: "", role: "student" });
     setCategoryForm({ name: "", description: "", iconUrl: "", isActive: true });
     setLessonForm({ courseId: "", title: "", description: "", videoUrl: "", duration: "0", order: "0", isPreview: false });
   };
 
   const onSubmit = async () => {
+    if (entity === "proofs") return;
     try {
       setLoading(true);
       if (entity === "users") {
@@ -179,6 +211,10 @@ const AdminManageScreen: React.FC = () => {
 
   const onSelectRow = (row: any) => {
     setEditingId(row.uid || row.id || null);
+    if (entity === "proofs") {
+      setSelectedProof(row);
+      return;
+    }
     if (entity === "users") {
       setUserForm({
         email: row.email || "",
@@ -207,11 +243,71 @@ const AdminManageScreen: React.FC = () => {
     }
   };
 
+  const isImageProof = (proof: any) => {
+    if (!proof) return false;
+    const mime = String(proof.type || proof.metadata?.mimeType || "").toLowerCase();
+    if (mime.startsWith("image/")) return true;
+    const url = String(proof.url || "");
+    return /\.(png|jpe?g|gif|bmp|webp|heic)$/i.test(url);
+  };
+
+  const openPreview = (proof: any) => {
+    if (!proof?.url) return;
+    if (!isImageProof(proof)) {
+      Linking.openURL(proof.url).catch(() =>
+        Alert.alert("Lỗi", "Không thể mở đường dẫn minh chứng.")
+      );
+      return;
+    }
+    setPreviewProof(proof);
+    setPreviewVisible(true);
+  };
+
+  const closePreview = () => {
+    setPreviewVisible(false);
+    setPreviewProof(null);
+  };
+
+  const handleProofDecision = (proof: any, status: "approved" | "rejected") => {
+    if (!proof?.id) return;
+    const actionText = status === "approved" ? "Duyệt" : "Từ chối";
+    Alert.alert(
+      `${actionText} minh chứng`,
+      `Bạn có chắc muốn ${status === "approved" ? "duyệt" : "từ chối"} yêu cầu này?`,
+      [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: actionText,
+          style: status === "approved" ? "default" : "destructive",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await updateProofStatus(proof.id, status);
+              await load();
+              if (status === "approved") {
+                Alert.alert("Đã duyệt", "Vai trò người dùng đã được cập nhật.");
+              } else {
+                Alert.alert("Đã từ chối", "Yêu cầu đã được từ chối.");
+              }
+              setSelectedProof(null);
+              setEditingId(null);
+            } catch (err: any) {
+              Alert.alert("Lỗi", err?.message || "Không thể cập nhật minh chứng");
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const SectionSelector = () => {
     const opts: { key: EntityType; label: string }[] = [
       { key: "users", label: "Users" },
       { key: "categories", label: "Categories" },
       { key: "lessons", label: "Lessons" },
+      { key: "proofs", label: "Proofs" },
     ];
     return (
       <View style={styles.selectorRow}>
@@ -231,6 +327,53 @@ const AdminManageScreen: React.FC = () => {
   };
 
   const renderForm = () => {
+    if (entity === "proofs") {
+      const proof = selectedProof;
+      return (
+        <View style={styles.formCard}>
+          <Text style={styles.formTitle}>Chi tiết minh chứng</Text>
+          {proof ? (
+            <>
+              <Text style={styles.proofLabel}>Người dùng: <Text style={styles.proofValue}>{proof.fullName || proof.username || proof.userId}</Text></Text>
+              <Text style={styles.proofLabel}>Email: <Text style={styles.proofValue}>{proof.email || "—"}</Text></Text>
+              <Text style={styles.proofLabel}>Vai trò hiện tại: <Text style={styles.proofValue}>{proof.currentRole || "—"}</Text></Text>
+              <Text style={styles.proofLabel}>Đề nghị vai trò: <Text style={styles.proofValue}>{proof.requestedRole || "instructor"}</Text></Text>
+              <Text style={styles.proofLabel}>
+                Trạng thái:{" "}
+                <Text style={styles.proofStatus}>
+                  {(proof.status || "pending").toUpperCase()}
+                </Text>
+              </Text>
+              <TouchableOpacity
+                style={styles.proofLinkBtn}
+                onPress={() => openPreview(proof)}
+              >
+                <Text style={styles.proofLinkText}>Xem minh chứng</Text>
+              </TouchableOpacity>
+              <View style={styles.proofActionRow}>
+                <TouchableOpacity
+                  style={[styles.proofActionBtn, styles.approveBtn]}
+                  onPress={() => handleProofDecision(proof, "approved")}
+                  disabled={proof.status !== "pending" || loading}
+                >
+                  <Text style={styles.proofActionText}>Duyệt</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.proofActionBtn, styles.rejectBtn]}
+                  onPress={() => handleProofDecision(proof, "rejected")}
+                  disabled={proof.status !== "pending" || loading}
+                >
+                  <Text style={styles.proofActionText}>Từ chối</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <Text style={styles.proofPlaceholder}>Chọn một minh chứng trong danh sách để xem chi tiết.</Text>
+          )}
+        </View>
+      );
+    }
+
     if (entity === "users") return (
       <View style={styles.formCard}>
         <Text style={styles.formTitle}>{editingId ? "Sửa User" : "Thêm User"}</Text>
@@ -442,23 +585,59 @@ const AdminManageScreen: React.FC = () => {
     );
   };
 
-  const renderRow = ({ item, index }: { item: any; index: number }) => (
-    <TouchableOpacity
-      style={[styles.rowItem, index % 2 === 0 ? styles.rowEven : styles.rowOdd]}
-      onPress={() => onSelectRow(item)}
-    >
-      {columns.map((c, idx) => (
-        <Text key={c} style={[styles.cell, idx === columns.length - 1 ? styles.cellLast : styles.cellWithBorder, styles.cellText]} numberOfLines={1} allowFontScaling={false}>
-          {String(item[c] ?? "")}
-        </Text>
-      ))}
-      <View style={[styles.cell, styles.cellLast]}>
-        <TouchableOpacity onPress={() => onDelete(item.uid || item.id)} style={styles.deleteBtn}>
-          <Text style={styles.deleteText}>Xóa</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+  const renderRow = ({ item, index }: { item: any; index: number }) => {
+    const isProof = entity === "proofs";
+    const isPendingProof = isProof && item.status === "pending";
+
+    return (
+      <TouchableOpacity
+        style={[styles.rowItem, index % 2 === 0 ? styles.rowEven : styles.rowOdd]}
+        onPress={() => onSelectRow(item)}
+      >
+        {columns.map((c, idx) => (
+          <Text
+            key={`${item.id || item.uid}-${c}`}
+            style={[
+              styles.cell,
+              idx === columns.length - 1 ? styles.cellLast : styles.cellWithBorder,
+              styles.cellText,
+            ]}
+            numberOfLines={1}
+            allowFontScaling={false}
+          >
+            {String(item[c] ?? "")}
+          </Text>
+        ))}
+        <View style={[styles.cell, styles.cellLast]}>
+          {isProof ? (
+            <View style={styles.proofRowActions}>
+              <TouchableOpacity
+                style={[styles.proofRowBtn, styles.approveBtn]}
+                onPress={() => handleProofDecision(item, "approved")}
+                disabled={!isPendingProof || loading}
+              >
+                <Text style={styles.proofRowText}>Duyệt</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.proofRowBtn, styles.rejectBtn]}
+                onPress={() => handleProofDecision(item, "rejected")}
+                disabled={!isPendingProof || loading}
+              >
+                <Text style={styles.proofRowText}>Từ chối</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={() => onDelete(item.uid || item.id)}
+              style={styles.deleteBtn}
+            >
+              <Text style={styles.deleteText}>Xóa</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -468,6 +647,43 @@ const AdminManageScreen: React.FC = () => {
         <SectionSelector />
 
         {renderForm()}
+
+        <Modal
+          visible={previewVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={closePreview}
+        >
+          <View style={styles.previewOverlay}>
+            <View style={styles.previewContainer}>
+              <Text style={styles.previewTitle}>Minh chứng</Text>
+              {previewProof && isImageProof(previewProof) ? (
+                <Image
+                  source={{ uri: previewProof.url }}
+                  resizeMode="contain"
+                  style={styles.previewImage}
+                />
+              ) : (
+                <View style={styles.previewFallback}>
+                  <Text style={styles.previewFallbackText}>
+                    Không thể xem minh chứng trực tiếp. Vui lòng mở bên ngoài.
+                  </Text>
+                  {previewProof?.url ? (
+                    <TouchableOpacity
+                      style={styles.previewExternalBtn}
+                      onPress={() => Linking.openURL(previewProof.url)}
+                    >
+                      <Text style={styles.previewExternalText}>Mở bên ngoài</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              )}
+              <TouchableOpacity style={styles.previewCloseBtn} onPress={closePreview}>
+                <Text style={styles.previewCloseText}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         <View style={styles.tableCard}>
           <Text style={styles.tableTitle}>Danh sách {entity}</Text>
@@ -515,6 +731,9 @@ const AdminManageScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
+
+const windowWidth = Dimensions.get("window").width;
+const windowHeight = Dimensions.get("window").height;
 
 const styles = StyleSheet.create({
   container: {
@@ -689,6 +908,135 @@ const styles = StyleSheet.create({
   separator: {
     height: 1,
     backgroundColor: "#eee",
+  },
+  proofLabel: {
+    fontSize: 14,
+    color: "#555",
+    marginBottom: 4,
+  },
+  proofValue: {
+    fontWeight: "600",
+    color: "#222",
+  },
+  proofStatus: {
+    fontWeight: "700",
+    color: "#F39C12",
+    textTransform: "uppercase",
+  },
+  proofLinkBtn: {
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: "#20B2AA",
+    alignItems: "center",
+  },
+  proofLinkText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  proofActionRow: {
+    flexDirection: "row",
+    marginTop: 16,
+    justifyContent: "flex-end",
+  },
+  proofActionBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  proofActionText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  approveBtn: {
+    backgroundColor: "#2ECC71",
+  },
+  rejectBtn: {
+    backgroundColor: "#E74C3C",
+  },
+  proofPlaceholder: {
+    color: "#666",
+    fontStyle: "italic",
+  },
+  reviewNote: {
+    marginTop: 12,
+    color: "#F39C12",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  proofRowActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+  },
+  proofRowBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  proofRowText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  previewContainer: {
+    width: Math.min(windowWidth * 0.9, 420),
+    maxHeight: windowHeight * 0.85,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+  },
+  previewTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  previewImage: {
+    width: "100%",
+    height: Math.min(windowHeight * 0.6, 460),
+    borderRadius: 8,
+    backgroundColor: "#000",
+    marginBottom: 16,
+  },
+  previewFallback: {
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  previewFallbackText: {
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  previewExternalBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: "#20B2AA",
+  },
+  previewExternalText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  previewCloseBtn: {
+    alignSelf: "stretch",
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: "#333",
+  },
+  previewCloseText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "700",
   },
 });
 

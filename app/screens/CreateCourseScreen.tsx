@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   SafeAreaView,
@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
 import { createProofCourse, getCategories, uploadProofFile, getUserByUsername } from "../api/api";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { RootStackNavProps } from "../navigation/AppNavigator";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -38,6 +38,40 @@ const CreateCourseScreen: React.FC = () => {
       } catch {}
     })();
   }, []);
+
+  // Lắng nghe khi quay lại từ CreateQuizLessonScreen để lấy dữ liệu quiz lesson
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        try {
+          const pendingQuizLesson = await AsyncStorage.getItem("pendingQuizLesson");
+          if (pendingQuizLesson) {
+            const quizData = JSON.parse(pendingQuizLesson);
+            // Thêm quiz lesson vào mảng lessons
+            setLessons((ls) => [
+              ...ls,
+              {
+                kind: "quiz",
+                title: quizData.title || "",
+                description: quizData.description || "",
+                order: String(ls.length + 1),
+                questions: (quizData.questions || []).map((q: any) => ({
+                  text: q.text || "",
+                  options: (q.options || []).map((o: any) => String(o || "")).filter(Boolean),
+                  correctIndex: Number(q.correctIndex) || 0,
+                  explanation: String(q.explanation || ""),
+                })),
+              },
+            ]);
+            // Xóa dữ liệu tạm thời
+            await AsyncStorage.removeItem("pendingQuizLesson");
+          }
+        } catch (e) {
+          console.error("Lỗi khi đọc quiz lesson từ AsyncStorage:", e);
+        }
+      })();
+    }, [])
+  );
 
   const categoryOptions = useMemo(
     () =>
@@ -112,12 +146,15 @@ const CreateCourseScreen: React.FC = () => {
       }
 
       await createProofCourse(uid, payload);
+      // Reset toàn bộ form
       setTitle("");
       setDescription("");
       setCategoryId(null);
       setPrice("0");
       setThumbnailUrl("");
+      setThumbnailLocal(null);
       setIsPublished(false);
+      setLessons([]);
       Alert.alert("Đã gửi yêu cầu", "Khóa học đang chờ phê duyệt.");
     } catch (err: any) {
       Alert.alert("Lỗi", err?.message || "Không thể tạo khóa học.");

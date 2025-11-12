@@ -13,6 +13,7 @@ import {
   Modal,
   Image,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import {
   createCategory,
@@ -30,9 +31,11 @@ import {
   updateLesson,
   updateUser,
   updateProofStatus,
+  getProofCourses,
+  updateProofCourseStatus,
 } from "../api/api";
 
-type EntityType = "users" | "categories" | "lessons" | "proofs";
+type EntityType = "users" | "categories" | "lessons" | "proofs" | "proofCourses";
 
 const AdminManageScreen: React.FC = () => {
   const [entity, setEntity] = useState<EntityType>("users");
@@ -44,6 +47,10 @@ const AdminManageScreen: React.FC = () => {
   const [selectedProof, setSelectedProof] = useState<any | null>(null);
   const [previewProof, setPreviewProof] = useState<any | null>(null);
   const [previewVisible, setPreviewVisible] = useState<boolean>(false);
+  const [selectedProofCourse, setSelectedProofCourse] = useState<any | null>(null);
+  const [processingModalVisible, setProcessingModalVisible] = useState<boolean>(false);
+  const [processingStatus, setProcessingStatus] = useState<"processing" | "success" | "error">("processing");
+  const [processingMessage, setProcessingMessage] = useState<string>("");
 
   // Form states for each entity
   const [userForm, setUserForm] = useState({
@@ -81,6 +88,8 @@ const AdminManageScreen: React.FC = () => {
         return ["id", "courseId", "title", "order", "duration"]; 
       case "proofs":
         return ["id", "username", "requestedRole", "statusLabel", "createdAtLabel"];
+      case "proofCourses":
+        return ["id", "username", "courseTitle", "statusLabel", "createdAtLabel"];
       default:
         return [];
     }
@@ -98,7 +107,7 @@ const AdminManageScreen: React.FC = () => {
       } else if (entity === "lessons") {
         const data = await getLessons();
         setItems(Array.isArray(data) ? data : []);
-      } else {
+      } else if (entity === "proofs") {
         const data = await getProofs();
         const normalized = Array.isArray(data)
           ? data.map((p: any) => {
@@ -113,6 +122,30 @@ const AdminManageScreen: React.FC = () => {
                   : "",
               };
             })
+          : [];
+        setItems(normalized);
+      } else {
+        // proofCourses - chỉ lấy các yêu cầu ở trạng thái pending
+        const data = await getProofCourses();
+        const normalized = Array.isArray(data)
+          ? data
+              .filter((p: any) => {
+                const statusRaw = (p.status || "pending").toLowerCase();
+                return statusRaw === "pending";
+              })
+              .map((p: any) => {
+                const statusRaw = (p.status || "pending").toLowerCase();
+                const payload = p.payload || {};
+                return {
+                  ...p,
+                  courseTitle: payload.title || "—",
+                  status: statusRaw,
+                  statusLabel: statusRaw.toUpperCase(),
+                  createdAtLabel: p.createdAt
+                    ? new Date(p.createdAt).toLocaleString()
+                    : "",
+                };
+              })
           : [];
         setItems(normalized);
       }
@@ -149,6 +182,7 @@ const AdminManageScreen: React.FC = () => {
   const resetForms = () => {
     setEditingId(null);
     setSelectedProof(null);
+    setSelectedProofCourse(null);
     setPreviewProof(null);
     setPreviewVisible(false);
     setUserForm({ email: "", username: "", password: "", fullName: "", role: "student" });
@@ -157,7 +191,7 @@ const AdminManageScreen: React.FC = () => {
   };
 
   const onSubmit = async () => {
-    if (entity === "proofs") return;
+    if (entity === "proofs" || entity === "proofCourses") return;
     try {
       setLoading(true);
       if (entity === "users") {
@@ -213,6 +247,10 @@ const AdminManageScreen: React.FC = () => {
     setEditingId(row.uid || row.id || null);
     if (entity === "proofs") {
       setSelectedProof(row);
+      return;
+    }
+    if (entity === "proofCourses") {
+      setSelectedProofCourse(row);
       return;
     }
     if (entity === "users") {
@@ -302,12 +340,58 @@ const AdminManageScreen: React.FC = () => {
     );
   };
 
+  const handleProofCourseDecision = (proofCourse: any, status: "approved" | "rejected") => {
+    if (!proofCourse?.id) return;
+    const actionText = status === "approved" ? "Duyệt" : "Từ chối";
+    Alert.alert(
+      `${actionText} khóa học`,
+      `Bạn có chắc muốn ${status === "approved" ? "duyệt" : "từ chối"} khóa học này?`,
+      [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: actionText,
+          style: status === "approved" ? "default" : "destructive",
+          onPress: async () => {
+            try {
+              // Hiển thị modal xử lý
+              setProcessingModalVisible(true);
+              setProcessingStatus("processing");
+              setProcessingMessage(status === "approved" ? "Đang tạo khóa học và bài học..." : "Đang từ chối yêu cầu...");
+              setLoading(true);
+              
+              await updateProofCourseStatus(proofCourse.id, status);
+              await load();
+              
+              // Hiển thị thông báo thành công
+              setProcessingStatus("success");
+              setProcessingMessage(
+                status === "approved" 
+                  ? "Khóa học đã được tạo thành công!" 
+                  : "Yêu cầu tạo khóa học đã được từ chối."
+              );
+              
+              setSelectedProofCourse(null);
+              setEditingId(null);
+            } catch (err: any) {
+              // Hiển thị thông báo lỗi
+              setProcessingStatus("error");
+              setProcessingMessage(err?.message || "Không thể cập nhật trạng thái khóa học");
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const SectionSelector = () => {
     const opts: { key: EntityType; label: string }[] = [
       { key: "users", label: "Users" },
       { key: "categories", label: "Categories" },
       { key: "lessons", label: "Lessons" },
       { key: "proofs", label: "Proofs" },
+      { key: "proofCourses", label: "Proof Courses" },
     ];
     return (
       <View style={styles.selectorRow}>
@@ -369,6 +453,52 @@ const AdminManageScreen: React.FC = () => {
             </>
           ) : (
             <Text style={styles.proofPlaceholder}>Chọn một minh chứng trong danh sách để xem chi tiết.</Text>
+          )}
+        </View>
+      );
+    }
+
+    if (entity === "proofCourses") {
+      const proofCourse = selectedProofCourse;
+      const payload = proofCourse?.payload || {};
+      return (
+        <View style={styles.formCard}>
+          <Text style={styles.formTitle}>Chi tiết yêu cầu khóa học</Text>
+          {proofCourse ? (
+            <>
+              <Text style={styles.proofLabel}>Người dùng: <Text style={styles.proofValue}>{proofCourse.username || proofCourse.userId || "—"}</Text></Text>
+              <Text style={styles.proofLabel}>Tiêu đề khóa học: <Text style={styles.proofValue}>{payload.title || "—"}</Text></Text>
+              <Text style={styles.proofLabel}>Mô tả: <Text style={styles.proofValue}>{payload.description || "—"}</Text></Text>
+              <Text style={styles.proofLabel}>Giá: <Text style={styles.proofValue}>{payload.price || 0} VNĐ</Text></Text>
+              <Text style={styles.proofLabel}>Số bài học: <Text style={styles.proofValue}>{Array.isArray(payload.lessons) ? payload.lessons.length : 0}</Text></Text>
+              <Text style={styles.proofLabel}>
+                Trạng thái:{" "}
+                <Text style={styles.proofStatus}>
+                  {(proofCourse.status || "pending").toUpperCase()}
+                </Text>
+              </Text>
+              {proofCourse.adminComment ? (
+                <Text style={styles.proofLabel}>Ghi chú admin: <Text style={styles.proofValue}>{proofCourse.adminComment}</Text></Text>
+              ) : null}
+              <View style={styles.proofActionRow}>
+                <TouchableOpacity
+                  style={[styles.proofActionBtn, styles.approveBtn]}
+                  onPress={() => handleProofCourseDecision(proofCourse, "approved")}
+                  disabled={proofCourse.status !== "pending" || loading}
+                >
+                  <Text style={styles.proofActionText}>Duyệt</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.proofActionBtn, styles.rejectBtn]}
+                  onPress={() => handleProofCourseDecision(proofCourse, "rejected")}
+                  disabled={proofCourse.status !== "pending" || loading}
+                >
+                  <Text style={styles.proofActionText}>Từ chối</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <Text style={styles.proofPlaceholder}>Chọn một yêu cầu khóa học trong danh sách để xem chi tiết.</Text>
           )}
         </View>
       );
@@ -587,7 +717,9 @@ const AdminManageScreen: React.FC = () => {
 
   const renderRow = ({ item, index }: { item: any; index: number }) => {
     const isProof = entity === "proofs";
+    const isProofCourse = entity === "proofCourses";
     const isPendingProof = isProof && item.status === "pending";
+    const isPendingProofCourse = isProofCourse && item.status === "pending";
 
     return (
       <TouchableOpacity
@@ -622,6 +754,23 @@ const AdminManageScreen: React.FC = () => {
                 style={[styles.proofRowBtn, styles.rejectBtn]}
                 onPress={() => handleProofDecision(item, "rejected")}
                 disabled={!isPendingProof || loading}
+              >
+                <Text style={styles.proofRowText}>Từ chối</Text>
+              </TouchableOpacity>
+            </View>
+          ) : isProofCourse ? (
+            <View style={styles.proofRowActions}>
+              <TouchableOpacity
+                style={[styles.proofRowBtn, styles.approveBtn]}
+                onPress={() => handleProofCourseDecision(item, "approved")}
+                disabled={!isPendingProofCourse || loading}
+              >
+                <Text style={styles.proofRowText}>Duyệt</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.proofRowBtn, styles.rejectBtn]}
+                onPress={() => handleProofCourseDecision(item, "rejected")}
+                disabled={!isPendingProofCourse || loading}
               >
                 <Text style={styles.proofRowText}>Từ chối</Text>
               </TouchableOpacity>
@@ -681,6 +830,65 @@ const AdminManageScreen: React.FC = () => {
               <TouchableOpacity style={styles.previewCloseBtn} onPress={closePreview}>
                 <Text style={styles.previewCloseText}>Đóng</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={processingModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            if (processingStatus !== "processing") {
+              setProcessingModalVisible(false);
+            }
+          }}
+        >
+          <View style={styles.processingOverlay}>
+            <View style={styles.processingContainer}>
+              {processingStatus === "processing" ? (
+                <>
+                  <ActivityIndicator size="large" color="#20B2AA" />
+                  <Text style={styles.processingTitle}>Đang xử lý...</Text>
+                  <Text style={styles.processingMessage}>{processingMessage}</Text>
+                </>
+              ) : processingStatus === "success" ? (
+                <>
+                  <View style={styles.successIcon}>
+                    <Text style={styles.successIconText}>✓</Text>
+                  </View>
+                  <Text style={styles.processingTitle}>Thành công!</Text>
+                  <Text style={styles.processingMessage}>{processingMessage}</Text>
+                  <TouchableOpacity
+                    style={styles.processingButton}
+                    onPress={() => {
+                      setProcessingModalVisible(false);
+                      setProcessingStatus("processing");
+                      setProcessingMessage("");
+                    }}
+                  >
+                    <Text style={styles.processingButtonText}>Đóng</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <View style={styles.errorIcon}>
+                    <Text style={styles.errorIconText}>✕</Text>
+                  </View>
+                  <Text style={styles.processingTitle}>Lỗi</Text>
+                  <Text style={styles.processingMessage}>{processingMessage}</Text>
+                  <TouchableOpacity
+                    style={[styles.processingButton, styles.errorButton]}
+                    onPress={() => {
+                      setProcessingModalVisible(false);
+                      setProcessingStatus("processing");
+                      setProcessingMessage("");
+                    }}
+                  >
+                    <Text style={styles.processingButtonText}>Đóng</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </View>
         </Modal>
@@ -1037,6 +1245,78 @@ const styles = StyleSheet.create({
     color: "#fff",
     textAlign: "center",
     fontWeight: "700",
+  },
+  processingOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  processingContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 32,
+    width: "80%",
+    maxWidth: 400,
+    alignItems: "center",
+  },
+  processingTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#333",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  processingMessage: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  processingButton: {
+    backgroundColor: "#20B2AA",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    minWidth: 100,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  processingButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  successIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#2ECC71",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  successIconText: {
+    color: "#fff",
+    fontSize: 36,
+    fontWeight: "700",
+  },
+  errorIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#E74C3C",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  errorIconText: {
+    color: "#fff",
+    fontSize: 36,
+    fontWeight: "700",
+  },
+  errorButton: {
+    backgroundColor: "#E74C3C",
   },
 });
 

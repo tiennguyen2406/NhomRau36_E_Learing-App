@@ -8,11 +8,12 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Modal,
 } from "react-native";
-import { createLesson } from "../api/api";
 import { useNavigation } from "@react-navigation/native";
 import { RootStackNavProps } from "../navigation/AppNavigator";
 import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type QuizOption = { text: string };
 type QuizQuestion = {
@@ -24,13 +25,13 @@ type QuizQuestion = {
 
 const CreateQuizLessonScreen: React.FC = () => {
   const navigation = useNavigation<RootStackNavProps>();
-  const [courseId, setCourseId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [questions, setQuestions] = useState<QuizQuestion[]>([
     { text: "", options: [{ text: "" }, { text: "" }], correctIndex: 0, explanation: "" },
   ]);
   const [loading, setLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const addQuestion = () => {
     setQuestions((q) => [
@@ -67,7 +68,6 @@ const CreateQuizLessonScreen: React.FC = () => {
 
   const payload = useMemo(() => {
     return {
-      courseId: courseId.trim(),
       title: title.trim(),
       description: description.trim(),
       kind: "quiz",
@@ -78,13 +78,9 @@ const CreateQuizLessonScreen: React.FC = () => {
         explanation: qq.explanation?.trim() || "",
       })),
     };
-  }, [courseId, title, description, questions]);
+  }, [title, description, questions]);
 
   const onSubmit = async () => {
-    if (!payload.courseId) {
-      Alert.alert("Thiếu thông tin", "Vui lòng nhập Course ID.");
-      return;
-    }
     if (!payload.title) {
       Alert.alert("Thiếu thông tin", "Vui lòng nhập tiêu đề bài học.");
       return;
@@ -95,14 +91,20 @@ const CreateQuizLessonScreen: React.FC = () => {
     }
     try {
       setLoading(true);
-      await createLesson(payload as any);
+      // Lưu dữ liệu quiz lesson vào AsyncStorage để truyền về CreateCourseScreen
+      const quizLessonData = {
+        ...payload,
+        order: String(Date.now()), // Tạm thời dùng timestamp làm order
+      };
+      await AsyncStorage.setItem("pendingQuizLesson", JSON.stringify(quizLessonData));
+      // Reset form
       setTitle("");
       setDescription("");
-      setCourseId("");
       setQuestions([{ text: "", options: [{ text: "" }, { text: "" }], correctIndex: 0, explanation: "" }]);
-      Alert.alert("Thành công", "Đã tạo bài học quiz.");
+      // Hiển thị modal thông báo
+      setShowSuccessModal(true);
     } catch (e: any) {
-      Alert.alert("Lỗi", e?.message || "Không thể tạo bài học quiz.");
+      Alert.alert("Lỗi", e?.message || "Không thể lưu bài học quiz.");
     } finally {
       setLoading(false);
     }
@@ -118,9 +120,6 @@ const CreateQuizLessonScreen: React.FC = () => {
       </View>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.card}>
-          <Text style={styles.label}>Course ID</Text>
-          <TextInput style={styles.input} value={courseId} onChangeText={setCourseId} placeholder="Nhập courseId" />
-
           <Text style={styles.label}>Tiêu đề</Text>
           <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Nhập tiêu đề" />
 
@@ -185,6 +184,32 @@ const CreateQuizLessonScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowSuccessModal(false);
+          navigation.goBack();
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Thành công!</Text>
+            <Text style={styles.modalMessage}>Đã lưu bài học quiz. Quay lại trang tạo khóa học để xem.</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => {
+                setShowSuccessModal(false);
+                navigation.goBack();
+              }}
+            >
+              <Text style={styles.modalButtonText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -214,6 +239,45 @@ const styles = StyleSheet.create({
   addText: { color: "#333", fontWeight: "600" },
   submitBtn: { marginTop: 16, backgroundColor: "#20B2AA", borderRadius: 8, paddingVertical: 12, alignItems: "center" },
   submitText: { color: "#fff", fontWeight: "700" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 24,
+    width: "80%",
+    maxWidth: 400,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  modalButton: {
+    backgroundColor: "#20B2AA",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    minWidth: 100,
+    alignItems: "center",
+  },
+  modalButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
+  },
 });
 
 export default CreateQuizLessonScreen;

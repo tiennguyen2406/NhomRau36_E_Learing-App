@@ -27,6 +27,8 @@ import AdminManageScreen from "../screens/AdminManageScreen";
 import AdminStatsScreen from "../screens/AdminStatsScreen";
 import CreateCourseScreen from "../screens/CreateCourseScreen";
 import CreateQuizLessonScreen from "../screens/CreateQuizLessonScreen";
+import InboxScreen from "../screens/InboxScreen";
+import ChatScreen from "../screens/ChatScreen";
 
 // Định nghĩa kiểu cho routes trong ứng dụng
 export type RootStackParamList = {
@@ -72,6 +74,11 @@ export type ProfileStackParamList = {
   EditProfile: undefined;
 };
 
+export type InboxStackParamList = {
+  Inbox: undefined;
+  Chat: { chatId: string; name?: string };
+};
+
 // Navigation Props
 export type RootStackNavProps = NativeStackNavigationProp<RootStackParamList>;
 export type HomeStackNavProps = NativeStackNavigationProp<HomeStackParamList>;
@@ -84,6 +91,7 @@ const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
+const InboxStack = createNativeStackNavigator<InboxStackParamList>();
 
 // Auth Navigator
 const AuthNavigator = () => {
@@ -110,6 +118,16 @@ const ProfileStackNavigator = () => {
       <ProfileStack.Screen name="Profile" component={ProfileScreen} />
       <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} />
     </ProfileStack.Navigator>
+  );
+};
+
+// Inbox Stack
+const InboxStackNavigator = () => {
+  return (
+    <InboxStack.Navigator screenOptions={{ headerShown: false }}>
+      <InboxStack.Screen name="Inbox" component={InboxScreen} />
+      <InboxStack.Screen name="Chat" component={ChatScreen} />
+    </InboxStack.Navigator>
   );
 };
 
@@ -219,7 +237,7 @@ const TabNavigator = () => {
           />
           <Tab.Screen
             name="Inbox"
-            component={EmptyPlaceholder}
+            component={InboxStackNavigator}
             options={{ tabBarLabel: "INBOX" }}
           />
           <Tab.Screen

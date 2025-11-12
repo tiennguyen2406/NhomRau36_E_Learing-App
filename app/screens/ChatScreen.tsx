@@ -1,44 +1,419 @@
-import React, { useMemo, useRef, useState } from "react";
-import { SafeAreaView, StyleSheet, Text, View, TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform } from "react-native";
+import React, { useMemo, useRef, useState, useEffect } from "react";
+import {
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  FlatList,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  Linking,
+  Image,
+  Modal,
+} from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { database } from "../firebase";
+import {
+  ref,
+  onValue,
+  off,
+  push,
+  set,
+  update,
+  DataSnapshot,
+  serverTimestamp,
+} from "firebase/database";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getUserByUsername } from "../api/api";
+import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
+import { uploadProofFile } from "../api/api";
+import { Video } from "expo-av";
 
-type Msg = { id: string; fromMe?: boolean; text: string; time: string };
+type AttachmentDraft = {
+  uri: string;
+  name?: string;
+  type?: string;
+  size?: number | null;
+};
 
-const MOCK_MSGS: Msg[] = [
-  { id: "m1", text: "Hi, Nicholas Good Evening 😊", time: "10:45", fromMe: true },
-  { id: "m2", text: "How was your UI/UX Design Course Like? 🤔", time: "12:45", fromMe: true },
-  { id: "m3", text: "Hi, Morning too Ronald", time: "15:29" },
-  { id: "m5", text: "Hello, i also just finished the Sketch Basic ⭐⭐⭐⭐", time: "15:29" },
-  { id: "m6", text: "OMG, This is Amazing..", time: "15:59", fromMe: true },
-];
+type Msg = {
+  id: string;
+  fromMe?: boolean;
+  text: string;
+  time: string;
+  timestamp?: number;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentType?: string;
+  attachmentSize?: number | null;
+};
 
 const ChatScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<any>();
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Msg[]>(MOCK_MSGS);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<AttachmentDraft | null>(null);
+  const [sending, setSending] = useState(false);
+  const [preview, setPreview] = useState<{ url: string; type: "image" | "video" } | null>(null);
   const listRef = useRef<FlatList>(null);
 
+  const chatId = route?.params?.chatId;
   const name = route?.params?.name || "Inbox";
+  const otherUserId = route?.params?.otherUserId;
+  const passedCurrentUserId = route?.params?.currentUserId;
 
-  const send = () => {
-    const text = input.trim();
-    if (!text) return;
-    const now = new Date();
-    setMessages((m) => [...m, { id: String(Math.random()), text, time: now.toTimeString().slice(0, 5), fromMe: true }]);
-    setInput("");
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
+  // Load current user
+  useEffect(() => {
+    (async () => {
+      try {
+        // Ưu tiên dùng currentUserId từ params (nếu có)
+        if (passedCurrentUserId) {
+          setCurrentUserId(String(passedCurrentUserId));
+          return;
+        }
+        
+        const username = await AsyncStorage.getItem("currentUsername");
+        if (username) {
+          const user = await getUserByUsername(username);
+          if (user?.uid || user?.id) {
+            setCurrentUserId(String(user.uid || user.id));
+          }
+        }
+      } catch (e) {
+        console.error("Error loading current user:", e);
+      }
+    })();
+  }, [passedCurrentUserId]);
+
+  // Load messages from Firebase
+  useEffect(() => {
+    if (!chatId || !currentUserId) return;
+
+    const messagesRef = ref(database, `messages/${chatId}`);
+    
+    const unsubscribe = onValue(messagesRef, (snapshot: DataSnapshot) => {
+      try {
+        const messagesData = snapshot.val();
+        if (!messagesData) {
+          setMessages([]);
+          return;
+        }
+
+        const messagesList: Msg[] = [];
+        for (const [messageId, message] of Object.entries(messagesData as any)) {
+          const msg = message as any;
+          const isFromMe = msg.senderId === currentUserId;
+          
+          const rawTimestamp = msg.timestamp ?? msg.clientTimestamp ?? 0;
+          const timestamp = typeof rawTimestamp === "number" ? rawTimestamp : Number(rawTimestamp) || 0;
+          const date = new Date(timestamp);
+          const time = date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+          messagesList.push({
+            id: messageId,
+            fromMe: isFromMe,
+            text: msg.text || "",
+            time,
+            timestamp,
+            attachmentUrl: msg.attachmentUrl || "",
+            attachmentName: msg.attachmentName || "",
+            attachmentType: msg.attachmentType || "",
+            attachmentSize: typeof msg.attachmentSize === "number" ? msg.attachmentSize : null,
+          });
+        }
+
+        // Sắp xếp tăng dần để tin nhắn cũ ở trên, mới ở dưới
+        messagesList.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        setMessages(messagesList);
+        
+        // Cuộn xuống cuối danh sách để hiển thị tin nhắn mới nhất bên dưới
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100);
+      } catch (e) {
+        console.error("Error processing messages:", e);
+      }
+    });
+
+    return () => {
+      off(messagesRef);
+    };
+  }, [chatId, currentUserId]);
+
+  const pickAttachment = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        multiple: false,
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+
+      const asset = result.assets?.[0];
+      if (!asset?.uri) return;
+
+      const fileSize = typeof asset.size === "number" ? asset.size : null;
+      if (fileSize && fileSize > 10 * 1024 * 1024) {
+        Alert.alert("Tệp quá lớn", "Vui lòng chọn tệp nhỏ hơn 10MB.");
+        return;
+      }
+
+      setAttachment({
+        uri: asset.uri,
+        name: asset.name || "attachment",
+        type: asset.mimeType || "application/octet-stream",
+        size: fileSize,
+      });
+    } catch (error) {
+      console.error("Attachment pick error:", error);
+      Alert.alert("Lỗi", "Không thể chọn tệp đính kèm.");
+    }
   };
 
-  const renderItem = ({ item }: { item: Msg }) => (
+  const removeAttachment = () => {
+    setAttachment(null);
+  };
+
+  const captureImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Quyền camera bị từ chối", "Vui lòng cấp quyền sử dụng camera để chụp ảnh.");
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+      });
+      if (result.canceled) return;
+
+      const asset = result.assets?.[0];
+      if (!asset?.uri) return;
+
+      const fileSize = typeof asset.fileSize === "number" ? asset.fileSize : null;
+      if (fileSize && fileSize > 10 * 1024 * 1024) {
+        Alert.alert("Ảnh quá lớn", "Vui lòng chụp ảnh nhỏ hơn 10MB.");
+        return;
+      }
+
+      setAttachment({
+        uri: asset.uri,
+        name: asset.fileName || "photo.jpg",
+        type: asset.type || "image/jpeg",
+        size: fileSize,
+      });
+    } catch (error) {
+      console.error("Capture image error:", error);
+      Alert.alert("Lỗi", "Không thể chụp ảnh.");
+    }
+  };
+
+  const formatFileSize = (size?: number | null) => {
+    if (!size || Number.isNaN(size)) return "";
+    if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    if (size >= 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${size} B`;
+  };
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text && !attachment) return;
+    if (!chatId || !currentUserId) return;
+    if (sending) return;
+
+    try {
+      setSending(true);
+      console.log("Sending message", { chatId, currentUserId, otherUserId, text });
+      const messagesRef = ref(database, `messages/${chatId}`);
+      const newMessageRef = push(messagesRef);
+
+      let uploadedAttachment: { url: string; name?: string; type?: string; size?: number | null } | null = null;
+      if (attachment) {
+        uploadedAttachment = {
+          url: await uploadProofFile({
+            uri: attachment.uri,
+            name: attachment.name,
+            type: attachment.type,
+          }),
+          name: attachment.name,
+          type: attachment.type,
+          size: attachment.size,
+        };
+      }
+      
+      const clientTimestamp = Date.now();
+      await set(newMessageRef, {
+        senderId: String(currentUserId),
+        text,
+        timestamp: serverTimestamp(),
+        clientTimestamp,
+        attachmentUrl: uploadedAttachment?.url || "",
+        attachmentName: uploadedAttachment?.name || "",
+        attachmentType: uploadedAttachment?.type || "",
+        attachmentSize: uploadedAttachment?.size ?? null,
+      });
+
+      // Cập nhật lastMessage trong conversation
+      const conversationUpdates: any = {};
+      const lastMessageLabel =
+        text || (uploadedAttachment ? `Đã gửi tệp ${uploadedAttachment.name || ""}`.trim() : "");
+      conversationUpdates[`conversations/${chatId}/lastMessage`] = lastMessageLabel || "";
+      conversationUpdates[`conversations/${chatId}/lastMessageTime`] = clientTimestamp;
+      
+      // Đảm bảo participants được set
+      if (otherUserId) {
+        conversationUpdates[`conversations/${chatId}/participants`] = [
+          String(currentUserId),
+          String(otherUserId),
+        ];
+        conversationUpdates[`conversations/${chatId}/createdAt`] =
+          conversationUpdates[`conversations/${chatId}/createdAt`] || clientTimestamp;
+      }
+      
+      await update(ref(database), conversationUpdates);
+
+    setInput("");
+      setAttachment(null);
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
+    } catch (e) {
+      console.error("Error sending message:", e);
+      Alert.alert("Lỗi", "Không thể gửi tin nhắn. Vui lòng thử lại.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const closePreview = () => setPreview(null);
+
+  const startVideoCall = () => {
+    if (!otherUserId) {
+      Alert.alert("Không thể gọi", "Không xác định được người nhận cuộc gọi.");
+      return;
+    }
+    Alert.alert("Video call", "Tính năng gọi video đang được phát triển.");
+  };
+
+  const renderItem = ({ item }: { item: Msg }) => {
+    const isImage = item.attachmentType?.startsWith("image/");
+    const isVideo = item.attachmentType?.startsWith("video/");
+    const hasAttachment = Boolean(item.attachmentUrl);
+
+    const openAttachment = () => {
+      if (!item.attachmentUrl) return;
+      Linking.openURL(item.attachmentUrl).catch(() => Alert.alert("Lỗi", "Không thể mở tệp đính kèm."));
+    };
+
+    const hasMediaOnly = hasAttachment && !item.text && (isImage || isVideo);
+    const renderAttachment = () => {
+      if (!hasAttachment) return null;
+      if (isImage) {
+        return (
+          <View style={styles.mediaAttachmentWrapper}>
+            <TouchableOpacity
+              onPress={() => setPreview({ url: item.attachmentUrl as string, type: "image" })}
+              activeOpacity={0.9}
+            >
+              <Image source={{ uri: item.attachmentUrl }} style={styles.imageAttachment} resizeMode="cover" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.zoomButton}
+              onPress={() => setPreview({ url: item.attachmentUrl as string, type: "image" })}
+            >
+              <MaterialIcons name="zoom-out-map" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        );
+      }
+      if (isVideo) {
+        return (
+          <View style={styles.mediaAttachmentWrapper}>
+            <Video
+              source={{ uri: item.attachmentUrl }}
+              style={styles.videoAttachment}
+              useNativeControls
+              resizeMode="contain"
+              shouldPlay={false}
+            />
+            <TouchableOpacity
+              style={styles.zoomButton}
+              onPress={() => setPreview({ url: item.attachmentUrl as string, type: "video" })}
+            >
+              <MaterialIcons name="zoom-out-map" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        );
+      }
+      return (
+        <TouchableOpacity
+          style={[
+            styles.attachmentBubble,
+            item.fromMe ? styles.attachmentBubbleLight : styles.attachmentBubbleDark,
+          ]}
+          onPress={openAttachment}
+        >
+          <MaterialIcons
+            name="attach-file"
+            size={18}
+            color={item.fromMe ? "#0f4b47" : "#fff"}
+            style={{ marginRight: 6 }}
+          />
+          <View style={{ flexShrink: 1 }}>
+            <Text
+              style={[
+                styles.attachmentName,
+                item.fromMe ? styles.attachmentTextDark : styles.attachmentTextLight,
+              ]}
+              numberOfLines={1}
+            >
+              {item.attachmentName || "Tệp đính kèm"}
+            </Text>
+            {item.attachmentSize ? (
+              <Text
+                style={[
+                  styles.attachmentSize,
+                  item.fromMe ? styles.attachmentTextDark : styles.attachmentTextLight,
+                ]}
+              >
+                {formatFileSize(item.attachmentSize)}
+              </Text>
+            ) : null}
+          </View>
+        </TouchableOpacity>
+      );
+    };
+
+    return (
     <View style={[styles.bubbleRow, item.fromMe ? styles.right : styles.left]}>
-      <View style={[styles.bubble, item.fromMe ? styles.bubbleMe : styles.bubbleOther]}>
-        <Text style={styles.bubbleText}>{item.text}</Text>
-        <Text style={styles.bubbleTime}>{item.time}</Text>
+        <View
+          style={[
+            styles.bubble,
+            hasMediaOnly ? styles.bubbleMediaOnly : item.fromMe ? styles.bubbleMe : styles.bubbleOther,
+          ]}
+        >
+          {renderAttachment()}
+          {item.text ? (
+            <Text style={[styles.bubbleText, !item.fromMe ? styles.bubbleTextDark : null]}>
+              {item.text}
+            </Text>
+          ) : null}
+          <Text
+            style={[
+              hasMediaOnly ? styles.bubbleTimeMedia : styles.bubbleTime,
+              !item.fromMe ? styles.bubbleTimeDark : null,
+            ]}
+          >
+            {item.time}
+          </Text>
       </View>
     </View>
   );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -47,7 +422,9 @@ const ChatScreen: React.FC = () => {
           <MaterialIcons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{name}</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={startVideoCall} style={styles.videoCallBtn}>
+          <MaterialIcons name="videocam" size={24} color="#20B2AA" />
+        </TouchableOpacity>
       </View>
       <FlatList
         ref={listRef}
@@ -57,19 +434,74 @@ const ChatScreen: React.FC = () => {
         contentContainerStyle={styles.listContent}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
       />
+      {attachment ? (
+        <View style={styles.attachmentPreview}>
+          <View style={styles.attachmentPreviewInfo}>
+            <MaterialIcons
+              name={attachment.type?.startsWith("image/") ? "image" : "insert-drive-file"}
+              size={20}
+              color="#20B2AA"
+              style={{ marginRight: 8 }}
+            />
+            <View style={{ flexShrink: 1 }}>
+              <Text style={styles.attachmentPreviewName} numberOfLines={1}>
+                {attachment.name || "Tệp đính kèm"}
+              </Text>
+              <Text style={styles.attachmentPreviewSize}>{formatFileSize(attachment.size)}</Text>
+            </View>
+          </View>
+          <TouchableOpacity onPress={removeAttachment} style={styles.removeAttachmentBtn}>
+            <MaterialIcons name="close" size={18} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      ) : null}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={styles.inputRow}>
           <TextInput
             style={styles.input}
-            placeholder="Message"
+            placeholder="Nhập tin nhắn..."
             value={input}
             onChangeText={setInput}
+            multiline
           />
-          <TouchableOpacity style={styles.micBtn} onPress={send}>
+          <TouchableOpacity style={styles.cameraBtn} onPress={captureImage}>
+            <MaterialIcons name="photo-camera" size={20} color="#20B2AA" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.attachBtn} onPress={pickAttachment}>
+            <MaterialIcons name="attach-file" size={20} color="#20B2AA" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.sendBtn, sending ? styles.sendBtnDisabled : null]}
+            onPress={send}
+            disabled={sending}
+          >
             <MaterialIcons name="send" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+      <Modal
+        visible={!!preview}
+        transparent
+        animationType="fade"
+        onRequestClose={closePreview}
+      >
+        <View style={styles.previewOverlay}>
+          <TouchableOpacity style={styles.previewCloseBtn} onPress={closePreview}>
+            <MaterialIcons name="close" size={26} color="#fff" />
+          </TouchableOpacity>
+          {preview?.type === "video" ? (
+            <Video
+              source={{ uri: preview.url }}
+              style={styles.previewVideo}
+              useNativeControls
+              resizeMode="contain"
+              shouldPlay
+            />
+          ) : preview ? (
+            <Image source={{ uri: preview.url }} style={styles.previewImage} resizeMode="contain" />
+          ) : null}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -78,18 +510,153 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f8f8" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "#fff" },
   headerTitle: { fontSize: 16, fontWeight: "700", color: "#333" },
-  listContent: { padding: 12, paddingBottom: 10 },
+  videoCallBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#20B2AA",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f0fffc",
+  },
+  listContent: { flexGrow: 1, justifyContent: "flex-end", padding: 12, paddingBottom: 10 },
   bubbleRow: { flexDirection: "row", marginVertical: 6 },
   left: { justifyContent: "flex-start" },
   right: { justifyContent: "flex-end" },
   bubble: { maxWidth: "80%", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
   bubbleMe: { backgroundColor: "#20B2AA" },
   bubbleOther: { backgroundColor: "#e9eef3" },
-  bubbleText: { color: "#fff" },
+  bubbleMediaOnly: { backgroundColor: "transparent", padding: 0, borderRadius: 0 },
+  bubbleText: { color: "#fff", fontSize: 14 },
+  bubbleTextDark: { color: "#243238" },
   bubbleTime: { color: "#f0f0f0", fontSize: 10, alignSelf: "flex-end", marginTop: 4 },
-  inputRow: { flexDirection: "row", alignItems: "center", padding: 10, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#eee" },
-  input: { flex: 1, backgroundColor: "#f2f2f2", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, marginRight: 8 },
-  micBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#20B2AA", alignItems: "center", justifyContent: "center" },
+  bubbleTimeDark: { color: "#6f7b87" },
+  bubbleTimeMedia: { color: "#6f7b87", fontSize: 10, alignSelf: "flex-end", marginTop: 6 },
+  attachmentBubble: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+    padding: 8,
+    borderRadius: 8,
+  },
+  attachmentBubbleLight: { backgroundColor: "#d1f5f1" },
+  attachmentBubbleDark: { backgroundColor: "#3a4a5b" },
+  attachmentName: { fontWeight: "600", fontSize: 13 },
+  attachmentSize: { fontSize: 11, opacity: 0.85 },
+  attachmentTextLight: { color: "#fff" },
+  attachmentTextDark: { color: "#164743" },
+  mediaAttachmentWrapper: {
+    borderRadius: 14,
+    overflow: "hidden",
+    marginBottom: 8,
+    position: "relative",
+    backgroundColor: "transparent",
+  },
+  imageAttachment: { width: 240, height: 240 },
+  videoAttachment: { width: 260, height: 180, backgroundColor: "#000" },
+  zoomButton: {
+    position: "absolute",
+    right: 10,
+    bottom: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attachmentPreview: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#e6f7f5",
+    marginHorizontal: 10,
+    marginBottom: 6,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  attachmentPreviewInfo: { flexDirection: "row", alignItems: "center", flex: 1 },
+  attachmentPreviewName: { fontWeight: "600", color: "#116c67", marginBottom: 2 },
+  attachmentPreviewSize: { color: "#458c87", fontSize: 12 },
+  removeAttachmentBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#ff7875",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 10,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+  },
+  attachBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#20B2AA",
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: 6,
+    backgroundColor: "#f5fffd",
+  },
+  cameraBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#20B2AA",
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: 6,
+    backgroundColor: "#f5fffd",
+  },
+  input: {
+    flex: 1,
+    backgroundColor: "#f2f2f2",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginRight: 8,
+    maxHeight: 110,
+  },
+  sendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#20B2AA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sendBtnDisabled: { opacity: 0.5 },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.88)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  previewCloseBtn: {
+    position: "absolute",
+    top: 40,
+    right: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+  },
+  previewImage: { width: "90%", height: "70%" },
+  previewVideo: { width: "90%", height: "70%" },
 });
 
 export default ChatScreen;

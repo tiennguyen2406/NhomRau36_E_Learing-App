@@ -29,6 +29,7 @@ import CreateCourseScreen from "../screens/CreateCourseScreen";
 import CreateQuizLessonScreen from "../screens/CreateQuizLessonScreen";
 import InboxScreen from "../screens/InboxScreen";
 import ChatScreen from "../screens/ChatScreen";
+import QuizLessonScreen from "../screens/QuizLessonScreen";
 
 // Định nghĩa kiểu cho routes trong ứng dụng
 export type RootStackParamList = {
@@ -47,6 +48,19 @@ export type RootStackParamList = {
   CourseDetail: { courseId: string };
   CourseLessons: { courseId: string; title?: string };
   VideoPlayer: { videoUrl: string; title?: string };
+  QuizLesson: {
+    courseId: string;
+    lessonId: string;
+    title: string;
+    description?: string;
+    questions: {
+      text: string;
+      options: string[];
+      correctIndex: number;
+      explanation?: string;
+    }[];
+    currentUserId?: string | null;
+  };
 };
 
 export type AuthStackParamList = {
@@ -285,6 +299,7 @@ const AppNavigator = () => {
       <RootStack.Screen name="CourseDetail" component={CourseDetailScreen} />
       <RootStack.Screen name="CourseLessons" component={CourseLessonsScreen} />
       <RootStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
+      <RootStack.Screen name="QuizLesson" component={QuizLessonScreen} />
       <RootStack.Screen name="CreateQuizLesson" component={CreateQuizLessonScreen} />
     </RootStack.Navigator>
   );

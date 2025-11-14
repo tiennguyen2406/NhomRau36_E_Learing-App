@@ -322,6 +322,33 @@ export const getProofCourses = async () => {
   return requestJson(`${BASE_URL}/proof-courses`);
 };
 
+export const saveQuizResult = async (
+  lessonId: string,
+  data: {
+    userId: string;
+    courseId: string;
+    totalQuestions: number;
+    correctCount: number;
+    percentage?: number;
+    answers: any[];
+  }
+) => {
+  return requestJson(`${BASE_URL}/quiz-results/${lessonId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+};
+
+export const getQuizResultsByCourse = async (
+  courseId: string,
+  userId: string
+) => {
+  return requestJson(
+    `${BASE_URL}/quiz-results/course/${courseId}/user/${userId}`
+  );
+};
+
 export default function API() {
   return null;
 }

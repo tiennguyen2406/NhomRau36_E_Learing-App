@@ -1,9 +1,9 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getCourseById, getUsers, getLessonCountByCourse, enrollCourse, getUserByUsername } from "../api/api";
+import { getCourseById, getUsers, getLessonCountByCourse, enrollCourse, getUserByUsername, createPaymentLink } from "../api/api";
 
 type RouteParams = { courseId: string };
 
@@ -77,11 +77,40 @@ const CourseDetailScreen: React.FC = () => {
         Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng');
         return;
       }
-      await enrollCourse(user.uid, courseId);
-      // Điều hướng sang tab My Courses để đảm bảo focus và auto-refresh
-      Alert.alert('Thành công', 'Đã tham gia khóa học thành công!', [
-        { text: 'OK', onPress: () => (navigation as any).navigate('MainTabs', { screen: 'Courses' }) }
-      ]);
+
+      // Kiểm tra khóa học có phí không
+      const coursePrice = course?.price || 0;
+      if (coursePrice > 0) {
+        // Khóa học có phí - Tạo link thanh toán
+        try {
+          const paymentData = await createPaymentLink(user.uid, courseId);
+          if (paymentData?.checkoutUrl) {
+            // Mở link thanh toán trong trình duyệt
+            const supported = await Linking.canOpenURL(paymentData.checkoutUrl);
+            if (supported) {
+              await Linking.openURL(paymentData.checkoutUrl);
+              Alert.alert(
+                'Chuyển đến trang thanh toán',
+                'Vui lòng hoàn tất thanh toán. Sau khi thanh toán thành công, khóa học sẽ được tự động kích hoạt.',
+                [{ text: 'OK' }]
+              );
+            } else {
+              Alert.alert('Lỗi', 'Không thể mở link thanh toán');
+            }
+          } else {
+            Alert.alert('Lỗi', 'Không thể tạo link thanh toán');
+          }
+        } catch (paymentError: any) {
+          const errorMsg = paymentError?.message || 'Không thể tạo thanh toán';
+          Alert.alert('Lỗi thanh toán', errorMsg);
+        }
+      } else {
+        // Khóa học miễn phí - Enroll trực tiếp
+        await enrollCourse(user.uid, courseId);
+        Alert.alert('Thành công', 'Đã tham gia khóa học thành công!', [
+          { text: 'OK', onPress: () => (navigation as any).navigate('MainTabs', { screen: 'Courses' }) }
+        ]);
+      }
     } catch (e: any) {
       const msg = e?.message || 'Không thể tham gia khóa học';
       Alert.alert('Lỗi', msg.includes('đã tham gia') ? msg : 'Có lỗi xảy ra. Vui lòng thử lại.');
@@ -151,11 +180,13 @@ const CourseDetailScreen: React.FC = () => {
               <Text style={styles.rowText}>{lessonCount} bài học</Text>
             </View>
           ) : null}
-          {typeof course?.originalPrice !== 'undefined' ? (
+          {typeof course?.price !== 'undefined' ? (
             <View style={styles.row}>
               <MaterialIcons name="attach-money" size={18} color="#20B2AA" />
-              <Text style={styles.rowText}>Giá gốc: </Text>
-              <Text style={styles.originalPrice}>{course.originalPrice}</Text>
+              <Text style={styles.rowText}>Giá: </Text>
+              <Text style={styles.priceText}>
+                {course.price === 0 || !course.price ? 'Miễn phí' : `${course.price.toLocaleString('vi-VN')} VND`}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -170,7 +201,11 @@ const CourseDetailScreen: React.FC = () => {
           {enrolling ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.joinText}>Tham gia khóa học</Text>
+            <Text style={styles.joinText}>
+              {course?.price && course.price > 0 
+                ? `Thanh toán ${course.price.toLocaleString('vi-VN')} VND` 
+                : 'Tham gia miễn phí'}
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -193,7 +228,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: "600", color: "#222", marginTop: 8, marginBottom: 6 },
   description: { color: "#444", lineHeight: 20 },
   retry: { backgroundColor: "#20B2AA", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, marginTop: 10 },
-  originalPrice: { textDecorationLine: 'line-through', color: '#888', marginLeft: 4 },
+  priceText: { fontWeight: '700', color: '#20B2AA', marginLeft: 4, fontSize: 15 },
   scrollContent: { paddingBottom: 100 },
   footerCta: { position: "absolute", bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 32, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#e0e0e0", shadowColor: "#000", shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 5 },
   joinBtn: { backgroundColor: '#20B2AA', borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingVertical: 14 },

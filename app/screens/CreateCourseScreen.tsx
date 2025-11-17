@@ -301,14 +301,15 @@ const CreateCourseScreen: React.FC = () => {
             onChange={(it: any) => setCategoryId(it.value)}
           />
 
-          <Text style={styles.label}>Giá</Text>
+          <Text style={styles.label}>Giá khóa học (VND)</Text>
           <TextInput
             style={styles.input}
-            placeholder="0"
+            placeholder="Nhập giá (VD: 100000 cho khóa học trả phí, 0 cho khóa học miễn phí)"
             keyboardType="numeric"
             value={price}
             onChangeText={setPrice}
           />
+          <Text style={styles.hint}>Để giá = 0 nếu khóa học miễn phí. Học viên sẽ phải thanh toán nếu giá {'>'} 0</Text>
 
           <Text style={styles.label}>Thumbnail</Text>
           <TouchableOpacity style={styles.uploadBox} onPress={pickThumbnail}>
@@ -558,6 +559,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   uploadText: { color: "#333", fontWeight: "600" },
+  hint: {
+    fontSize: 11,
+    color: "#888",
+    marginTop: 4,
+    fontStyle: "italic",
+  },
 });
 
 export default CreateCourseScreen;

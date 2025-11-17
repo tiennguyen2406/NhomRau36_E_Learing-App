@@ -349,6 +349,41 @@ export const getQuizResultsByCourse = async (
   );
 };
 
+// ===== PAYMENT APIs =====
+
+// Tạo link thanh toán cho khóa học
+export const createPaymentLink = async (userId: string, courseId: string) => {
+  return requestJson(`${BASE_URL}/payments/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, courseId }),
+  });
+};
+
+// Kiểm tra trạng thái thanh toán
+export const checkPaymentStatus = async (orderCode: string) => {
+  return requestJson(`${BASE_URL}/payments/status/${orderCode}`);
+};
+
+// Lấy lịch sử thanh toán của user
+export const getUserPayments = async (userId: string) => {
+  return requestJson(`${BASE_URL}/payments/user/${userId}`);
+};
+
+// Hủy thanh toán
+export const cancelPayment = async (orderCode: string) => {
+  return requestJson(`${BASE_URL}/payments/cancel/${orderCode}`, {
+    method: "POST",
+  });
+};
+
+// Verify và enroll sau khi thanh toán
+export const verifyAndEnrollPayment = async (orderCode: string) => {
+  return requestJson(`${BASE_URL}/payments/verify/${orderCode}`, {
+    method: "POST",
+  });
+};
+
 export default function API() {
   return null;
 }

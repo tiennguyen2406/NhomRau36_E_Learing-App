@@ -395,6 +395,20 @@ export const chatWithAI = async (message: string, conversationHistory: any[] = [
   });
 };
 
+// Lấy danh sách khóa học do instructor tạo
+export const getCoursesByInstructor = async (instructorId: string) => {
+  return requestJson(`${BASE_URL}/courses/instructor/${instructorId}`);
+};
+
+// Cập nhật khóa học
+export const updateCourse = async (courseId: string, data: any) => {
+  return requestJson(`${BASE_URL}/courses/${courseId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+};
+
 export default function API() {
   return null;
 }

@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RootStackParamList } from "../navigation/AppNavigator";
-import { getUserByUsername, getUserCourses, unenrollCourse } from "../api/api";
+import { getUserByUsername, getUserCourses, unenrollCourse, getCoursesByInstructor } from "../api/api";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -32,17 +32,23 @@ interface Course {
   totalLessons?: number;
   thumbnailUrl?: string;
   image?: string;
+  imageUrl?: string;
+  status?: string;
+  isPublished?: boolean;
 }
 
 const MyCoursesScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-  const [activeTab, setActiveTab] = useState<'completed' | 'ongoing'>('ongoing');
+  const [activeTab, setActiveTab] = useState<'completed' | 'ongoing' | 'mycreated'>('ongoing');
   const [searchText, setSearchText] = useState("");
   const [courses, setCourses] = useState<Course[]>([]);
+  const [createdCourses, setCreatedCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [unenrollingId, setUnenrollingId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>('student');
+  const [userId, setUserId] = useState<string>('');
 
   const loadCourses = async () => {
     try {
@@ -50,10 +56,24 @@ const MyCoursesScreen: React.FC = () => {
       const username = stored || 'instructor01';
       const user = await getUserByUsername(username);
       if (!user) throw new Error('User not found');
+      
+      // Lưu user info
+      setUserId(user.uid);
+      setUserRole(user.role || 'student');
+      
+      // Load enrolled courses
       const userCourses = await getUserCourses(user.uid);
       setCourses(userCourses || []);
+      
+      // Load created courses nếu là instructor
+      if (user.role === 'instructor') {
+        const instructorCourses = await getCoursesByInstructor(user.uid);
+        setCreatedCourses(instructorCourses || []);
+      }
+      
       setError(""); // Clear error nếu thành công
     } catch (e) {
+      console.error('Load courses error:', e);
       setError('Không thể tải khóa học của bạn');
     }
   };
@@ -127,9 +147,15 @@ const MyCoursesScreen: React.FC = () => {
     );
   };
 
-  const filtered = courses.filter(c =>
-    !searchText || (c.title || '').toLowerCase().includes(searchText.toLowerCase())
-  );
+  // Filter courses dựa trên tab hiện tại
+  const getFilteredCourses = () => {
+    let dataSource = activeTab === 'mycreated' ? createdCourses : courses;
+    return dataSource.filter(c =>
+      !searchText || (c.title || '').toLowerCase().includes(searchText.toLowerCase())
+    );
+  };
+  
+  const filtered = getFilteredCourses();
 
   if (loading) {
     return (
@@ -148,15 +174,15 @@ const MyCoursesScreen: React.FC = () => {
     );
   }
 
-  const renderItem = ({ item }: { item: Course }) => (
+  const renderEnrolledCourse = ({ item }: { item: Course }) => (
     <TouchableOpacity 
       style={styles.card} 
       activeOpacity={0.8}
       onPress={() => navigation.navigate('CourseLessons' as never, { courseId: item.id, title: item.title } as never)}
     >
-      {(item.thumbnailUrl || item.image) ? (
+      {(item.thumbnailUrl || item.image || item.imageUrl) ? (
         <Image 
-          source={{ uri: (item.thumbnailUrl || item.image) as string }} 
+          source={{ uri: (item.thumbnailUrl || item.image || item.imageUrl) as string }} 
           style={styles.thumb} 
           resizeMode="cover" 
         />
@@ -199,6 +225,54 @@ const MyCoursesScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
+  const renderCreatedCourse = ({ item }: { item: Course }) => (
+    <TouchableOpacity 
+      style={styles.card} 
+      activeOpacity={0.8}
+      onPress={() => navigation.navigate('CourseLessons' as never, { courseId: item.id, title: item.title } as never)}
+    >
+      {(item.thumbnailUrl || item.image || item.imageUrl) ? (
+        <Image 
+          source={{ uri: (item.thumbnailUrl || item.image || item.imageUrl) as string }} 
+          style={styles.thumb} 
+          resizeMode="cover" 
+        />
+      ) : (
+        <View style={styles.thumb} />
+      )}
+      <View style={styles.cardBody}>
+        <View style={styles.categoryRow}>
+          <Text style={styles.category} numberOfLines={1}>{item.categoryName || item.category || 'Course'}</Text>
+          <View style={[styles.statusBadge, item.isPublished ? styles.statusPublished : styles.statusPending]}>
+            <Text style={styles.statusText}>{item.isPublished ? 'Đã duyệt' : 'Chờ duyệt'}</Text>
+          </View>
+        </View>
+        <Text style={styles.title} numberOfLines={2}>{item.title || item.id}</Text>
+        <View style={styles.metaRow}>
+          <View style={styles.ratingRow}>
+            <MaterialIcons name="people" size={14} color="#20B2AA" />
+            <Text style={styles.mutedSmall}>{item.students ?? 0} học viên</Text>
+          </View>
+          <Text style={styles.mutedSmall}>{item.totalLessons ?? 0} bài</Text>
+        </View>
+        <View style={styles.ctaRow}>
+          <TouchableOpacity 
+            style={styles.editBtn} 
+            onPress={(e) => {
+              e.stopPropagation();
+              navigation.navigate('CreateCourse' as never, { courseId: item.id, mode: 'edit' } as never);
+            }}
+          >
+            <MaterialIcons name="edit" size={16} color="#fff" />
+            <Text style={styles.editText}>Chỉnh sửa</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderItem = activeTab === 'mycreated' ? renderCreatedCourse : renderEnrolledCourse;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -237,6 +311,23 @@ const MyCoursesScreen: React.FC = () => {
         >
           <Text style={[styles.tabText, activeTab === 'ongoing' && styles.tabTextActive]}>Ongoing</Text>
         </TouchableOpacity>
+        {userRole === 'instructor' ? (
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'mycreated' && styles.tabActive]}
+            onPress={() => setActiveTab('mycreated')}
+          >
+            <MaterialIcons name="school" size={16} color={activeTab === 'mycreated' ? '#fff' : '#666'} />
+            <Text style={[styles.tabText, activeTab === 'mycreated' && styles.tabTextActive]}> Khóa của tôi</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.tab, styles.tabLocked]}
+            disabled
+          >
+            <MaterialIcons name="lock" size={16} color="#999" />
+            <Text style={[styles.tabText, styles.tabTextLocked]}> Khóa của tôi</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
@@ -263,14 +354,21 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, marginLeft: 8, color: '#333' },
   searchBtn: { marginLeft: 10, width: 44, height: 44, borderRadius: 12, backgroundColor: '#20B2AA', justifyContent: 'center', alignItems: 'center' },
   tabs: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12 },
-  tab: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#eee', marginRight: 10 },
+  tab: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#eee', marginRight: 10 },
   tabActive: { backgroundColor: '#20B2AA' },
+  tabLocked: { backgroundColor: '#f5f5f5', opacity: 0.6 },
   tabText: { color: '#666', fontWeight: '600' },
   tabTextActive: { color: '#fff' },
+  tabTextLocked: { color: '#999' },
   card: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden', marginBottom: 14, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 2, shadowOffset: { width: 0, height: 1 } },
   thumb: { width: 100, height: 90, backgroundColor: '#111' },
   cardBody: { flex: 1, padding: 12 },
+  categoryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   category: { color: '#FF8C00', fontSize: 12, marginBottom: 4 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  statusPublished: { backgroundColor: '#d4edda' },
+  statusPending: { backgroundColor: '#fff3cd' },
+  statusText: { fontSize: 10, fontWeight: '600', color: '#333' },
   title: { color: '#333', fontSize: 14, fontWeight: '700', marginBottom: 6 },
   metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', marginRight: 12 },
@@ -280,6 +378,8 @@ const styles = StyleSheet.create({
   unenrollBtn: { borderRadius: 14, backgroundColor: '#fee', paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: '#fcc', justifyContent: 'center', alignItems: 'center' },
   unenrollBtnDisabled: { opacity: 0.6 },
   unenrollText: { color: '#e74c3c', fontSize: 12, fontWeight: '700' },
+  editBtn: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, backgroundColor: '#20B2AA', paddingHorizontal: 12, paddingVertical: 8 },
+  editText: { color: '#fff', fontSize: 12, fontWeight: '700', marginLeft: 4 },
   muted: { color: '#777' },
   mutedSmall: { color: '#777', fontSize: 12, marginLeft: 4 },
   error: { color: '#e74c3c', marginTop: 16, textAlign: 'center' },

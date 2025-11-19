@@ -11,14 +11,19 @@ import {
   Switch,
 } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
-import { createProofCourse, getCategories, uploadProofFile, getUserByUsername } from "../api/api";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
-import { RootStackNavProps } from "../navigation/AppNavigator";
+import { createProofCourse, getCategories, uploadProofFile, getUserByUsername, getCourseById, updateCourse } from "../api/api";
+import { useNavigation, useFocusEffect, useRoute, RouteProp } from "@react-navigation/native";
+import { RootStackNavProps, RootStackParamList } from "../navigation/AppNavigator";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+type CreateCourseRouteProp = RouteProp<RootStackParamList, 'CreateCourse'>;
+
 const CreateCourseScreen: React.FC = () => {
   const navigation = useNavigation<RootStackNavProps>();
+  const route = useRoute<CreateCourseRouteProp>();
+  const { courseId, mode } = (route.params as any) || {};
+  
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -29,6 +34,7 @@ const CreateCourseScreen: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [lessons, setLessons] = useState<any[]>([]);
   const [thumbnailLocal, setThumbnailLocal] = useState<{ uri: string; type?: string; name?: string } | null>(null);
+  const [editMode, setEditMode] = useState<boolean>(false);
 
   useEffect(() => {
     (async () => {
@@ -38,6 +44,35 @@ const CreateCourseScreen: React.FC = () => {
       } catch {}
     })();
   }, []);
+
+  // Load course data nếu ở chế độ edit
+  useEffect(() => {
+    if (courseId && mode === 'edit') {
+      (async () => {
+        try {
+          setLoading(true);
+          const course = await getCourseById(courseId);
+          console.log('Loaded course for edit:', course);
+          
+          setTitle(course.title || "");
+          setDescription(course.description || "");
+          setCategoryId(course.category || null);
+          setPrice(String(course.price || 0));
+          setThumbnailUrl(course.imageUrl || course.thumbnailUrl || "");
+          setIsPublished(course.isPublished || false);
+          setEditMode(true);
+          
+          Alert.alert('Chế độ chỉnh sửa', 'Đang tải thông tin khóa học...');
+        } catch (error: any) {
+          console.error('Load course error:', error);
+          Alert.alert('Lỗi', 'Không thể tải thông tin khóa học');
+          navigation.goBack();
+        } finally {
+          setLoading(false);
+        }
+      })();
+    }
+  }, [courseId, mode]);
 
   // Lắng nghe khi quay lại từ CreateQuizLessonScreen để lấy dữ liệu quiz lesson
   useFocusEffect(
@@ -91,15 +126,17 @@ const CreateCourseScreen: React.FC = () => {
       Alert.alert("Thiếu thông tin", "Vui lòng chọn danh mục.");
       return;
     }
+    
     const payload: any = {
       title: title.trim(),
       description: description.trim(),
       category: categoryId,
       price: Number(price) || 0,
-      isPublished: false,
       thumbnailUrl: thumbnailUrl.trim(),
     };
-    if (lessons.length) {
+    
+    // Chỉ thêm lessons nếu không phải edit mode
+    if (!editMode && lessons.length) {
       payload.lessons = lessons.map((l) => ({
         title: String(l.title || ""),
         description: String(l.description || ""),
@@ -117,6 +154,7 @@ const CreateCourseScreen: React.FC = () => {
             : undefined,
       }));
     }
+    
     try {
       setLoading(true);
 
@@ -131,33 +169,44 @@ const CreateCourseScreen: React.FC = () => {
       }
       payload.thumbnailUrl = thumbUrl;
 
-      // Lấy uid hiện tại
-      const username = await AsyncStorage.getItem("currentUsername");
-      let uid: string | null = null;
-      if (username) {
-        try {
-          const user = await getUserByUsername(username);
-          uid = user?.uid || user?.id || null;
-        } catch {}
-      }
-      if (!uid) {
-        Alert.alert("Lỗi", "Không xác định được người dùng hiện tại.");
-        return;
-      }
+      if (editMode && courseId) {
+        // Chế độ chỉnh sửa
+        await updateCourse(courseId, payload);
+        Alert.alert("Thành công", "Đã cập nhật khóa học.", [
+          { text: "OK", onPress: () => navigation.goBack() }
+        ]);
+      } else {
+        // Chế độ tạo mới
+        payload.isPublished = false;
+        
+        // Lấy uid hiện tại
+        const username = await AsyncStorage.getItem("currentUsername");
+        let uid: string | null = null;
+        if (username) {
+          try {
+            const user = await getUserByUsername(username);
+            uid = user?.uid || user?.id || null;
+          } catch {}
+        }
+        if (!uid) {
+          Alert.alert("Lỗi", "Không xác định được người dùng hiện tại.");
+          return;
+        }
 
-      await createProofCourse(uid, payload);
-      // Reset toàn bộ form
-      setTitle("");
-      setDescription("");
-      setCategoryId(null);
-      setPrice("0");
-      setThumbnailUrl("");
-      setThumbnailLocal(null);
-      setIsPublished(false);
-      setLessons([]);
-      Alert.alert("Đã gửi yêu cầu", "Khóa học đang chờ phê duyệt.");
+        await createProofCourse(uid, payload);
+        // Reset toàn bộ form
+        setTitle("");
+        setDescription("");
+        setCategoryId(null);
+        setPrice("0");
+        setThumbnailUrl("");
+        setThumbnailLocal(null);
+        setIsPublished(false);
+        setLessons([]);
+        Alert.alert("Đã gửi yêu cầu", "Khóa học đang chờ phê duyệt.");
+      }
     } catch (err: any) {
-      Alert.alert("Lỗi", err?.message || "Không thể tạo khóa học.");
+      Alert.alert("Lỗi", err?.message || `Không thể ${editMode ? 'cập nhật' : 'tạo'} khóa học.`);
     } finally {
       setLoading(false);
     }
@@ -270,7 +319,7 @@ const CreateCourseScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>Tạo khóa học</Text>
+        <Text style={styles.title}>{editMode ? 'Chỉnh sửa khóa học' : 'Tạo khóa học'}</Text>
 
         <View style={styles.card}>
           <Text style={styles.label}>Tiêu đề</Text>
@@ -328,7 +377,7 @@ const CreateCourseScreen: React.FC = () => {
             onPress={onSubmit}
             disabled={loading}
           >
-            <Text style={styles.submitText}>Tạo khóa học</Text>
+            <Text style={styles.submitText}>{loading ? 'Đang xử lý...' : (editMode ? 'Cập nhật khóa học' : 'Tạo khóa học')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

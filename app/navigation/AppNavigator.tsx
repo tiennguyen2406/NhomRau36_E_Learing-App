@@ -62,6 +62,7 @@ export type RootStackParamList = {
     }[];
     currentUserId?: string | null;
   };
+  CreateCourse: { courseId?: string; mode?: string } | undefined;
   AIChat: undefined;
 };
 
@@ -303,6 +304,7 @@ const AppNavigator = () => {
       <RootStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
       <RootStack.Screen name="QuizLesson" component={QuizLessonScreen} />
       <RootStack.Screen name="CreateQuizLesson" component={CreateQuizLessonScreen} />
+      <RootStack.Screen name="CreateCourse" component={CreateCourseScreen} />
       <RootStack.Screen name="AIChat" component={AIChatScreen} />
     </RootStack.Navigator>
   );

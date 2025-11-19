@@ -1,4 +1,6 @@
-const BASE_URL = "https://three6learningbackend.onrender.com"; // Local backend server
+// Đổi sang localhost để test local, hoặc dùng Render.com cho production
+// const BASE_URL = "http://localhost:4000"; // Local backend server
+const BASE_URL = "https://three6learningbackend.onrender.com"; // Production server
 
 function normalizeMongoData(data: any): any {
   if (Array.isArray(data)) {
@@ -381,6 +383,15 @@ export const cancelPayment = async (orderCode: string) => {
 export const verifyAndEnrollPayment = async (orderCode: string) => {
   return requestJson(`${BASE_URL}/payments/verify/${orderCode}`, {
     method: "POST",
+  });
+};
+
+// AI Chat API
+export const chatWithAI = async (message: string, conversationHistory: any[] = []) => {
+  return requestJson(`${BASE_URL}/ai-chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, conversationHistory }),
   });
 };
 

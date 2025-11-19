@@ -12,7 +12,7 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({ activeTab, onTabPress }) =>
     { id: 'home', label: 'HOME', icon: 'home' },
     { id: 'courses', label: 'MY COURSES', icon: 'book' },
     { id: 'inbox', label: 'INBOX', icon: 'chat' },
-    { id: 'games', label: 'GAMES', icon: 'games' },
+    { id: 'ai-bot', label: 'AI BOT', icon: 'psychology' },
     { id: 'profile', label: 'PROFILE', icon: 'person' },
   ];
 

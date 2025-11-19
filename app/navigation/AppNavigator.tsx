@@ -30,6 +30,7 @@ import CreateQuizLessonScreen from "../screens/CreateQuizLessonScreen";
 import InboxScreen from "../screens/InboxScreen";
 import ChatScreen from "../screens/ChatScreen";
 import QuizLessonScreen from "../screens/QuizLessonScreen";
+import AIChatScreen from "../screens/AIChatScreen";
 
 // Định nghĩa kiểu cho routes trong ứng dụng
 export type RootStackParamList = {
@@ -61,6 +62,7 @@ export type RootStackParamList = {
     }[];
     currentUserId?: string | null;
   };
+  AIChat: undefined;
 };
 
 export type AuthStackParamList = {
@@ -72,7 +74,7 @@ export type MainTabParamList = {
   HomeStack: undefined;
   Courses: undefined;
   Inbox: undefined;
-  Games: undefined;
+  AIChat: undefined;
   ProfileStack: undefined;
   // Tabs for admin
   AdminManage: undefined;
@@ -191,8 +193,8 @@ const TabNavigator = () => {
             case "Inbox":
               iconName = "chat";
               break;
-            case "Games":
-              iconName = "games";
+            case "AIChat":
+              iconName = "psychology";
               break;
             case "ProfileStack":
               iconName = "person";
@@ -255,9 +257,9 @@ const TabNavigator = () => {
             options={{ tabBarLabel: "INBOX" }}
           />
           <Tab.Screen
-            name="Games"
-            component={isInstructor ? CreateCourseScreen : EmptyPlaceholder}
-            options={{ tabBarLabel: isInstructor ? "TẠO KHÓA HỌC" : "GAMES" }}
+            name="AIChat"
+            component={isInstructor ? CreateCourseScreen : AIChatScreen}
+            options={{ tabBarLabel: isInstructor ? "TẠO KHÓA HỌC" : "AI BOT" }}
           />
           <Tab.Screen
             name="ProfileStack"
@@ -301,6 +303,7 @@ const AppNavigator = () => {
       <RootStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
       <RootStack.Screen name="QuizLesson" component={QuizLessonScreen} />
       <RootStack.Screen name="CreateQuizLesson" component={CreateQuizLessonScreen} />
+      <RootStack.Screen name="AIChat" component={AIChatScreen} />
     </RootStack.Navigator>
   );
 };

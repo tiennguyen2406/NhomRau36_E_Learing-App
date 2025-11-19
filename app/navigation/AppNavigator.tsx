@@ -28,6 +28,7 @@ import AdminStatsScreen from "../screens/AdminStatsScreen";
 import CreateCourseScreen from "../screens/CreateCourseScreen";
 import CreateQuizLessonScreen from "../screens/CreateQuizLessonScreen";
 import CreateVideoLessonScreen from "../screens/CreateVideoLessonScreen";
+import NotificationsScreen from "../screens/NotificationsScreen";
 import InboxScreen from "../screens/InboxScreen";
 import ChatScreen from "../screens/ChatScreen";
 import QuizLessonScreen from "../screens/QuizLessonScreen";
@@ -73,6 +74,7 @@ export type RootStackParamList = {
     currentUserId?: string | null;
   };
   AIChat: undefined;
+  Notifications: undefined;
 };
 
 export type AuthStackParamList = {
@@ -333,6 +335,7 @@ const AppNavigator = () => {
       <RootStack.Screen name="QuizLesson" component={QuizLessonScreen} />
       <RootStack.Screen name="CreateQuizLesson" component={CreateQuizLessonScreen} />
       <RootStack.Screen name="CreateVideoLesson" component={CreateVideoLessonScreen} />
+      <RootStack.Screen name="Notifications" component={NotificationsScreen} />
       <RootStack.Screen name="AIChat" component={AIChatScreen} />
     </RootStack.Navigator>
   );

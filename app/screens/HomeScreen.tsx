@@ -17,7 +17,9 @@ import {
   RefreshControl,
 } from "react-native";
 import { RootStackParamList } from "../navigation/AppNavigator";
-import { getCategories, getCourses, getCoursesByCategory, getUsers, updateAllCategoryCounts } from '../api/api';
+import { database } from "../firebase";
+import { DataSnapshot, onValue, off, ref } from "firebase/database";
+import { getCategories, getCourses, getCoursesByCategory, getUsers, updateAllCategoryCounts, getUserByUsername } from '../api/api';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -61,6 +63,8 @@ const HomeScreen: React.FC = () => {
   const promoRef = useRef<FlatList>(null as any);
   const [promoIndex, setPromoIndex] = useState(0);
   const { width: screenWidth } = useWindowDimensions();
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -68,10 +72,41 @@ const HomeScreen: React.FC = () => {
       try {
         const stored = await AsyncStorage.getItem('currentUsername');
         if (stored && isMounted) setUsername(stored);
+        if (stored) {
+          try {
+            const user = await getUserByUsername(stored);
+            if (user?.uid || user?.id) {
+              setCurrentUserId(String(user.uid || user.id));
+            }
+          } catch {}
+        }
       } catch {}
     })();
     return () => { isMounted = false; };
   }, []);
+
+  useEffect(() => {
+    if (!currentUserId || !database) return;
+    const notifRef = ref(database, `notifications/${currentUserId}`);
+    const unsubscribe = onValue(
+      notifRef,
+      (snapshot: DataSnapshot) => {
+        const data = snapshot.val();
+        if (!data) {
+          setHasUnreadNotifications(false);
+          return;
+        }
+        const hasUnread = Object.values(data).some(
+          (value: any) => value?.status !== "read"
+        );
+        setHasUnreadNotifications(hasUnread);
+      },
+      () => setHasUnreadNotifications(false)
+    );
+    return () => {
+      off(notifRef);
+    };
+  }, [currentUserId]);
 
   const fetchAll = async (isInitial: boolean = false) => {
     try {
@@ -247,12 +282,16 @@ const HomeScreen: React.FC = () => {
             <Text style={styles.greeting}>Xin chào, {username}</Text>
             <Text style={styles.subGreeting}>Bạn muốn học gì vào hôm nay?</Text>
           </View>
-          <TouchableOpacity style={styles.notificationButton}>
+          <TouchableOpacity
+            style={styles.notificationButton}
+            onPress={() => navigation.navigate("Notifications")}
+          >
             <MaterialIcons
-              name="notifications-none"
+              name={hasUnreadNotifications ? "notifications-active" : "notifications-none"}
               size={24}
               color="#20B2AA"
             />
+            {hasUnreadNotifications ? <View style={styles.notificationBadge} /> : null}
           </TouchableOpacity>
         </View>
 
@@ -490,6 +529,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f9ff",
     justifyContent: "center",
     alignItems: "center",
+    position: "relative",
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#ff4d4f",
   },
   searchContainer: {
     flexDirection: "row",

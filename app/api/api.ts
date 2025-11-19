@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 // Đổi sang localhost để test local, hoặc dùng Render.com cho production
 // const BASE_URL = "http://localhost:4000"; // Local backend server
 const BASE_URL = "https://three6learningbackend.onrender.com"; // Production server
@@ -249,38 +251,61 @@ export const createProof = async (
   });
 };
 
-export const uploadProofFile = async (file: { uri: string; name?: string; type?: string }) => {
+export const uploadProofFile = async (
+  file: { uri: string; name?: string; type?: string },
+  onProgress?: (progress: number) => void
+) => {
   const form = new FormData();
 
-  const isWeb = typeof window !== "undefined" && typeof document !== "undefined";
-  const uri = file.uri;
-
-  if (isWeb) {
-    // Trên web, cần Blob/File thật sự
-    const resp = await fetch(uri);
+  if (Platform.OS === "web") {
+    const resp = await fetch(file.uri);
     const blob = await resp.blob();
     const filename = file.name || "proof";
-    // @ts-ignore - File tồn tại trên web
-    const webFile = new File([blob], filename, { type: file.type || blob.type || "application/octet-stream" });
+    // @ts-ignore
+    const webFile = new File([blob], filename, {
+      type: file.type || blob.type || "application/octet-stream",
+    });
     // @ts-ignore
     form.append("file", webFile);
   } else {
-    // Trên RN native
-    // @ts-ignore RN FormData
-    form.append("file", { uri, name: file.name || "proof", type: file.type || "application/octet-stream" } as any);
+    // @ts-ignore React Native FormData
+    form.append("file", {
+      uri: file.uri,
+      name: file.name || "proof",
+      type: file.type || "application/octet-stream",
+    } as any);
   }
 
-  const res = await fetch(`${BASE_URL}/proofs/upload`, {
-    method: "POST",
-    // KHÔNG set Content-Type để fetch tự thêm boundary đúng
-    body: form as any,
+  return new Promise<string>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BASE_URL}/proofs/upload`);
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          onProgress?.(1);
+          resolve(data.url as string);
+        } catch (error) {
+          reject(error);
+        }
+      } else {
+        reject(new Error(xhr.responseText || "Upload failed"));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error("Upload failed"));
+
+    if (xhr.upload && typeof onProgress === "function") {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          onProgress(event.loaded / event.total);
+        }
+      };
+    }
+
+    xhr.send(form as any);
   });
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(`Upload failed: ${t.slice(0,200)}`);
-  }
-  const data = await res.json();
-  return data.url as string;
 };
 
 export const getProofs = async () => {

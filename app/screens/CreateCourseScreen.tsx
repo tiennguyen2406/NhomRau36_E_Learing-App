@@ -35,6 +35,7 @@ const CreateCourseScreen: React.FC = () => {
   const [lessons, setLessons] = useState<any[]>([]);
   const [thumbnailLocal, setThumbnailLocal] = useState<{ uri: string; type?: string; name?: string } | null>(null);
   const [editMode, setEditMode] = useState<boolean>(false);
+  const [lessonUploadProgress, setLessonUploadProgress] = useState<Record<number, number>>({});
 
   useEffect(() => {
     (async () => {
@@ -242,13 +243,28 @@ const CreateCourseScreen: React.FC = () => {
     if (!rs.canceled && rs.assets?.length) {
       const a = rs.assets[0];
       try {
-        setLoading(true);
-        const url = await uploadProofFile({ uri: a.uri, name: a.fileName || "video.mp4", type: a.mimeType || "video/mp4" });
+        setLessonUploadProgress((prev) => ({ ...prev, [index]: 0 }));
+        const url = await uploadProofFile(
+          { uri: a.uri, name: a.fileName || "video.mp4", type: a.mimeType || "video/mp4" },
+          (progress) => {
+            setLessonUploadProgress((prev) => ({ ...prev, [index]: progress }));
+          }
+        );
         updateLesson(index, { videoUrl: url });
+        setTimeout(() => {
+          setLessonUploadProgress((prev) => {
+            const copy = { ...prev };
+            delete copy[index];
+            return copy;
+          });
+        }, 800);
       } catch (e: any) {
+        setLessonUploadProgress((prev) => {
+          const copy = { ...prev };
+          delete copy[index];
+          return copy;
+        });
         Alert.alert("Lỗi", e?.message || "Tải video thất bại.");
-      } finally {
-        setLoading(false);
       }
     }
   };
@@ -438,6 +454,21 @@ const CreateCourseScreen: React.FC = () => {
                       {l.videoUrl ? "Đã tải video" : "Chọn video và tải lên"}
                     </Text>
                   </TouchableOpacity>
+                  {typeof lessonUploadProgress[idx] === "number" ? (
+                    <View style={styles.progressWrapper}>
+                      <View style={styles.progressTrack}>
+                        <View
+                          style={[
+                            styles.progressFill,
+                            { width: `${Math.min(lessonUploadProgress[idx], 1) * 100}%` },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.progressPercent}>
+                        {Math.round(Math.min(lessonUploadProgress[idx], 1) * 100)}%
+                      </Text>
+                    </View>
+                  ) : null}
                 </>
               ) : (
                 <View>
@@ -613,6 +644,28 @@ const styles = StyleSheet.create({
     color: "#888",
     marginTop: 4,
     fontStyle: "italic",
+  },
+  progressWrapper: {
+    marginTop: 10,
+  },
+  progressTrack: {
+    width: "100%",
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#e6e6e6",
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#20B2AA",
+  },
+  progressPercent: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#4a5568",
+    textAlign: "right",
   },
 });
 

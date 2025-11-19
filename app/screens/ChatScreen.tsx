@@ -32,7 +32,8 @@ import { getUserByUsername } from "../api/api";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { uploadProofFile } from "../api/api";
-import { Video } from "expo-av";
+import { addNotification } from "../utils/notifications";
+import { Video, ResizeMode } from "expo-av";
 
 type AttachmentDraft = {
   uri: string;
@@ -143,6 +144,14 @@ const ChatScreen: React.FC = () => {
     return () => {
       off(messagesRef);
     };
+  }, [chatId, currentUserId]);
+
+  useEffect(() => {
+    if (!chatId || !currentUserId || !database) return;
+    const unreadRef = ref(database, `conversations/${chatId}/unreadBy/${currentUserId}`);
+    set(unreadRef, false).catch((err) =>
+      console.error("Failed to clear unread state:", err)
+    );
   }, [chatId, currentUserId]);
 
   const pickAttachment = async () => {
@@ -274,13 +283,34 @@ const ChatScreen: React.FC = () => {
         ];
         conversationUpdates[`conversations/${chatId}/createdAt`] =
           conversationUpdates[`conversations/${chatId}/createdAt`] || clientTimestamp;
+        conversationUpdates[`conversations/${chatId}/unreadBy/${otherUserId}`] = true;
       }
+      conversationUpdates[`conversations/${chatId}/unreadBy/${currentUserId}`] = false;
       
       await update(ref(database), conversationUpdates);
 
-    setInput("");
+      if (otherUserId && otherUserId !== currentUserId) {
+        try {
+          await addNotification(String(otherUserId), {
+            title: `Tin nhắn mới từ ${name || "36Learning"}`,
+            message:
+              lastMessageLabel ||
+              (uploadedAttachment ? "Đã gửi tệp đính kèm" : "Đã gửi tin nhắn mới"),
+            type: "message",
+            icon: "chat",
+            data: {
+              chatId,
+              fromUserId: currentUserId,
+            },
+          });
+        } catch (notifError) {
+          console.error("Failed to push notification:", notifError);
+        }
+      }
+
+      setInput("");
       setAttachment(null);
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
     } catch (e) {
       console.error("Error sending message:", e);
       Alert.alert("Lỗi", "Không thể gửi tin nhắn. Vui lòng thử lại.");
@@ -334,10 +364,10 @@ const ChatScreen: React.FC = () => {
         return (
           <View style={styles.mediaAttachmentWrapper}>
             <Video
-              source={{ uri: item.attachmentUrl }}
+              source={{ uri: item.attachmentUrl || "" }}
               style={styles.videoAttachment}
               useNativeControls
-              resizeMode="contain"
+              resizeMode={ResizeMode.CONTAIN}
               shouldPlay={false}
             />
             <TouchableOpacity
@@ -494,7 +524,7 @@ const ChatScreen: React.FC = () => {
               source={{ uri: preview.url }}
               style={styles.previewVideo}
               useNativeControls
-              resizeMode="contain"
+              resizeMode={ResizeMode.CONTAIN}
               shouldPlay
             />
           ) : preview ? (

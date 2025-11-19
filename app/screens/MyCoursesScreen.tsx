@@ -300,40 +300,17 @@ const MyCoursesScreen: React.FC = () => {
         </View>
         <View style={styles.ctaRow}>
           <TouchableOpacity
-            style={styles.cta}
+            style={styles.editBtn}
             onPress={(e) => {
               e.stopPropagation();
-              navigation.navigate("CourseLessons" as any, {
+              navigation.navigate("CreateCourse" as any, {
                 courseId: item.id,
-                title: item.title,
+                mode: "edit",
               });
             }}
           >
-            <Text style={styles.ctaText}>QUẢN LÝ BÀI HỌC</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.cta}
-            onPress={(e) => {
-              e.stopPropagation();
-              navigation.navigate("CreateQuizLesson" as any, {
-                courseId: item.id,
-                title: item.title,
-              });
-            }}
-          >
-            <Text style={styles.ctaText}>THÊM QUIZ</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.cta}
-            onPress={(e) => {
-              e.stopPropagation();
-              navigation.navigate("CreateVideoLesson" as any, {
-                courseId: item.id,
-                title: item.title,
-              });
-            }}
-          >
-            <Text style={styles.ctaText}>TẠO VIDEO</Text>
+            <MaterialIcons name="edit" size={16} color="#fff" />
+            <Text style={styles.editText}>CHỈNH SỬA</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -392,21 +369,43 @@ const MyCoursesScreen: React.FC = () => {
             Ongoing
           </Text>
         </TouchableOpacity>
-        {userRole === "instructor" && (
-          <TouchableOpacity
-            style={[styles.tab, activeTab === "created" && styles.tabActive]}
-            onPress={() => setActiveTab("created")}
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === "created" && styles.tabActive,
+            userRole !== "instructor" && styles.tabLocked,
+          ]}
+          onPress={() => {
+            if (userRole === "instructor") {
+              setActiveTab("created");
+            } else {
+              Alert.alert(
+                "Chỉ dành cho giảng viên",
+                "Tính năng này chỉ dành cho tài khoản Instructor. Nâng cấp tài khoản để tạo khóa học của riêng bạn!",
+                [{ text: "OK" }]
+              );
+            }
+          }}
+          disabled={userRole !== "instructor"}
+        >
+          {userRole !== "instructor" && (
+            <MaterialIcons
+              name="lock"
+              size={14}
+              color="#999"
+              style={{ marginRight: 4 }}
+            />
+          )}
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "created" && styles.tabTextActive,
+              userRole !== "instructor" && styles.tabTextLocked,
+            ]}
           >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "created" && styles.tabTextActive,
-              ]}
-            >
-              Đã tạo
-            </Text>
-          </TouchableOpacity>
-        )}
+            Khóa học đã tạo
+          </Text>
+        </TouchableOpacity>
       </View>
       {activeTab === "created" ? (
         <FlatList

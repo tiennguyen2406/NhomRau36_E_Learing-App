@@ -13,7 +13,7 @@ type ChatItem = {
   name: string;
   lastMessage: string;
   time: string;
-  unread?: number;
+  unread?: boolean;
   otherUserId?: string;
 };
 
@@ -154,6 +154,7 @@ const InboxScreen: React.FC = () => {
               const lastMessageTime = conv.lastMessageTime || 0;
               const date = new Date(lastMessageTime);
               const time = date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+              const unread = !!(conv.unreadBy && currentUserId && conv.unreadBy[currentUserId]);
 
               conversationsList.push({
                 id: conversationId,
@@ -161,6 +162,7 @@ const InboxScreen: React.FC = () => {
                 lastMessage: conv.lastMessage || "",
                 time,
                 otherUserId,
+                unread,
               });
             }
           }
@@ -311,13 +313,32 @@ const InboxScreen: React.FC = () => {
       lastMessage: "",
       lastMessageTime: now,
       createdAt: now,
+      unreadBy: {
+        [currentIdStr]: false,
+        [otherIdStr]: false,
+      },
     }).catch((error: any) => {
       console.error("Error creating conversation in background:", error);
     });
   };
 
   const renderItem = ({ item }: { item: ChatItem }) => (
-    <TouchableOpacity style={styles.row} onPress={() => openChat(item)}>
+    <TouchableOpacity
+      style={[styles.row, item.unread ? styles.rowUnread : undefined]}
+      onPress={async () => {
+        if (database && currentUserId) {
+          try {
+            await set(
+              ref(database, `conversations/${item.id}/unreadBy/${currentUserId}`),
+              false
+            );
+          } catch (err) {
+            console.warn("Failed to mark conversation read:", err);
+          }
+        }
+        openChat(item);
+      }}
+    >
       <View style={styles.avatar} />
       <View style={styles.rowCenter}>
         <Text numberOfLines={1} style={styles.name}>{item.name}</Text>
@@ -325,11 +346,7 @@ const InboxScreen: React.FC = () => {
       </View>
       <View style={styles.rowRight}>
         <Text style={styles.time}>{item.time}</Text>
-        {item.unread ? (
-          <View style={styles.unreadBadge}>
-            <Text style={styles.unreadText}>{item.unread}</Text>
-          </View>
-        ) : null}
+        {item.unread ? <View style={styles.unreadDot} /> : null}
       </View>
     </TouchableOpacity>
   );
@@ -521,14 +538,19 @@ const styles = StyleSheet.create({
   searchBox: { paddingHorizontal: 20, marginBottom: 8 },
   searchInput: { backgroundColor: "#fff", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: "#e6e6e6" },
   row: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 12 },
+  rowUnread: { backgroundColor: "#f6fffb" },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#ccc", marginRight: 12 },
   rowCenter: { flex: 1 },
   name: { fontWeight: "700", color: "#222" },
   preview: { color: "#666", marginTop: 2 },
-  rowRight: { alignItems: "flex-end" },
+  rowRight: { alignItems: "center", flexDirection: "row", gap: 6 },
   time: { color: "#999", fontSize: 12 },
-  unreadBadge: { marginTop: 6, backgroundColor: "#20B2AA", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 },
-  unreadText: { color: "#fff", fontSize: 10, fontWeight: "700" },
+  unreadDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#ff4d4f",
+  },
   sep: { height: 1, backgroundColor: "#f0f0f0" },
   modalOverlay: {
     flex: 1,

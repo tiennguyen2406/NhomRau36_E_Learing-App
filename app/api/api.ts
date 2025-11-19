@@ -389,6 +389,8 @@ export const verifyAndEnrollPayment = async (orderCode: string) => {
 type ChatAIOptions = {
   selectedCourseId?: string | null;
   currentUserId?: string | null;
+  requestSimilarQuestions?: boolean;
+  numSimilarQuestions?: number;
 };
 
 // AI Chat API
@@ -405,6 +407,8 @@ export const chatWithAI = async (
       conversationHistory,
       selectedCourseId: options.selectedCourseId,
       currentUserId: options.currentUserId,
+      requestSimilarQuestions: options.requestSimilarQuestions,
+      numSimilarQuestions: options.numSimilarQuestions,
     }),
   });
 };

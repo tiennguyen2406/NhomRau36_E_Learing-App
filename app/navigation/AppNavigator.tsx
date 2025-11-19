@@ -75,6 +75,7 @@ export type MainTabParamList = {
   Courses: undefined;
   Inbox: undefined;
   AIChat: undefined;
+  CreateCourseTab: undefined;
   ProfileStack: undefined;
   // Tabs for admin
   AdminManage: undefined;
@@ -196,6 +197,9 @@ const TabNavigator = () => {
             case "AIChat":
               iconName = "psychology";
               break;
+            case "CreateCourseTab":
+              iconName = "add-circle-outline";
+              break;
             case "ProfileStack":
               iconName = "person";
               break;
@@ -256,11 +260,26 @@ const TabNavigator = () => {
             component={InboxStackNavigator}
             options={{ tabBarLabel: "INBOX" }}
           />
-          <Tab.Screen
-            name="AIChat"
-            component={isInstructor ? CreateCourseScreen : AIChatScreen}
-            options={{ tabBarLabel: isInstructor ? "TẠO KHÓA HỌC" : "AI BOT" }}
-          />
+          {isInstructor ? (
+            <>
+              <Tab.Screen
+                name="CreateCourseTab"
+                component={CreateCourseScreen}
+                options={{ tabBarLabel: "TẠO KHÓA HỌC" }}
+              />
+              <Tab.Screen
+                name="AIChat"
+                component={AIChatScreen}
+                options={{ tabBarLabel: "AI BOT" }}
+              />
+            </>
+          ) : (
+            <Tab.Screen
+              name="AIChat"
+              component={AIChatScreen}
+              options={{ tabBarLabel: "AI BOT" }}
+            />
+          )}
           <Tab.Screen
             name="ProfileStack"
             component={ProfileStackNavigator}

@@ -11,6 +11,7 @@ import {
   Platform,
   ActivityIndicator,
   Modal,
+  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -86,59 +87,111 @@ const AIChatScreen: React.FC = () => {
     };
   }, []);
 
-  const sendMessage = async () => {
-    const text = input.trim();
-    if (!text || loading) return;
+const sendMessage = async () => {
+  const text = input.trim();
+  if (!text || loading) return;
 
-    // Thêm tin nhắn người dùng
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: text,
+  const userMessage: Message = {
+    id: Date.now().toString(),
+    role: "user",
+    content: text,
+    timestamp: new Date(),
+  };
+
+  const updatedMessages = [...messages, userMessage];
+  setMessages(updatedMessages);
+  setInput("");
+  setLoading(true);
+
+  try {
+    const conversationHistory = updatedMessages.slice(-10).map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    const response = await chatWithAI(text, conversationHistory, {
+      selectedCourseId: selectedCourse?.id,
+      currentUserId,
+    });
+
+    const aiMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: "assistant",
+      content: response.response,
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setLoading(true);
+    setMessages((prev) => [...prev, aiMessage]);
+  } catch (error: any) {
+    console.error("Error sending message:", error);
+    const errorMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: "assistant",
+      content: error?.error || "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.",
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, errorMessage]);
+  } finally {
+    setLoading(false);
+  }
+};
 
-    try {
-      // Lấy lịch sử hội thoại (chỉ lấy 10 tin nhắn gần nhất để tránh quá dài)
-      const conversationHistory = messages
-        .slice(-10)
-        .map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        }));
+const handleSuggestQuestions = async () => {
+  if (loading) return;
+  const baseText = input.trim() || selectedCourse?.title;
+  if (!baseText) {
+    Alert.alert(
+      "Thiếu nội dung",
+      "Vui lòng nhập câu hỏi hoặc chọn khóa học để gợi ý câu hỏi mẫu."
+    );
+    return;
+  }
 
-      // Gọi API AI
-      const response = await chatWithAI(text, conversationHistory, {
-        selectedCourseId: selectedCourse?.id,
-        currentUserId,
-      });
-
-      // Thêm phản hồi từ AI
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: response.response,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
-    } catch (error: any) {
-      console.error("Error sending message:", error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
-    }
+  const userMessage: Message = {
+    id: Date.now().toString(),
+    role: "user",
+    content: `Hãy tạo bộ câu hỏi mẫu tương tự cho: ${baseText}`,
+    timestamp: new Date(),
   };
+
+  const updatedMessages = [...messages, userMessage];
+  setMessages(updatedMessages);
+  setLoading(true);
+
+  try {
+    const conversationHistory = updatedMessages.slice(-10).map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    const response = await chatWithAI(baseText, conversationHistory, {
+      selectedCourseId: selectedCourse?.id,
+      currentUserId,
+      requestSimilarQuestions: true,
+      numSimilarQuestions: 5,
+    });
+
+    const aiMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: "assistant",
+      content: response.response,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, aiMessage]);
+  } catch (error: any) {
+    console.error("Error requesting sample questions:", error);
+    const errorMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: "assistant",
+      content: error?.error || "Xin lỗi, không thể tạo câu hỏi mẫu lúc này.",
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, errorMessage]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.role === "user";
@@ -225,6 +278,16 @@ const AIChatScreen: React.FC = () => {
               size={22}
               color={selectedCourse ? "#fff" : "#20B2AA"}
             />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.quickActionButton,
+              loading && styles.quickActionButtonDisabled,
+            ]}
+            onPress={handleSuggestQuestions}
+            disabled={loading}
+          >
+            <MaterialIcons name="lightbulb" size={20} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.sendButton, (!input.trim() || loading) && styles.sendButtonDisabled]}
@@ -429,6 +492,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5fffc",
   },
   selectorButtonDisabled: {
+    opacity: 0.4,
+  },
+  quickActionButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#ffa940",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 4,
+  },
+  quickActionButtonDisabled: {
     opacity: 0.4,
   },
   selectedCourseBadge: {

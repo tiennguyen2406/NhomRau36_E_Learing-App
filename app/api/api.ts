@@ -386,12 +386,26 @@ export const verifyAndEnrollPayment = async (orderCode: string) => {
   });
 };
 
+type ChatAIOptions = {
+  selectedCourseId?: string | null;
+  currentUserId?: string | null;
+};
+
 // AI Chat API
-export const chatWithAI = async (message: string, conversationHistory: any[] = []) => {
+export const chatWithAI = async (
+  message: string,
+  conversationHistory: any[] = [],
+  options: ChatAIOptions = {}
+) => {
   return requestJson(`${BASE_URL}/ai-chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, conversationHistory }),
+    body: JSON.stringify({
+      message,
+      conversationHistory,
+      selectedCourseId: options.selectedCourseId,
+      currentUserId: options.currentUserId,
+    }),
   });
 };
 

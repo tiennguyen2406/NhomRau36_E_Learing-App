@@ -349,6 +349,38 @@ export const getProofCourses = async () => {
   return requestJson(`${BASE_URL}/proof-courses`);
 };
 
+export const getInstructorReviews = async (instructorId: string) => {
+  return requestJson(`${BASE_URL}/instructor-reviews/${instructorId}`);
+};
+
+export const submitInstructorReview = async (payload: {
+  instructorId: string;
+  rating: number;
+  comment?: string;
+  userId: string;
+  username: string;
+}) => {
+  return requestJson(`${BASE_URL}/instructor-reviews`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+};
+
+export const deleteInstructorReview = async (
+  reviewId: string,
+  userId: string
+) => {
+  const url = `${BASE_URL}/instructor-reviews/${reviewId}?userId=${encodeURIComponent(
+    userId
+  )}`;
+  return requestJson(url, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", "x-user-id": userId },
+    body: JSON.stringify({ userId }),
+  });
+};
+
 export const saveQuizResult = async (
   lessonId: string,
   data: {

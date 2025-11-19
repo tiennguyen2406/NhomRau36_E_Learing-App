@@ -184,9 +184,13 @@ const CreateCourseScreen: React.FC = () => {
         const username = await AsyncStorage.getItem("currentUsername");
         let uid: string | null = null;
         if (username) {
+          payload.instructor = username;
           try {
             const user = await getUserByUsername(username);
             uid = user?.uid || user?.id || null;
+            if (uid) {
+              payload.instructorId = uid;
+            }
           } catch {}
         }
         if (!uid) {

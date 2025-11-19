@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RootStackParamList } from "../navigation/AppNavigator";
-import { getUserByUsername, getUserCourses, unenrollCourse } from "../api/api";
+import { getUserByUsername, getUserCourses, getCourses, unenrollCourse } from "../api/api";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -36,9 +36,11 @@ interface Course {
 
 const MyCoursesScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-  const [activeTab, setActiveTab] = useState<'completed' | 'ongoing'>('ongoing');
+  const [activeTab, setActiveTab] = useState<'completed' | 'ongoing' | 'created'>('ongoing');
   const [searchText, setSearchText] = useState("");
   const [courses, setCourses] = useState<Course[]>([]);
+  const [createdCourses, setCreatedCourses] = useState<Course[]>([]);
+  const [userRole, setUserRole] = useState<string>("student");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -50,8 +52,53 @@ const MyCoursesScreen: React.FC = () => {
       const username = stored || 'instructor01';
       const user = await getUserByUsername(username);
       if (!user) throw new Error('User not found');
+      setUserRole((user.role || "").toLowerCase());
       const userCourses = await getUserCourses(user.uid);
       setCourses(userCourses || []);
+
+      if ((user.role || "").toLowerCase() === "instructor") {
+        const allCourses = await getCourses();
+        const instructorUsername = (user.username || "").toString().trim().toLowerCase();
+        const instructorFullName = (user.fullName || "").toString().trim().toLowerCase();
+        const instructorId = (user.uid || user.id || "").toString().trim().toLowerCase();
+
+        const created = (allCourses || [])
+          .filter((course: any) => {
+            const rawInstructor =
+              (course.instructor ||
+                course.instructorName ||
+                course.instructorId ||
+                course.ownerId ||
+                course.createdBy ||
+                "").toString().trim();
+
+            const courseInstructorLower = rawInstructor.toLowerCase();
+
+            if (!rawInstructor) return false;
+
+            if (instructorUsername && courseInstructorLower === instructorUsername) return true;
+            if (instructorFullName && courseInstructorLower === instructorFullName) return true;
+            if (instructorId && courseInstructorLower === instructorId) return true;
+
+            return false;
+          })
+          .map((course: any) => ({
+            id: course.id || course._id?.toString() || Math.random().toString(),
+            title: course.title || "Untitled",
+            description: course.description,
+            category: course.categoryName || course.category,
+            categoryName: course.categoryName || course.category,
+            rating: course.rating,
+            students: course.students,
+            totalLessons: course.totalLessons,
+            thumbnailUrl: course.thumbnailUrl || course.imageUrl || course.image,
+            image: course.imageUrl || course.image,
+            instructor: course.instructor || course.instructorName,
+          }));
+        setCreatedCourses(created);
+      } else {
+        setCreatedCourses([]);
+      }
       setError(""); // Clear error nếu thành công
     } catch (e) {
       setError('Không thể tải khóa học của bạn');
@@ -127,7 +174,11 @@ const MyCoursesScreen: React.FC = () => {
     );
   };
 
-  const filtered = courses.filter(c =>
+  const filteredEnrolled = courses.filter(c =>
+    !searchText || (c.title || '').toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  const filteredCreated = createdCourses.filter(c =>
     !searchText || (c.title || '').toLowerCase().includes(searchText.toLowerCase())
   );
 
@@ -152,7 +203,7 @@ const MyCoursesScreen: React.FC = () => {
     <TouchableOpacity 
       style={styles.card} 
       activeOpacity={0.8}
-      onPress={() => navigation.navigate('CourseLessons' as never, { courseId: item.id, title: item.title } as never)}
+      onPress={() => navigation.navigate("CourseLessons" as any, { courseId: item.id, title: item.title })}
     >
       {(item.thumbnailUrl || item.image) ? (
         <Image 
@@ -199,6 +250,75 @@ const MyCoursesScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
+  const renderCreatedItem = ({ item }: { item: Course }) => (
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.8}
+      onPress={() =>
+        navigation.navigate("CourseDetail" as any, { courseId: item.id })
+      }
+    >
+      {(item.thumbnailUrl || item.image) ? (
+        <Image
+          source={{ uri: (item.thumbnailUrl || item.image) as string }}
+          style={styles.thumb}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={styles.thumb} />
+      )}
+      <View style={styles.cardBody}>
+        <Text style={styles.category} numberOfLines={1}>{item.categoryName || item.category || 'Course'}</Text>
+        <Text style={styles.title} numberOfLines={2}>{item.title || item.id}</Text>
+        <View style={styles.metaRow}>
+          <View style={styles.ratingRow}>
+            <MaterialIcons name="star" size={14} color="#FFD700" />
+            <Text style={styles.mutedSmall}>{item.rating ?? 0}</Text>
+          </View>
+          <Text style={styles.mutedSmall}>{item.totalLessons ?? 0} bài</Text>
+        </View>
+        <View style={styles.ctaRow}>
+          <TouchableOpacity
+            style={styles.cta}
+            onPress={(e) => {
+              e.stopPropagation();
+              navigation.navigate("CourseLessons" as any, {
+                courseId: item.id,
+                title: item.title,
+              });
+            }}
+          >
+            <Text style={styles.ctaText}>QUẢN LÝ BÀI HỌC</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.cta}
+            onPress={(e) => {
+              e.stopPropagation();
+              navigation.navigate("CreateQuizLesson" as any, {
+                courseId: item.id,
+                title: item.title,
+              });
+            }}
+          >
+            <Text style={styles.ctaText}>THÊM QUIZ</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.cta}
+            onPress={(e) => {
+              e.stopPropagation();
+              navigation.navigate("CreateVideoLesson" as any, {
+                courseId: item.id,
+                title: item.title,
+              });
+            }}
+          >
+            <Text style={styles.ctaText}>TẠO VIDEO</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -237,18 +357,46 @@ const MyCoursesScreen: React.FC = () => {
         >
           <Text style={[styles.tabText, activeTab === 'ongoing' && styles.tabTextActive]}>Ongoing</Text>
         </TouchableOpacity>
+        {userRole === "instructor" && (
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'created' && styles.tabActive]}
+            onPress={() => setActiveTab('created')}
+          >
+            <Text style={[styles.tabText, activeTab === 'created' && styles.tabTextActive]}>Đã tạo</Text>
+          </TouchableOpacity>
+        )}
       </View>
-
-      <FlatList
-        data={filtered}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
-        showsVerticalScrollIndicator={false}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        ListEmptyComponent={<Text style={[styles.muted, { textAlign: 'center', marginTop: 40 }]}>Chưa có khóa học</Text>}
-      />
+      {activeTab === "created" ? (
+        <FlatList
+          data={filteredCreated}
+          renderItem={renderCreatedItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          ListEmptyComponent={
+            <Text style={[styles.muted, { textAlign: "center", marginTop: 40 }]}>
+              Bạn chưa tạo khóa học nào
+            </Text>
+          }
+        />
+      ) : (
+        <FlatList
+          data={filteredEnrolled}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          ListEmptyComponent={
+            <Text style={[styles.muted, { textAlign: "center", marginTop: 40 }]}>
+              Chưa có khóa học
+            </Text>
+          }
+        />
+      )}
     </View>
   );
 };

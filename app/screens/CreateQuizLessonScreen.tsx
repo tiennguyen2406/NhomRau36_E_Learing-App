@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   SafeAreaView,
@@ -10,10 +10,11 @@ import {
   View,
   Modal,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { RootStackNavProps } from "../navigation/AppNavigator";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createLesson, getLessonCountByCourse } from "../api/api";
 
 type QuizOption = { text: string };
 type QuizQuestion = {
@@ -23,8 +24,15 @@ type QuizQuestion = {
   explanation?: string;
 };
 
+type RouteParams = {
+  courseId?: string;
+  title?: string;
+};
+
 const CreateQuizLessonScreen: React.FC = () => {
   const navigation = useNavigation<RootStackNavProps>();
+  const route = useRoute();
+  const { courseId, title: courseTitle } = (route.params || {}) as RouteParams;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [questions, setQuestions] = useState<QuizQuestion[]>([
@@ -32,6 +40,26 @@ const CreateQuizLessonScreen: React.FC = () => {
   ]);
   const [loading, setLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [order, setOrder] = useState("1");
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!courseId) return;
+      try {
+        const count = await getLessonCountByCourse(courseId);
+        if (!mounted) return;
+        if (typeof count === "number" && count >= 0) {
+          setOrder(String(count + 1));
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [courseId]);
 
   const addQuestion = () => {
     setQuestions((q) => [
@@ -91,18 +119,41 @@ const CreateQuizLessonScreen: React.FC = () => {
     }
     try {
       setLoading(true);
-      // Lưu dữ liệu quiz lesson vào AsyncStorage để truyền về CreateCourseScreen
-      const quizLessonData = {
-        ...payload,
-        order: String(Date.now()), // Tạm thời dùng timestamp làm order
-      };
-      await AsyncStorage.setItem("pendingQuizLesson", JSON.stringify(quizLessonData));
-      // Reset form
-      setTitle("");
-      setDescription("");
-      setQuestions([{ text: "", options: [{ text: "" }, { text: "" }], correctIndex: 0, explanation: "" }]);
-      // Hiển thị modal thông báo
-      setShowSuccessModal(true);
+      if (courseId) {
+        const lessonPayload = {
+          courseId,
+          title: payload.title,
+          description: payload.description,
+          kind: "quiz",
+          order: Number(order) || 1,
+          questions: payload.questions,
+        };
+        await createLesson(lessonPayload);
+        Alert.alert("Thành công", "Đã thêm bài học quiz vào khóa học.", [
+          {
+            text: "Xem danh sách",
+            onPress: () =>
+              (navigation as any).navigate("CourseLessons", {
+                courseId,
+                title: courseTitle,
+              }),
+          },
+        ]);
+        setTitle("");
+        setDescription("");
+        setQuestions([{ text: "", options: [{ text: "" }, { text: "" }], correctIndex: 0, explanation: "" }]);
+        setOrder((prev) => String((Number(prev) || 1) + 1));
+      } else {
+        const quizLessonData = {
+          ...payload,
+          order: String(Date.now()),
+        };
+        await AsyncStorage.setItem("pendingQuizLesson", JSON.stringify(quizLessonData));
+        setTitle("");
+        setDescription("");
+        setQuestions([{ text: "", options: [{ text: "" }, { text: "" }], correctIndex: 0, explanation: "" }]);
+        setShowSuccessModal(true);
+      }
     } catch (e: any) {
       Alert.alert("Lỗi", e?.message || "Không thể lưu bài học quiz.");
     } finally {
@@ -116,7 +167,9 @@ const CreateQuizLessonScreen: React.FC = () => {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <MaterialIcons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Tạo bài học Quiz</Text>
+        <Text style={styles.headerTitle}>
+          {courseId ? "Thêm quiz cho khóa học" : "Tạo bài học Quiz"}
+        </Text>
       </View>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.card}>
@@ -131,6 +184,18 @@ const CreateQuizLessonScreen: React.FC = () => {
             placeholder="Nhập mô tả"
             multiline
           />
+
+          {courseId ? (
+            <View>
+              <Text style={styles.label}>Thứ tự (order)</Text>
+              <TextInput
+                style={styles.input}
+                value={order}
+                onChangeText={setOrder}
+                keyboardType="numeric"
+              />
+            </View>
+          ) : null}
 
           <Text style={styles.section}>Câu hỏi</Text>
           {questions.map((q, qi) => (

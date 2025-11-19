@@ -27,6 +27,7 @@ import AdminManageScreen from "../screens/AdminManageScreen";
 import AdminStatsScreen from "../screens/AdminStatsScreen";
 import CreateCourseScreen from "../screens/CreateCourseScreen";
 import CreateQuizLessonScreen from "../screens/CreateQuizLessonScreen";
+import CreateVideoLessonScreen from "../screens/CreateVideoLessonScreen";
 import InboxScreen from "../screens/InboxScreen";
 import ChatScreen from "../screens/ChatScreen";
 import QuizLessonScreen from "../screens/QuizLessonScreen";
@@ -38,7 +39,16 @@ export type RootStackParamList = {
   Home: undefined; // fallback so navigate('Home') is valid
   MainTabs: undefined;
   Search: undefined;
-  CreateQuizLesson: undefined;
+  CreateQuizLesson:
+    | {
+        courseId?: string;
+        title?: string;
+      }
+    | undefined;
+  CreateVideoLesson: {
+    courseId: string;
+    title?: string;
+  };
   Category: undefined;
   MentorList: undefined;
   InstructorDetail: { instructorId: string };
@@ -322,6 +332,7 @@ const AppNavigator = () => {
       <RootStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
       <RootStack.Screen name="QuizLesson" component={QuizLessonScreen} />
       <RootStack.Screen name="CreateQuizLesson" component={CreateQuizLessonScreen} />
+      <RootStack.Screen name="CreateVideoLesson" component={CreateVideoLessonScreen} />
       <RootStack.Screen name="AIChat" component={AIChatScreen} />
     </RootStack.Navigator>
   );

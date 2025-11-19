@@ -27,6 +27,7 @@ import AdminManageScreen from "../screens/AdminManageScreen";
 import AdminStatsScreen from "../screens/AdminStatsScreen";
 import CreateCourseScreen from "../screens/CreateCourseScreen";
 import CreateQuizLessonScreen from "../screens/CreateQuizLessonScreen";
+import CreateVideoLessonScreen from "../screens/CreateVideoLessonScreen";
 import InboxScreen from "../screens/InboxScreen";
 import ChatScreen from "../screens/ChatScreen";
 import QuizLessonScreen from "../screens/QuizLessonScreen";
@@ -38,7 +39,16 @@ export type RootStackParamList = {
   Home: undefined; // fallback so navigate('Home') is valid
   MainTabs: undefined;
   Search: undefined;
-  CreateQuizLesson: undefined;
+  CreateQuizLesson:
+    | {
+        courseId?: string;
+        title?: string;
+      }
+    | undefined;
+  CreateVideoLesson: {
+    courseId: string;
+    title?: string;
+  };
   Category: undefined;
   MentorList: undefined;
   InstructorDetail: { instructorId: string };
@@ -76,6 +86,7 @@ export type MainTabParamList = {
   Courses: undefined;
   Inbox: undefined;
   AIChat: undefined;
+  CreateCourseTab: undefined;
   ProfileStack: undefined;
   // Tabs for admin
   AdminManage: undefined;
@@ -162,7 +173,10 @@ const TabNavigator = () => {
         if (username) {
           try {
             const user = await getUserByUsername(username);
-            if (mounted) setIsInstructor((user?.role || "").toLowerCase() === "instructor");
+            if (mounted)
+              setIsInstructor(
+                (user?.role || "").toLowerCase() === "instructor"
+              );
           } catch {}
         }
       } catch {}
@@ -196,6 +210,9 @@ const TabNavigator = () => {
               break;
             case "AIChat":
               iconName = "psychology";
+              break;
+            case "CreateCourseTab":
+              iconName = "add-circle-outline";
               break;
             case "ProfileStack":
               iconName = "person";
@@ -257,11 +274,26 @@ const TabNavigator = () => {
             component={InboxStackNavigator}
             options={{ tabBarLabel: "INBOX" }}
           />
-          <Tab.Screen
-            name="AIChat"
-            component={isInstructor ? CreateCourseScreen : AIChatScreen}
-            options={{ tabBarLabel: isInstructor ? "TẠO KHÓA HỌC" : "AI BOT" }}
-          />
+          {isInstructor ? (
+            <>
+              <Tab.Screen
+                name="CreateCourseTab"
+                component={CreateCourseScreen}
+                options={{ tabBarLabel: "TẠO KHÓA HỌC" }}
+              />
+              <Tab.Screen
+                name="AIChat"
+                component={AIChatScreen}
+                options={{ tabBarLabel: "AI BOT" }}
+              />
+            </>
+          ) : (
+            <Tab.Screen
+              name="AIChat"
+              component={AIChatScreen}
+              options={{ tabBarLabel: "AI BOT" }}
+            />
+          )}
           <Tab.Screen
             name="ProfileStack"
             component={ProfileStackNavigator}
@@ -297,14 +329,24 @@ const AppNavigator = () => {
       <RootStack.Screen name="Search" component={SearchScreen} />
       <RootStack.Screen name="Category" component={CategoryScreen} />
       <RootStack.Screen name="MentorList" component={MentorListScreen} />
-      <RootStack.Screen name="InstructorDetail" component={InstructorDetailScreen} />
+      <RootStack.Screen
+        name="InstructorDetail"
+        component={InstructorDetailScreen}
+      />
       <RootStack.Screen name="CourseList" component={CourseListScreen} />
       <RootStack.Screen name="CourseDetail" component={CourseDetailScreen} />
       <RootStack.Screen name="CourseLessons" component={CourseLessonsScreen} />
       <RootStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
       <RootStack.Screen name="QuizLesson" component={QuizLessonScreen} />
-      <RootStack.Screen name="CreateQuizLesson" component={CreateQuizLessonScreen} />
+      <RootStack.Screen
+        name="CreateQuizLesson"
+        component={CreateQuizLessonScreen}
+      />
       <RootStack.Screen name="CreateCourse" component={CreateCourseScreen} />
+      <RootStack.Screen
+        name="CreateVideoLesson"
+        component={CreateVideoLessonScreen}
+      />
       <RootStack.Screen name="AIChat" component={AIChatScreen} />
     </RootStack.Navigator>
   );

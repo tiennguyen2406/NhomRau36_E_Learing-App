@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { CommonActions } from "@react-navigation/native";
 import { RootStackParamList } from "../navigation/AppNavigator";
-import { getUserById, getCourses } from "../api/api";
+import { getUserById, getCourses, getUserByUsername } from "../api/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { database } from "../firebase";
+import { ref, update } from "firebase/database";
 
 type Props = NativeStackScreenProps<RootStackParamList, "InstructorDetail">;
 
@@ -14,6 +18,8 @@ const InstructorDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [avgRating, setAvgRating] = useState<number>(0);
   const [coursesByInstructor, setCoursesByInstructor] = useState<any[]>([]);
   const [instructorName, setInstructorName] = useState<string>("Instructor");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [messageLoading, setMessageLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -43,6 +49,83 @@ const InstructorDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     return () => { mounted = false; };
   }, [instructorId]);
 
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const username = await AsyncStorage.getItem("currentUsername");
+        if (!username || !mounted) return;
+        const currentUser = await getUserByUsername(username);
+        const uid = currentUser?.uid || currentUser?.id;
+        if (mounted && uid) setCurrentUserId(String(uid));
+      } catch (error) {
+        console.warn("Error loading current user:", error);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const createConversationInBackground = (
+    conversationId: string,
+    me: string,
+    other: string
+  ) => {
+    if (!database) return;
+    const conversationRef = ref(database, `conversations/${conversationId}`);
+    const now = Date.now();
+    update(conversationRef, {
+      participants: [String(me), String(other)],
+      lastMessage: "",
+      lastMessageTime: now,
+      createdAt: now,
+    }).catch((error) => console.error("Error creating conversation:", error));
+  };
+
+  const handleMessagePress = async () => {
+    if (messageLoading) return;
+    if (!currentUserId) {
+      Alert.alert("Thông báo", "Vui lòng đăng nhập lại để nhắn tin.");
+      return;
+    }
+    if (!database) {
+      Alert.alert("Thông báo", "Chức năng chat chưa được cấu hình.");
+      return;
+    }
+    if (String(currentUserId) === String(instructorId)) {
+      Alert.alert("Thông báo", "Bạn không thể trò chuyện với chính mình.");
+      return;
+    }
+
+    const sortedIds = [String(currentUserId), String(instructorId)].sort();
+    const conversationId = `${sortedIds[0]}_${sortedIds[1]}`;
+
+    setMessageLoading(true);
+    try {
+      navigation.navigate(
+        "MainTabs" as any,
+        {
+          screen: "Inbox",
+          params: {
+            initialChat: {
+              chatId: conversationId,
+              name: instructorName,
+              otherUserId: instructorId,
+              currentUserId,
+            },
+          },
+        } as any
+      );
+      createConversationInBackground(conversationId, currentUserId, instructorId);
+    } catch (error) {
+      console.error("Error navigating to chat:", error);
+      Alert.alert("Lỗi", "Không thể mở cuộc trò chuyện. Vui lòng thử lại sau.");
+    } finally {
+      setMessageLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header back like CourseDetail */}
@@ -65,8 +148,20 @@ const InstructorDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.follow}><Text style={styles.actionText}>Follow</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.message}><Text style={styles.messageText}>Message</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.follow}>
+              <Text style={styles.actionText}>Follow</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.message, messageLoading && { opacity: 0.6 }]}
+              onPress={handleMessagePress}
+              disabled={messageLoading}
+            >
+              {messageLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.messageText}>Message</Text>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
 

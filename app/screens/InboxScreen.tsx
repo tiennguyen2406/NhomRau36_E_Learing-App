@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { SafeAreaView, StyleSheet, Text, View, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Alert, Modal } from "react-native";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation, useFocusEffect, useRoute } from "@react-navigation/native";
 import { InboxStackParamList, RootStackNavProps } from "../navigation/AppNavigator";
 import { database } from "../firebase";
 import { ref, onValue, off, push, set, update, query, orderByChild, equalTo, get, DataSnapshot } from "firebase/database";
@@ -19,6 +19,7 @@ type ChatItem = {
 
 const InboxScreen: React.FC = () => {
   const navigation = useNavigation<RootStackNavProps>();
+  const route = useRoute<any>();
   const [tab, setTab] = useState<"chat" | "calls">("chat");
   const [search, setSearch] = useState("");
   const [chats, setChats] = useState<ChatItem[]>([]);
@@ -215,6 +216,26 @@ const InboxScreen: React.FC = () => {
     // @ts-ignore route typing simplify
     navigation.navigate("Chat" as any, { chatId: item.id, name: item.name, otherUserId: item.otherUserId });
   };
+
+  useEffect(() => {
+    const pending = route.params?.initialChat;
+    if (
+      pending &&
+      pending.chatId &&
+      pending.otherUserId &&
+      currentUserId &&
+      !creatingConversation
+    ) {
+      navigation.navigate("Chat" as any, {
+        chatId: pending.chatId,
+        name: pending.name || "Chat",
+        otherUserId: pending.otherUserId,
+        currentUserId,
+      });
+      navigation.setParams?.({ initialChat: undefined });
+    }
+  }, [route.params?.initialChat, currentUserId, creatingConversation, navigation]);
+
 
   const createNewChat = () => {
     if (!currentUserId) {

@@ -10,14 +10,14 @@ function normalizeMongoData(data: any): any {
   }
   if (data && typeof data === "object") {
     const normalized: any = { ...data };
-    
+
     // Luôn ưu tiên _id nếu nó tồn tại và hợp lệ
     if (normalized._id) {
       const _idString = normalized._id.toString();
       // Chỉ copy khi _id không phải là "undefined" hoặc "null"
       if (_idString && _idString !== "undefined" && _idString !== "null") {
         normalized.id = _idString;
-        
+
         // Nếu có _id nhưng không có uid (cho user), copy _id thành uid
         if (!normalized.uid && (normalized.username || normalized.email)) {
           normalized.uid = _idString;
@@ -26,13 +26,23 @@ function normalizeMongoData(data: any): any {
       // Xóa _id để tránh confusion
       delete normalized._id;
     }
-    
+
     // Nếu id là "undefined" hoặc "null" string, xóa nó
-    if (normalized.id === "undefined" || normalized.id === "null" || normalized.id === undefined || normalized.id === null) {
-      console.warn('normalizeMongoData: Invalid id detected:', normalized.id, 'for object:', normalized.title || normalized.name || 'unknown');
+    if (
+      normalized.id === "undefined" ||
+      normalized.id === "null" ||
+      normalized.id === undefined ||
+      normalized.id === null
+    ) {
+      console.warn(
+        "normalizeMongoData: Invalid id detected:",
+        normalized.id,
+        "for object:",
+        normalized.title || normalized.name || "unknown"
+      );
       delete normalized.id;
     }
-    
+
     // Recursively normalize nested objects
     Object.keys(normalized).forEach((key) => {
       if (normalized[key] && typeof normalized[key] === "object") {
@@ -125,7 +135,10 @@ export const updateUser = async (uid: string, data: any) => {
 };
 
 // Follow/Unfollow instructor
-export const followInstructor = async (userId: string, instructorId: string) => {
+export const followInstructor = async (
+  userId: string,
+  instructorId: string
+) => {
   return requestJson(`${BASE_URL}/users/follow`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -133,7 +146,10 @@ export const followInstructor = async (userId: string, instructorId: string) => 
   });
 };
 
-export const unfollowInstructor = async (userId: string, instructorId: string) => {
+export const unfollowInstructor = async (
+  userId: string,
+  instructorId: string
+) => {
   return requestJson(`${BASE_URL}/users/unfollow`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -141,9 +157,14 @@ export const unfollowInstructor = async (userId: string, instructorId: string) =
   });
 };
 
-export const checkFollowStatus = async (userId: string, instructorId: string) => {
+export const checkFollowStatus = async (
+  userId: string,
+  instructorId: string
+) => {
   return requestJson(
-    `${BASE_URL}/users/check-follow?userId=${encodeURIComponent(userId)}&instructorId=${encodeURIComponent(instructorId)}`
+    `${BASE_URL}/users/check-follow?userId=${encodeURIComponent(
+      userId
+    )}&instructorId=${encodeURIComponent(instructorId)}`
   );
 };
 
@@ -175,7 +196,9 @@ export const updateCategory = async (id: string, data: any) => {
 
 // May not be supported on backend yet
 export const deleteCategory = async (id: string) => {
-  return requestJson(`${BASE_URL}/categories/${id}`, { method: "DELETE" as any });
+  return requestJson(`${BASE_URL}/categories/${id}`, {
+    method: "DELETE" as any,
+  });
 };
 
 export const getCategoryById = async (categoryId: string) => {
@@ -195,24 +218,24 @@ export const createCourse = async (data: any) => {
 };
 
 export const getCourseById = async (courseId: string) => {
-  if (!courseId || courseId === 'undefined' || courseId === 'null') {
+  if (!courseId || courseId === "undefined" || courseId === "null") {
     throw new Error(`Invalid courseId: ${courseId}`);
   }
   return requestJson(`${BASE_URL}/courses/${courseId}`);
 };
 
 export const getLessonCountByCourse = async (courseId: string) => {
-  if (!courseId || courseId === 'undefined' || courseId === 'null') {
+  if (!courseId || courseId === "undefined" || courseId === "null") {
     throw new Error(`Invalid courseId: ${courseId}`);
   }
   return requestJson(`${BASE_URL}/lessons/count/${courseId}`);
 };
 
 export const enrollCourse = async (uid: string, courseId: string) => {
-  if (!courseId || courseId === 'undefined' || courseId === 'null') {
+  if (!courseId || courseId === "undefined" || courseId === "null") {
     throw new Error(`Invalid courseId: ${courseId}`);
   }
-  if (!uid || uid === 'undefined' || uid === 'null') {
+  if (!uid || uid === "undefined" || uid === "null") {
     throw new Error(`Invalid uid: ${uid}`);
   }
   return requestJson(`${BASE_URL}/users/${uid}/enroll`, {
@@ -223,10 +246,10 @@ export const enrollCourse = async (uid: string, courseId: string) => {
 };
 
 export const unenrollCourse = async (uid: string, courseId: string) => {
-  if (!courseId || courseId === 'undefined' || courseId === 'null') {
+  if (!courseId || courseId === "undefined" || courseId === "null") {
     throw new Error(`Invalid courseId: ${courseId}`);
   }
-  if (!uid || uid === 'undefined' || uid === 'null') {
+  if (!uid || uid === "undefined" || uid === "null") {
     throw new Error(`Invalid uid: ${uid}`);
   }
   return requestJson(`${BASE_URL}/users/${uid}/unenroll`, {
@@ -237,7 +260,7 @@ export const unenrollCourse = async (uid: string, courseId: string) => {
 };
 
 export const getLessonsByCourse = async (courseId: string) => {
-  if (!courseId || courseId === 'undefined' || courseId === 'null') {
+  if (!courseId || courseId === "undefined" || courseId === "null") {
     throw new Error(`Invalid courseId: ${courseId}`);
   }
   return requestJson(`${BASE_URL}/lessons/by-course/${courseId}`);
@@ -432,6 +455,73 @@ export const deleteInstructorReview = async (
   });
 };
 
+// ===== COURSE REVIEW APIs =====
+
+// Lấy danh sách đánh giá của một khóa học
+export const getCourseReviews = async (courseId: string) => {
+  if (!courseId || courseId === "undefined" || courseId === "null") {
+    throw new Error(`Invalid courseId: ${courseId}`);
+  }
+  return requestJson(`${BASE_URL}/course-reviews/${courseId}`);
+};
+
+// Submit đánh giá khóa học
+export const submitCourseReview = async (payload: {
+  courseId: string;
+  rating: number;
+  comment?: string;
+  userId: string;
+  username: string;
+}) => {
+  if (
+    !payload.courseId ||
+    payload.courseId === "undefined" ||
+    payload.courseId === "null"
+  ) {
+    throw new Error(`Invalid courseId: ${payload.courseId}`);
+  }
+  if (
+    !payload.userId ||
+    payload.userId === "undefined" ||
+    payload.userId === "null"
+  ) {
+    throw new Error(`Invalid userId: ${payload.userId}`);
+  }
+  return requestJson(`${BASE_URL}/course-reviews`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+};
+
+// Cập nhật đánh giá khóa học
+export const updateCourseReview = async (
+  reviewId: string,
+  payload: {
+    rating: number;
+    comment?: string;
+    userId: string;
+  }
+) => {
+  return requestJson(`${BASE_URL}/course-reviews/${reviewId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+};
+
+// Xóa đánh giá khóa học
+export const deleteCourseReview = async (reviewId: string, userId: string) => {
+  const url = `${BASE_URL}/course-reviews/${reviewId}?userId=${encodeURIComponent(
+    userId
+  )}`;
+  return requestJson(url, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", "x-user-id": userId },
+    body: JSON.stringify({ userId }),
+  });
+};
+
 export const saveQuizResult = async (
   lessonId: string,
   data: {
@@ -463,10 +553,10 @@ export const getQuizResultsByCourse = async (
 
 // Tạo link thanh toán cho khóa học
 export const createPaymentLink = async (userId: string, courseId: string) => {
-  if (!courseId || courseId === 'undefined' || courseId === 'null') {
+  if (!courseId || courseId === "undefined" || courseId === "null") {
     throw new Error(`Invalid courseId: ${courseId}`);
   }
-  if (!userId || userId === 'undefined' || userId === 'null') {
+  if (!userId || userId === "undefined" || userId === "null") {
     throw new Error(`Invalid userId: ${userId}`);
   }
   return requestJson(`${BASE_URL}/payments/create`, {
@@ -583,7 +673,8 @@ export const summarizeVideo = async (
       } else {
         try {
           const errorData = JSON.parse(xhr.responseText);
-          const errorMsg = errorData.error || errorData.details || "Upload failed";
+          const errorMsg =
+            errorData.error || errorData.details || "Upload failed";
           const error = new Error(errorMsg);
           // @ts-ignore
           error.error = errorData.error;

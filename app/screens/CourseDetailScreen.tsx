@@ -3,7 +3,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getCourseById, getUsers, getLessonCountByCourse, enrollCourse, getUserByUsername, createPaymentLink, checkPaymentStatus, getUserCourses } from "../api/api";
+import { getCourseById, getUsers, getLessonCountByCourse, enrollCourse, getUserByUsername, createPaymentLink, checkPaymentStatus, getUserCourses, getCourseReviews } from "../api/api";
 
 type RouteParams = { courseId: string };
 
@@ -20,6 +20,8 @@ const CourseDetailScreen: React.FC = () => {
   const [lessonCount, setLessonCount] = useState<number | undefined>(undefined);
   const [enrolling, setEnrolling] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
+  const [averageRating, setAverageRating] = useState<number>(0);
+  const [reviewCount, setReviewCount] = useState<number>(0);
 
   useEffect(() => {
     console.log('CourseDetailScreen - courseId:', courseId);
@@ -37,14 +39,22 @@ const CourseDetailScreen: React.FC = () => {
     (async () => {
       try {
         setLoading(true);
-        const [courseData, users, lessons] = await Promise.all([
+        const [courseData, users, lessons, reviews] = await Promise.all([
           getCourseById(courseId),
           getUsers().catch(() => []),
           getLessonCountByCourse(courseId).catch(() => ({ count: undefined })),
+          getCourseReviews(courseId).catch(() => []),
         ]);
         if (!mounted) return;
         setCourse(courseData);
         setLessonCount(typeof lessons?.count === 'number' ? lessons.count : undefined);
+
+        // Tính toán rating trung bình
+        if (Array.isArray(reviews) && reviews.length > 0) {
+          const avgRating = reviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / reviews.length;
+          setAverageRating(avgRating);
+          setReviewCount(reviews.length);
+        }
 
         const nameFromCourse = courseData?.instructorName || courseData?.instructor || "";
         const nameFromUsers = (() => {
@@ -310,6 +320,38 @@ const CourseDetailScreen: React.FC = () => {
               </Text>
             </View>
           ) : null}
+          {reviewCount > 0 ? (
+            <TouchableOpacity 
+              style={styles.reviewRow} 
+              onPress={() => (navigation as any).navigate('CourseReview', { 
+                courseId, 
+                courseTitle: course?.title 
+              })}
+            >
+              <MaterialIcons name="star" size={18} color="#FFD700" />
+              <Text style={styles.ratingText}>
+                {averageRating.toFixed(1)}
+              </Text>
+              <Text style={styles.reviewCountText}>
+                ({reviewCount} đánh giá)
+              </Text>
+              <MaterialIcons name="chevron-right" size={18} color="#999" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+              style={styles.reviewRow} 
+              onPress={() => (navigation as any).navigate('CourseReview', { 
+                courseId, 
+                courseTitle: course?.title 
+              })}
+            >
+              <MaterialIcons name="rate-review" size={18} color="#999" />
+              <Text style={styles.reviewCountText}>
+                Chưa có đánh giá
+              </Text>
+              <MaterialIcons name="chevron-right" size={18} color="#999" />
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
 
@@ -356,6 +398,25 @@ const styles = StyleSheet.create({
   retry: { backgroundColor: "#20B2AA", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, marginTop: 10 },
   priceText: { fontWeight: '700', color: '#20B2AA', marginLeft: 4, fontSize: 15 },
   scrollContent: { paddingBottom: 100 },
+  reviewRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#fff8e1', 
+    padding: 12, 
+    borderRadius: 8, 
+    marginTop: 12,
+    gap: 6,
+  },
+  ratingText: { 
+    fontSize: 16, 
+    fontWeight: '700', 
+    color: '#333',
+  },
+  reviewCountText: { 
+    fontSize: 14, 
+    color: '#666',
+    flex: 1,
+  },
   footerCta: { position: "absolute", bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 32, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#e0e0e0", shadowColor: "#000", shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 5 },
   joinBtn: { backgroundColor: '#20B2AA', borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingVertical: 14 },
   joinBtnDisabled: { opacity: 0.6 },

@@ -209,6 +209,15 @@ const CourseLessonsScreen: React.FC = () => {
           <MaterialIcons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>{title || 'Bài học'}</Text>
+        <TouchableOpacity 
+          onPress={() => (navigation as any).navigate('CourseReview', { 
+            courseId, 
+            courseTitle: title 
+          })}
+          style={styles.reviewBtn}
+        >
+          <MaterialIcons name="star" size={22} color="#FFD700" />
+        </TouchableOpacity>
       </View>
       <FlatList
         data={lessons}
@@ -226,6 +235,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 50, paddingBottom: 12, backgroundColor: '#fff' },
   headerTitle: { marginLeft: 12, fontSize: 18, fontWeight: '700', color: '#333', flex: 1 },
+  reviewBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff8e1', alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
   lessonItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 12 },
   lessonLeft: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   lessonIndex: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#eef6f6', alignItems: 'center', justifyContent: 'center', marginRight: 10 },

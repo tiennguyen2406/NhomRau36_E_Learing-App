@@ -3,7 +3,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getCourseById, getUsers, getLessonCountByCourse, enrollCourse, getUserByUsername, createPaymentLink } from "../api/api";
+import { getCourseById, getUsers, getLessonCountByCourse, enrollCourse, getUserByUsername, createPaymentLink, checkPaymentStatus, getUserCourses } from "../api/api";
 
 type RouteParams = { courseId: string };
 
@@ -19,8 +19,20 @@ const CourseDetailScreen: React.FC = () => {
   const [instructorAvatar, setInstructorAvatar] = useState<string | undefined>(undefined);
   const [lessonCount, setLessonCount] = useState<number | undefined>(undefined);
   const [enrolling, setEnrolling] = useState(false);
+  const [checkingPayment, setCheckingPayment] = useState(false);
 
   useEffect(() => {
+    console.log('CourseDetailScreen - courseId:', courseId);
+    console.log('CourseDetailScreen - route.params:', route.params);
+    
+    // Kiểm tra courseId trước khi gọi API
+    if (!courseId || courseId === 'undefined' || courseId === 'null') {
+      console.error('CourseDetailScreen - Invalid courseId:', courseId);
+      setError("ID khóa học không hợp lệ");
+      setLoading(false);
+      return;
+    }
+
     let mounted = true;
     (async () => {
       try {
@@ -64,17 +76,103 @@ const CourseDetailScreen: React.FC = () => {
     return "";
   }, [course]);
 
+  const handleCheckPayment = async (orderCode: string, userId: string) => {
+    try {
+      setCheckingPayment(true);
+      
+      // Đợi một chút để backend xử lý thanh toán và enroll
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Bước 1: Kiểm tra xem user đã được enroll vào khóa học chưa
+      console.log('Checking enrollment for user:', userId, 'course:', courseId);
+      const userCourses = await getUserCourses(userId);
+      const isEnrolled = Array.isArray(userCourses) && 
+        userCourses.some((c: any) => (c.id || c._id) === courseId);
+      
+      console.log('User courses:', userCourses?.length, 'Is enrolled:', isEnrolled);
+      
+      if (isEnrolled) {
+        // Đã được enroll - Thanh toán thành công
+        console.log('Payment successful - User enrolled in course');
+        Alert.alert(
+          'Thanh toán thành công!',
+          'Bạn đã tham gia khóa học thành công.',
+          [
+            { 
+              text: 'OK', 
+              onPress: () => (navigation as any).navigate('MainTabs', { screen: 'Courses' }) 
+            }
+          ]
+        );
+        return;
+      }
+      
+      // Bước 2: Nếu chưa enroll, kiểm tra trạng thái thanh toán
+      console.log('Not enrolled yet, checking payment status...');
+      const paymentStatus = await checkPaymentStatus(orderCode);
+      console.log('Payment status:', paymentStatus);
+      
+      const status = paymentStatus?.status?.toLowerCase();
+      
+      if (status === 'paid' || status === 'completed' || status === 'success') {
+        // Thanh toán thành công nhưng chưa enroll - Có thể backend đang xử lý
+        Alert.alert(
+          'Thanh toán thành công!',
+          'Thanh toán của bạn đã được xác nhận. Khóa học sẽ được kích hoạt trong giây lát.',
+          [
+            { 
+              text: 'OK', 
+              onPress: () => (navigation as any).navigate('MainTabs', { screen: 'Courses' }) 
+            }
+          ]
+        );
+      } else if (status === 'cancelled' || status === 'canceled') {
+        // Thanh toán bị hủy
+        Alert.alert(
+          'Thanh toán bị hủy',
+          'Bạn đã hủy thanh toán. Vui lòng thử lại nếu muốn tham gia khóa học.',
+          [{ text: 'OK' }]
+        );
+      } else if (status === 'pending' || status === 'processing') {
+        // Thanh toán đang chờ xử lý
+        Alert.alert(
+          'Đang xử lý thanh toán',
+          'Thanh toán của bạn đang được xử lý. Vui lòng kiểm tra lại trong "Khóa học của tôi" sau vài phút.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        // Trạng thái không xác định - Cho user biết kiểm tra lại
+        Alert.alert(
+          'Vui lòng kiểm tra lại',
+          'Không thể xác nhận trạng thái thanh toán. Vui lòng kiểm tra trong "Khóa học của tôi" sau vài phút.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error: any) {
+      console.error('Error checking payment:', error);
+      Alert.alert(
+        'Không thể kiểm tra thanh toán',
+        'Vui lòng kiểm tra lại trong "Khóa học của tôi" sau vài phút.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setCheckingPayment(false);
+    }
+  };
+
   const handleEnroll = async () => {
     try {
       setEnrolling(true);
       const username = await AsyncStorage.getItem('currentUsername');
       if (!username) {
         Alert.alert('Lỗi', 'Vui lòng đăng nhập để tham gia khóa học');
+        setEnrolling(false);
         return;
       }
       const user = await getUserByUsername(username);
       if (!user || !user.uid) {
         Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng');
+        setEnrolling(false);
         return;
       }
 
@@ -84,25 +182,49 @@ const CourseDetailScreen: React.FC = () => {
         // Khóa học có phí - Tạo link thanh toán
         try {
           const paymentData = await createPaymentLink(user.uid, courseId);
-          if (paymentData?.checkoutUrl) {
+          if (paymentData?.checkoutUrl && paymentData?.orderCode) {
+            const orderCode = paymentData.orderCode;
+            
             // Mở link thanh toán trong trình duyệt
             const supported = await Linking.canOpenURL(paymentData.checkoutUrl);
             if (supported) {
               await Linking.openURL(paymentData.checkoutUrl);
+              
+              // Hiển thị alert và kiểm tra thanh toán khi nhấn OK
               Alert.alert(
                 'Chuyển đến trang thanh toán',
-                'Vui lòng hoàn tất thanh toán. Sau khi thanh toán thành công, khóa học sẽ được tự động kích hoạt.',
-                [{ text: 'OK' }]
+                'Vui lòng hoàn tất thanh toán. Sau khi thanh toán xong, nhấn OK để kiểm tra.',
+                [
+                  { 
+                    text: 'Hủy', 
+                    style: 'cancel',
+                    onPress: () => {
+                      setEnrolling(false);
+                    }
+                  },
+                  { 
+                    text: 'OK', 
+                    onPress: async () => {
+                      await handleCheckPayment(orderCode, user.uid);
+                      setEnrolling(false);
+                    }
+                  }
+                ]
               );
+              // Không set enrolling = false ở đây vì sẽ set trong callback
+              return;
             } else {
               Alert.alert('Lỗi', 'Không thể mở link thanh toán');
+              setEnrolling(false);
             }
           } else {
             Alert.alert('Lỗi', 'Không thể tạo link thanh toán');
+            setEnrolling(false);
           }
         } catch (paymentError: any) {
           const errorMsg = paymentError?.message || 'Không thể tạo thanh toán';
           Alert.alert('Lỗi thanh toán', errorMsg);
+          setEnrolling(false);
         }
       } else {
         // Khóa học miễn phí - Enroll trực tiếp
@@ -114,7 +236,6 @@ const CourseDetailScreen: React.FC = () => {
     } catch (e: any) {
       const msg = e?.message || 'Không thể tham gia khóa học';
       Alert.alert('Lỗi', msg.includes('đã tham gia') ? msg : 'Có lỗi xảy ra. Vui lòng thử lại.');
-    } finally {
       setEnrolling(false);
     }
   };
@@ -194,12 +315,17 @@ const CourseDetailScreen: React.FC = () => {
 
       <View style={styles.footerCta}>
         <TouchableOpacity 
-          style={[styles.joinBtn, enrolling && styles.joinBtnDisabled]} 
+          style={[styles.joinBtn, (enrolling || checkingPayment) && styles.joinBtnDisabled]} 
           onPress={handleEnroll}
-          disabled={enrolling}
+          disabled={enrolling || checkingPayment}
         >
-          {enrolling ? (
-            <ActivityIndicator color="#fff" />
+          {(enrolling || checkingPayment) ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator color="#fff" />
+              {checkingPayment && (
+                <Text style={styles.joinText}>Đang kiểm tra thanh toán...</Text>
+              )}
+            </View>
           ) : (
             <Text style={styles.joinText}>
               {course?.price && course.price > 0 

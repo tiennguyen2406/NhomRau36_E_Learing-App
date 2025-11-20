@@ -352,8 +352,9 @@ const MyCoursesScreen: React.FC = () => {
               styles.tabText,
               activeTab === "completed" && styles.tabTextActive,
             ]}
+            numberOfLines={1}
           >
-            Đã hoàn thành
+            Hoàn thành
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -365,8 +366,9 @@ const MyCoursesScreen: React.FC = () => {
               styles.tabText,
               activeTab === "ongoing" && styles.tabTextActive,
             ]}
+            numberOfLines={1}
           >
-            Đang diễn ra
+            Đang học
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -391,9 +393,9 @@ const MyCoursesScreen: React.FC = () => {
           {userRole !== "instructor" && (
             <MaterialIcons
               name="lock"
-              size={14}
+              size={12}
               color="#999"
-              style={{ marginRight: 4 }}
+              style={{ marginRight: 2 }}
             />
           )}
           <Text
@@ -402,8 +404,9 @@ const MyCoursesScreen: React.FC = () => {
               activeTab === "created" && styles.tabTextActive,
               userRole !== "instructor" && styles.tabTextLocked,
             ]}
+            numberOfLines={1}
           >
-            Khóa học đã tạo
+            Đã tạo
           </Text>
         </TouchableOpacity>
       </View>
@@ -488,19 +491,30 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  tabs: { flexDirection: "row", paddingHorizontal: 20, paddingVertical: 12 },
+  tabs: { 
+    flexDirection: "row", 
+    paddingHorizontal: 16, 
+    paddingVertical: 12,
+    gap: 8,
+  },
   tab: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     borderRadius: 20,
     backgroundColor: "#eee",
-    marginRight: 10,
   },
   tabActive: { backgroundColor: "#20B2AA" },
   tabLocked: { backgroundColor: "#f5f5f5", opacity: 0.6 },
-  tabText: { color: "#666", fontWeight: "600" },
+  tabText: { 
+    color: "#666", 
+    fontWeight: "600",
+    fontSize: 12,
+    textAlign: "center",
+  },
   tabTextActive: { color: "#fff" },
   tabTextLocked: { color: "#999" },
   card: {

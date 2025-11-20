@@ -10,22 +10,29 @@ function normalizeMongoData(data: any): any {
   }
   if (data && typeof data === "object") {
     const normalized: any = { ...data };
-    // Nếu có _id nhưng không có id, copy _id thành id
-    if (normalized._id && !normalized.id) {
-      normalized.id = normalized._id.toString();
-    }
-    // Nếu có _id nhưng không có uid (cho user), copy _id thành uid
-    if (
-      normalized._id &&
-      !normalized.uid &&
-      (normalized.username || normalized.email)
-    ) {
-      normalized.uid = normalized._id.toString();
-    }
-    // Xóa _id để tránh confusion
+    
+    // Luôn ưu tiên _id nếu nó tồn tại và hợp lệ
     if (normalized._id) {
+      const _idString = normalized._id.toString();
+      // Chỉ copy khi _id không phải là "undefined" hoặc "null"
+      if (_idString && _idString !== "undefined" && _idString !== "null") {
+        normalized.id = _idString;
+        
+        // Nếu có _id nhưng không có uid (cho user), copy _id thành uid
+        if (!normalized.uid && (normalized.username || normalized.email)) {
+          normalized.uid = _idString;
+        }
+      }
+      // Xóa _id để tránh confusion
       delete normalized._id;
     }
+    
+    // Nếu id là "undefined" hoặc "null" string, xóa nó
+    if (normalized.id === "undefined" || normalized.id === "null" || normalized.id === undefined || normalized.id === null) {
+      console.warn('normalizeMongoData: Invalid id detected:', normalized.id, 'for object:', normalized.title || normalized.name || 'unknown');
+      delete normalized.id;
+    }
+    
     // Recursively normalize nested objects
     Object.keys(normalized).forEach((key) => {
       if (normalized[key] && typeof normalized[key] === "object") {
@@ -188,14 +195,26 @@ export const createCourse = async (data: any) => {
 };
 
 export const getCourseById = async (courseId: string) => {
+  if (!courseId || courseId === 'undefined' || courseId === 'null') {
+    throw new Error(`Invalid courseId: ${courseId}`);
+  }
   return requestJson(`${BASE_URL}/courses/${courseId}`);
 };
 
 export const getLessonCountByCourse = async (courseId: string) => {
+  if (!courseId || courseId === 'undefined' || courseId === 'null') {
+    throw new Error(`Invalid courseId: ${courseId}`);
+  }
   return requestJson(`${BASE_URL}/lessons/count/${courseId}`);
 };
 
 export const enrollCourse = async (uid: string, courseId: string) => {
+  if (!courseId || courseId === 'undefined' || courseId === 'null') {
+    throw new Error(`Invalid courseId: ${courseId}`);
+  }
+  if (!uid || uid === 'undefined' || uid === 'null') {
+    throw new Error(`Invalid uid: ${uid}`);
+  }
   return requestJson(`${BASE_URL}/users/${uid}/enroll`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -204,6 +223,12 @@ export const enrollCourse = async (uid: string, courseId: string) => {
 };
 
 export const unenrollCourse = async (uid: string, courseId: string) => {
+  if (!courseId || courseId === 'undefined' || courseId === 'null') {
+    throw new Error(`Invalid courseId: ${courseId}`);
+  }
+  if (!uid || uid === 'undefined' || uid === 'null') {
+    throw new Error(`Invalid uid: ${uid}`);
+  }
   return requestJson(`${BASE_URL}/users/${uid}/unenroll`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -212,6 +237,9 @@ export const unenrollCourse = async (uid: string, courseId: string) => {
 };
 
 export const getLessonsByCourse = async (courseId: string) => {
+  if (!courseId || courseId === 'undefined' || courseId === 'null') {
+    throw new Error(`Invalid courseId: ${courseId}`);
+  }
   return requestJson(`${BASE_URL}/lessons/by-course/${courseId}`);
 };
 
@@ -435,6 +463,12 @@ export const getQuizResultsByCourse = async (
 
 // Tạo link thanh toán cho khóa học
 export const createPaymentLink = async (userId: string, courseId: string) => {
+  if (!courseId || courseId === 'undefined' || courseId === 'null') {
+    throw new Error(`Invalid courseId: ${courseId}`);
+  }
+  if (!userId || userId === 'undefined' || userId === 'null') {
+    throw new Error(`Invalid userId: ${userId}`);
+  }
   return requestJson(`${BASE_URL}/payments/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

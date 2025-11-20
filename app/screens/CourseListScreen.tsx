@@ -30,10 +30,12 @@ interface Course {
   category: string; // ID của danh mục
   categoryName?: string; // Tên danh mục (thêm từ API)
   categoryId?: string; // ID danh mục (dự phòng)
-  originalPrice: number;
-  currentPrice: number;
-  rating: number;
-  students: number;
+  originalPrice?: number;
+  currentPrice?: number;
+  price?: number; // Giá khóa học (VND)
+  rating?: number;
+  students?: number;
+  totalLessons?: number;
   thumbnailUrl?: string;
   image?: string;
 }
@@ -112,7 +114,13 @@ const CourseListScreen: React.FC = () => {
           setCategoryName(title);
           setSearchText(title);
           const allCourses = await getCourses();
-          setCourses(Array.isArray(allCourses) ? allCourses : []);
+          const coursesArray = Array.isArray(allCourses) ? allCourses : [];
+          console.log('CourseListScreen - Fetched all courses:', coursesArray.length);
+          if (coursesArray.length > 0) {
+            console.log('CourseListScreen - First course:', coursesArray[0]);
+            console.log('CourseListScreen - First course ID:', coursesArray[0]?.id);
+          }
+          setCourses(coursesArray);
         } else {
           // Đặt tên category
           const currentFilter =
@@ -132,7 +140,13 @@ const CourseListScreen: React.FC = () => {
           }
 
           const coursesData = await getCoursesByCategory(selectedFilterId);
-          setCourses(Array.isArray(coursesData) ? coursesData : []);
+          const coursesArray = Array.isArray(coursesData) ? coursesData : [];
+          console.log('CourseListScreen - Fetched courses by category:', coursesArray.length);
+          if (coursesArray.length > 0) {
+            console.log('CourseListScreen - First course:', coursesArray[0]);
+            console.log('CourseListScreen - First course ID:', coursesArray[0]?.id);
+          }
+          setCourses(coursesArray);
         }
       } catch (error) {
         console.error("Lỗi khi tải dữ liệu:", error);
@@ -163,8 +177,18 @@ const CourseListScreen: React.FC = () => {
     // Hiển thị tên danh mục nếu có, hoặc dùng categoryName từ state, hoặc dùng placeholder
     const categoryDisplay = item.categoryName || categoryName || "Danh mục";
 
+    // Debug log
+    console.log('CourseListScreen - Rendering course:', item.title, 'ID:', item.id);
+
     return (
-      <TouchableOpacity style={styles.courseItem} activeOpacity={0.8} onPress={() => navigation.navigate('CourseDetail' as never)}>
+      <TouchableOpacity 
+        style={styles.courseItem} 
+        activeOpacity={0.8} 
+        onPress={() => {
+          console.log('CourseListScreen - Navigate to CourseDetail with courseId:', item.id);
+          navigation.navigate('CourseDetail', { courseId: item.id } as never);
+        }}
+      >
         <View style={styles.courseImageContainer}>
           { (item.thumbnailUrl || item.image) ? (
             <Image source={{ uri: (item.thumbnailUrl || item.image) as string }} style={styles.courseImage} resizeMode="cover" />
@@ -180,20 +204,24 @@ const CourseListScreen: React.FC = () => {
             {item.title}
           </ThemedText>
           <View style={styles.priceContainer}>
-            <ThemedText style={styles.currentPrice}>
-              ${item.currentPrice}
-            </ThemedText>
-            <ThemedText style={styles.originalPrice}>
-              ${item.originalPrice}
-            </ThemedText>
+            {item.price === 0 || !item.price ? (
+              <ThemedText style={styles.freePrice}>Miễn phí</ThemedText>
+            ) : (
+              <ThemedText style={styles.currentPrice}>
+                {item.price.toLocaleString('vi-VN')} VND
+              </ThemedText>
+            )}
           </View>
           <View style={styles.courseStats}>
             <View style={styles.ratingContainer}>
               <MaterialIcons name="star" size={14} color="#FFD700" />
-              <ThemedText style={styles.rating}>{item.rating}</ThemedText>
+              <ThemedText style={styles.rating}>{item.rating || 0}</ThemedText>
             </View>
             <ThemedText style={styles.studentCount}>
-              {item.students} Std
+              {item.students || 0} học viên
+            </ThemedText>
+            <ThemedText style={styles.lessonCount}>
+              {item.totalLessons || 0} bài
             </ThemedText>
           </View>
         </View>
@@ -550,10 +578,14 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   currentPrice: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#2E8BC0", // Blue color
-    marginRight: 8,
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#20B2AA",
+  },
+  freePrice: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#27ae60",
   },
   originalPrice: {
     fontSize: 14,
@@ -577,6 +609,12 @@ const styles = StyleSheet.create({
   studentCount: {
     fontSize: 12,
     color: "#666",
+    marginLeft: 8,
+  },
+  lessonCount: {
+    fontSize: 12,
+    color: "#666",
+    marginLeft: 8,
   },
   courseActions: {
     position: "absolute",

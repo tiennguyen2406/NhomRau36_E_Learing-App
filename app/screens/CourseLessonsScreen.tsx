@@ -36,6 +36,13 @@ const CourseLessonsScreen: React.FC = () => {
   const [progressLoading, setProgressLoading] = useState(false);
 
   useEffect(() => {
+    // Kiểm tra courseId trước khi gọi API
+    if (!courseId || courseId === 'undefined' || courseId === 'null') {
+      setError("ID khóa học không hợp lệ");
+      setLoading(false);
+      return;
+    }
+
     let mounted = true;
     (async () => {
       try {

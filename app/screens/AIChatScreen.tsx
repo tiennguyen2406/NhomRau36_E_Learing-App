@@ -16,7 +16,10 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { chatWithAI, getUserByUsername, getUserCourses } from "../api/api";
+import { chatWithAI, getUserByUsername, getUserCourses, getLessonsByCourse } from "../api/api";
+
+// Lấy BASE_URL từ api.ts
+const BASE_URL = "https://three6learningbackend.onrender.com";
 
 type Message = {
   id: string;
@@ -28,6 +31,14 @@ type Message = {
 type MyCourse = {
   id: string;
   title: string;
+  description?: string;
+};
+
+type Lesson = {
+  id: string;
+  title: string;
+  videoUrl?: string;
+  kind?: string;
   description?: string;
 };
 
@@ -48,6 +59,11 @@ const AIChatScreen: React.FC = () => {
   const [courseModalVisible, setCourseModalVisible] = useState(false);
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<MyCourse | null>(null);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [lessonModalVisible, setLessonModalVisible] = useState(false);
+  const [lessonsLoading, setLessonsLoading] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -193,6 +209,95 @@ const handleSuggestQuestions = async () => {
   }
 };
 
+const loadLessons = async (courseId: string) => {
+  try {
+    setLessonsLoading(true);
+    const lessonsData = await getLessonsByCourse(courseId);
+    if (Array.isArray(lessonsData)) {
+      // Chỉ lấy các lesson có video
+      const videoLessons = lessonsData.filter(
+        (lesson: any) => lesson.kind === "video" && lesson.videoUrl
+      );
+      setLessons(
+        videoLessons.map((lesson: any) => ({
+          id: lesson.id || lesson._id,
+          title: lesson.title,
+          videoUrl: lesson.videoUrl,
+          kind: lesson.kind,
+          description: lesson.description,
+        }))
+      );
+    }
+  } catch (error) {
+    console.error("Error loading lessons:", error);
+    Alert.alert("Lỗi", "Không thể tải danh sách bài học");
+  } finally {
+    setLessonsLoading(false);
+  }
+};
+
+const handleSelectCourse = (course: MyCourse) => {
+  setSelectedCourse(course);
+  setCourseModalVisible(false);
+  // Load lessons của khóa học được chọn
+  loadLessons(course.id);
+};
+
+const handleSummarizeVideo = async () => {
+  if (!selectedLesson || !selectedLesson.videoUrl) {
+    Alert.alert("Lỗi", "Vui lòng chọn bài học video trước");
+    return;
+  }
+
+  const userMessage: Message = {
+    id: Date.now().toString(),
+    role: "user",
+    content: `Tóm tắt nội dung video: ${selectedLesson.title}`,
+    timestamp: new Date(),
+  };
+
+  setMessages((prev) => [...prev, userMessage]);
+  setSummarizing(true);
+
+  try {
+    // Gọi API để tóm tắt video từ URL
+    const response = await fetch(`${BASE_URL}/video-summary/url`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ videoUrl: selectedLesson.videoUrl }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || errorData.details || "Không thể tóm tắt video");
+    }
+
+    const result = await response.json();
+    
+    const summaryMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: "assistant",
+      content: `📹 TÓM TẮT VIDEO: "${selectedLesson.title}"\n\n${result.summary}\n\n💡 Bạn có thể hỏi tôi thêm về nội dung này nếu cần làm rõ!`,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, summaryMessage]);
+  } catch (error: any) {
+    console.error("Error summarizing video:", error);
+    const errorMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: "assistant",
+      content: error?.message || "Xin lỗi, không thể tóm tắt video này. Vui lòng thử lại sau.",
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, errorMessage]);
+  } finally {
+    setSummarizing(false);
+  }
+};
+
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.role === "user";
 
@@ -229,17 +334,37 @@ const handleSuggestQuestions = async () => {
       </View>
 
       {selectedCourse ? (
-        <View style={styles.selectedCourseBadge}>
-          <MaterialIcons name="bookmark" size={18} color="#20B2AA" />
-          <Text style={styles.selectedCourseText} numberOfLines={1}>
-            Đang tập trung: {selectedCourse.title}
-          </Text>
-          <TouchableOpacity
-            onPress={() => setSelectedCourse(null)}
-            style={styles.clearCourseBtn}
-          >
-            <MaterialIcons name="close" size={14} color="#fff" />
-          </TouchableOpacity>
+        <View style={styles.selectedBadgeContainer}>
+          <View style={styles.selectedCourseBadge}>
+            <MaterialIcons name="bookmark" size={18} color="#20B2AA" />
+            <Text style={styles.selectedCourseText} numberOfLines={1}>
+              Đang tập trung: {selectedCourse.title}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedCourse(null);
+                setSelectedLesson(null);
+                setLessons([]);
+              }}
+              style={styles.clearCourseBtn}
+            >
+              <MaterialIcons name="close" size={14} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          {selectedLesson ? (
+            <View style={styles.selectedLessonBadge}>
+              <MaterialIcons name="video-library" size={16} color="#ffa940" />
+              <Text style={styles.selectedLessonText} numberOfLines={1}>
+                Bài học: {selectedLesson.title}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setSelectedLesson(null)}
+                style={styles.clearLessonBtn}
+              >
+                <MaterialIcons name="close" size={12} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -252,10 +377,12 @@ const handleSuggestQuestions = async () => {
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
       />
 
-      {loading && (
+      {(loading || summarizing) && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color="#20B2AA" />
-          <Text style={styles.loadingText}>AI đang suy nghĩ...</Text>
+          <Text style={styles.loadingText}>
+            {summarizing ? "Đang tóm tắt video..." : "AI đang suy nghĩ..."}
+          </Text>
         </View>
       )}
 
@@ -268,38 +395,75 @@ const handleSuggestQuestions = async () => {
             onChangeText={setInput}
             multiline
             maxLength={500}
-            editable={!loading}
+            editable={!loading && !summarizing}
           />
-          <TouchableOpacity
-            style={[
-              styles.selectorButton,
-              (coursesLoading || (!myCourses.length && !selectedCourse)) && styles.selectorButtonDisabled,
-            ]}
-            onPress={() => setCourseModalVisible(true)}
-            disabled={coursesLoading || (!myCourses.length && !selectedCourse)}
-          >
-            <MaterialIcons
-              name={selectedCourse ? "bookmark" : "school"}
-              size={22}
-              color={selectedCourse ? "#fff" : "#20B2AA"}
-            />
-          </TouchableOpacity>
+          {/* Chỉ hiển thị nút chọn khóa học khi chưa chọn khóa học */}
+          {!selectedCourse && (
+            <TouchableOpacity
+              style={[
+                styles.selectorButton,
+                (coursesLoading || !myCourses.length) && styles.selectorButtonDisabled,
+              ]}
+              onPress={() => setCourseModalVisible(true)}
+              disabled={coursesLoading || !myCourses.length}
+            >
+              <MaterialIcons
+                name="school"
+                size={22}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          )}
+          {/* Chỉ hiển thị nút chọn bài học khi đã chọn khóa học nhưng chưa chọn bài học */}
+          {selectedCourse && !selectedLesson && lessons.length > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.videoButton,
+                lessonsLoading && styles.videoButtonDisabled,
+              ]}
+              onPress={() => setLessonModalVisible(true)}
+              disabled={lessonsLoading}
+            >
+              <MaterialIcons
+                name="video-library"
+                size={22}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          )}
+          {/* Hiển thị nút tóm tắt khi đã chọn bài học */}
+          {selectedLesson && (
+            <TouchableOpacity
+              style={[
+                styles.summarizeButton,
+                summarizing && styles.summarizeButtonDisabled,
+              ]}
+              onPress={handleSummarizeVideo}
+              disabled={summarizing}
+            >
+              {summarizing ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <MaterialIcons name="summarize" size={22} color="#fff" />
+              )}
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={[
               styles.quickActionButton,
-              loading && styles.quickActionButtonDisabled,
+              (loading || summarizing) && styles.quickActionButtonDisabled,
             ]}
             onPress={handleSuggestQuestions}
-            disabled={loading}
+            disabled={loading || summarizing}
           >
-            <MaterialIcons name="lightbulb" size={20} color="#fff" />
+            <MaterialIcons name="lightbulb" size={22} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.sendButton, (!input.trim() || loading) && styles.sendButtonDisabled]}
+            style={[styles.sendButton, (!input.trim() || loading || summarizing) && styles.sendButtonDisabled]}
             onPress={sendMessage}
-            disabled={!input.trim() || loading}
+            disabled={!input.trim() || loading || summarizing}
           >
-            <MaterialIcons name="send" size={20} color="#fff" />
+            <MaterialIcons name="send" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -330,10 +494,7 @@ const handleSuggestQuestions = async () => {
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     style={styles.courseItem}
-                    onPress={() => {
-                      setSelectedCourse(item);
-                      setCourseModalVisible(false);
-                    }}
+                    onPress={() => handleSelectCourse(item)}
                   >
                     <Text style={styles.courseItemTitle}>{item.title}</Text>
                     {item.description ? (
@@ -356,11 +517,85 @@ const handleSuggestQuestions = async () => {
                 style={styles.clearSelectionBtn}
                 onPress={() => {
                   setSelectedCourse(null);
+                  setSelectedLesson(null);
+                  setLessons([]);
                   setCourseModalVisible(false);
                 }}
               >
                 <MaterialIcons name="highlight-off" size={18} color="#fff" />
                 <Text style={styles.clearSelectionText}>Bỏ chọn khóa học</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Lesson Selection Modal */}
+      <Modal
+        visible={lessonModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLessonModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {selectedCourse ? `Bài học: ${selectedCourse.title}` : "Chọn Bài Học"}
+              </Text>
+              <TouchableOpacity onPress={() => setLessonModalVisible(false)}>
+                <MaterialIcons name="close" size={22} color="#333" />
+              </TouchableOpacity>
+            </View>
+            {lessonsLoading ? (
+              <View style={styles.modalLoading}>
+                <ActivityIndicator size="small" color="#20B2AA" />
+                <Text style={styles.loadingText}>Đang tải danh sách bài học...</Text>
+              </View>
+            ) : lessons.length > 0 ? (
+              <FlatList
+                data={lessons}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.lessonItem}
+                    onPress={() => {
+                      setSelectedLesson(item);
+                      setLessonModalVisible(false);
+                    }}
+                  >
+                    <MaterialIcons name="play-circle-outline" size={20} color="#20B2AA" />
+                    <View style={{ flex: 1, marginLeft: 8 }}>
+                      <Text style={styles.lessonItemTitle}>{item.title}</Text>
+                      {item.description ? (
+                        <Text style={styles.lessonItemDesc} numberOfLines={2}>
+                          {item.description}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <MaterialIcons name="chevron-right" size={20} color="#999" />
+                  </TouchableOpacity>
+                )}
+                ItemSeparatorComponent={() => <View style={styles.courseItemDivider} />}
+              />
+            ) : (
+              <View style={styles.modalLoading}>
+                <MaterialIcons name="info" size={20} color="#999" />
+                <Text style={styles.loadingText}>
+                  Khóa học này không có bài học video nào.
+                </Text>
+              </View>
+            )}
+            {selectedLesson ? (
+              <TouchableOpacity
+                style={styles.clearSelectionBtn}
+                onPress={() => {
+                  setSelectedLesson(null);
+                  setLessonModalVisible(false);
+                }}
+              >
+                <MaterialIcons name="highlight-off" size={18} color="#fff" />
+                <Text style={styles.clearSelectionText}>Bỏ chọn bài học</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -471,7 +706,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderTopWidth: 1,
     borderTopColor: "#e0e0e0",
-    gap: 8,
+    gap: 6,
   },
   input: {
     flex: 1,
@@ -481,6 +716,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     maxHeight: 100,
     fontSize: 15,
+    minHeight: 44,
   },
   sendButton: {
     width: 44,
@@ -497,12 +733,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "#20B2AA",
+    backgroundColor: "#20B2AA",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 4,
-    backgroundColor: "#f5fffc",
   },
   selectorButtonDisabled: {
     opacity: 0.4,
@@ -514,17 +747,41 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffa940",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 4,
   },
   quickActionButtonDisabled: {
     opacity: 0.4,
+  },
+  videoButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#9c27b0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  videoButtonDisabled: {
+    opacity: 0.4,
+  },
+  summarizeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#722ed1",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  summarizeButtonDisabled: {
+    opacity: 0.4,
+  },
+  selectedBadgeContainer: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    gap: 6,
   },
   selectedCourseBadge: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#e6f7f5",
-    marginHorizontal: 16,
-    marginTop: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -541,6 +798,29 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     backgroundColor: "#ff7875",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selectedLessonBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff3e0",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  selectedLessonText: {
+    flex: 1,
+    color: "#e65100",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  clearLessonBtn: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#ff9800",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -591,6 +871,22 @@ const styles = StyleSheet.create({
   courseItemDivider: {
     height: 1,
     backgroundColor: "#f0f0f0",
+  },
+  lessonItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    gap: 8,
+  },
+  lessonItemTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1f3c3c",
+  },
+  lessonItemDesc: {
+    fontSize: 13,
+    color: "#546e7a",
+    marginTop: 4,
   },
   clearSelectionBtn: {
     marginTop: 16,

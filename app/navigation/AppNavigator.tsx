@@ -29,6 +29,8 @@ import CreateCourseScreen from "../screens/CreateCourseScreen";
 import CreateQuizLessonScreen from "../screens/CreateQuizLessonScreen";
 import CreateVideoLessonScreen from "../screens/CreateVideoLessonScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
+import TermsScreen from "@/app/screens/TermsScreen";
+import HelpCenterScreen from "@/app/screens/HelpCenterScreen";
 import InboxScreen from "../screens/InboxScreen";
 import ChatScreen from "../screens/ChatScreen";
 import QuizLessonScreen from "../screens/QuizLessonScreen";
@@ -106,6 +108,9 @@ export type HomeStackParamList = {
 export type ProfileStackParamList = {
   Profile: undefined;
   EditProfile: undefined;
+  Notifications: undefined;
+  Terms: undefined;
+  HelpCenter: undefined;
 };
 
 export type InboxStackParamList = {
@@ -151,6 +156,9 @@ const ProfileStackNavigator = () => {
     <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
       <ProfileStack.Screen name="Profile" component={ProfileScreen} />
       <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} />
+      <ProfileStack.Screen name="Notifications" component={NotificationsScreen} />
+      <ProfileStack.Screen name="Terms" component={TermsScreen} />
+      <ProfileStack.Screen name="HelpCenter" component={HelpCenterScreen} />
     </ProfileStack.Navigator>
   );
 };

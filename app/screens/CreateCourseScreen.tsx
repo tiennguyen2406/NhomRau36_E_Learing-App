@@ -16,6 +16,7 @@ import { useNavigation, useFocusEffect, useRoute, RouteProp } from "@react-navig
 import { RootStackNavProps, RootStackParamList } from "../navigation/AppNavigator";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { MaterialIcons } from "@expo/vector-icons";
 
 type CreateCourseRouteProp = RouteProp<RootStackParamList, 'CreateCourse'>;
 
@@ -338,8 +339,18 @@ const CreateCourseScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <MaterialIcons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          {editMode ? "Chỉnh sửa khóa học" : "Tạo khóa học"}
+        </Text>
+      </View>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>{editMode ? 'Chỉnh sửa khóa học' : 'Tạo khóa học'}</Text>
 
         <View style={styles.card}>
           <Text style={styles.label}>Tiêu đề</Text>
@@ -531,6 +542,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8f8f8",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 16,
+    backgroundColor: "#fff",
+  },
+  backButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#f3f3f3",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  headerTitle: {
+    marginLeft: 12,
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
   },
   scroll: {
     padding: 16,

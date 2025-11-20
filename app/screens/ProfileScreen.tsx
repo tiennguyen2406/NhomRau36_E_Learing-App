@@ -174,23 +174,33 @@ const ProfileScreen: React.FC = () => {
     return <Ionicons name={item.icon as any} size={22} color="#666" />;
   };
 
+  const handleMenuPress = (item: MenuItem) => {
+    switch (item.id) {
+      case "logout":
+        handleLogout();
+        break;
+      case "edit_profile":
+        navigation.navigate("EditProfile");
+        break;
+      case "notifications":
+        navigation.navigate("Notifications");
+        break;
+      case "terms":
+        navigation.navigate("Terms");
+        break;
+      case "help":
+        navigation.navigate("HelpCenter");
+        break;
+      default:
+        Alert.alert("Thông báo", `Tính năng ${item.label} đang được phát triển`);
+    }
+  };
+
   const renderMenuItem = (item: MenuItem) => (
     <TouchableOpacity
       key={item.id}
       style={styles.menuItem}
-      onPress={() => {
-        if (item.id === "logout") {
-          handleLogout();
-        } else if (item.id === "edit_profile") {
-          navigation.navigate("EditProfile");
-        } else {
-          // Xử lý các menu item khác ở đây
-          Alert.alert(
-            "Thông báo",
-            `Tính năng ${item.label} đang được phát triển`
-          );
-        }
-      }}
+      onPress={() => handleMenuPress(item)}
     >
       <View style={styles.menuItemLeft}>
         <View style={styles.iconContainer}>{renderIcon(item)}</View>

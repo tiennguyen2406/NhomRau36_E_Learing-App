@@ -355,7 +355,15 @@ const InboxScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Tin nhắn</Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <MaterialIcons name="arrow-back" size={24} color="#333" />
+            </TouchableOpacity>
+        <Text style={styles.headerTitle}>Tin nhắn</Text>
+          </View>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#20B2AA" />
@@ -368,7 +376,15 @@ const InboxScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Tin nhắn</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <MaterialIcons name="arrow-back" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Tin nhắn</Text>
+        </View>
         <TouchableOpacity onPress={createNewChat} style={styles.newChatButton}>
           <Text style={styles.newChatButtonText}>+ Mới</Text>
         </TouchableOpacity>
@@ -485,13 +501,25 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f8f8" },
   header: { 
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20, 
     paddingTop: 20, 
     paddingBottom: 10 
   },
-  headerTitle: { fontSize: 20, fontWeight: "700" },
+  backButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerTitle: { fontSize: 20, fontWeight: "700", color: "#333", marginLeft: 8 },
   newChatButton: {
     backgroundColor: "#20B2AA",
     paddingHorizontal: 12,

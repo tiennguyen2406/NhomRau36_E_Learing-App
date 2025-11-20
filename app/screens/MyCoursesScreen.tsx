@@ -227,7 +227,7 @@ const MyCoursesScreen: React.FC = () => {
               // TODO: Navigate to certificate screen
             }}
           >
-            <Text style={styles.ctaText}>VIEW CERTIFICATE</Text>
+            <Text style={styles.ctaText}>XEM CHỨNG CHỈ</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -323,7 +323,7 @@ const MyCoursesScreen: React.FC = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <MaterialIcons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Courses</Text>
+        <Text style={styles.headerTitle}>Khóa học của tôi</Text>
       </View>
 
       <View style={styles.searchRow}>
@@ -331,7 +331,7 @@ const MyCoursesScreen: React.FC = () => {
           <MaterialIcons name="search" size={20} color="#999" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search for ..."
+            placeholder="Tìm kiếm khóa học..."
             placeholderTextColor="#999"
             value={searchText}
             onChangeText={setSearchText}
@@ -353,7 +353,7 @@ const MyCoursesScreen: React.FC = () => {
               activeTab === "completed" && styles.tabTextActive,
             ]}
           >
-            Completed
+            Đã hoàn thành
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -366,7 +366,7 @@ const MyCoursesScreen: React.FC = () => {
               activeTab === "ongoing" && styles.tabTextActive,
             ]}
           >
-            Ongoing
+            Đang diễn ra
           </Text>
         </TouchableOpacity>
         <TouchableOpacity

@@ -10,11 +10,17 @@ import {
   View,
   ActivityIndicator,
   Image,
+  Modal,
 } from "react-native";
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
 import { RootStackParamList } from "../navigation/AppNavigator";
-import { getCategoryById, getCoursesByCategory } from "../api/api";
+import {
+  getCategoryById,
+  getCoursesByCategory,
+  getCourses,
+  getCategories,
+} from "../api/api";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -37,6 +43,11 @@ interface RouteParams {
   categoryId: string;
 }
 
+type FilterCategory = {
+  id: string;
+  name: string;
+};
+
 const CourseListScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
@@ -54,26 +65,75 @@ const CourseListScreen: React.FC = () => {
     // Khởi tạo với các khóa học đã được lưu
     "2": true, // ID của khóa học thứ 2
   });
+  const [filterCategories, setFilterCategories] = useState<FilterCategory[]>([
+    { id: "all", name: "Tất cả" },
+  ]);
+  const [selectedFilterId, setSelectedFilterId] = useState<string>(
+    categoryId || "all"
+  );
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
 
-  // Lấy thông tin chi tiết về danh mục và khóa học khi component mount
+  // Cập nhật filter mặc định khi route params thay đổi
   useEffect(() => {
-    const fetchCategoryAndCourses = async () => {
+    setSelectedFilterId(categoryId || "all");
+  }, [categoryId]);
+
+  // Lấy danh sách categories để hiển thị filter
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const categoriesData = await getCategories();
+        if (Array.isArray(categoriesData)) {
+          const mapped = categoriesData
+            .map((cat: any) => ({
+              id: cat.id || cat._id,
+              name: cat.name || "Danh mục",
+            }))
+            .filter((cat) => !!cat.id);
+          setFilterCategories([{ id: "all", name: "Tất cả" }, ...mapped]);
+        }
+      } catch (fetchError) {
+        console.warn("Không thể tải danh mục cho bộ lọc:", fetchError);
+        setFilterCategories([{ id: "all", name: "Tất cả" }]);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  // Lấy thông tin chi tiết về danh mục và khóa học khi filter thay đổi
+  useEffect(() => {
+    const fetchCoursesByFilter = async () => {
       try {
         setLoading(true);
+        setError("");
 
-        // Nếu đã có đủ thông tin categoryName chi tiết từ trước, không cần fetch lại
-        if (!initialCategoryName) {
-          // Lấy thông tin chi tiết về danh mục
-          const categoryData = await getCategoryById(categoryId);
-          setCategoryName(categoryData.name);
-          setSearchText(categoryData.name);
+        if (selectedFilterId === "all") {
+          const title = initialCategoryName || "Tất cả khóa học";
+          setCategoryName(title);
+          setSearchText(title);
+          const allCourses = await getCourses();
+          setCourses(Array.isArray(allCourses) ? allCourses : []);
         } else {
-          setSearchText(initialCategoryName);
-        }
+          // Đặt tên category
+          const currentFilter =
+            filterCategories.find((cat) => cat.id === selectedFilterId) || null;
 
-        // Lấy danh sách khóa học thuộc danh mục này
-        const coursesData = await getCoursesByCategory(categoryId);
-        setCourses(coursesData);
+          if (currentFilter) {
+            setCategoryName(currentFilter.name);
+            setSearchText(currentFilter.name);
+          } else if (!initialCategoryName) {
+            try {
+              const categoryData = await getCategoryById(selectedFilterId);
+              setCategoryName(categoryData.name);
+              setSearchText(categoryData.name);
+            } catch (catErr) {
+              console.warn("Không thể tải thông tin danh mục:", catErr);
+            }
+          }
+
+          const coursesData = await getCoursesByCategory(selectedFilterId);
+          setCourses(Array.isArray(coursesData) ? coursesData : []);
+        }
       } catch (error) {
         console.error("Lỗi khi tải dữ liệu:", error);
         setError("Không thể tải thông tin. Vui lòng thử lại sau.");
@@ -82,8 +142,12 @@ const CourseListScreen: React.FC = () => {
       }
     };
 
-    fetchCategoryAndCourses();
-  }, [categoryId, initialCategoryName]);
+    fetchCoursesByFilter();
+  }, [
+    selectedFilterId,
+    initialCategoryName,
+    filterCategories,
+  ]);
 
   // Hàm xử lý khi người dùng nhấn vào bookmark
   const toggleBookmark = (courseId: string) => {
@@ -100,7 +164,7 @@ const CourseListScreen: React.FC = () => {
     const categoryDisplay = item.categoryName || categoryName || "Danh mục";
 
     return (
-      <TouchableOpacity style={styles.courseItem} activeOpacity={0.8} onPress={() => navigation.navigate('CourseDetail' as never, { courseId: item.id } as never)}>
+      <TouchableOpacity style={styles.courseItem} activeOpacity={0.8} onPress={() => navigation.navigate('CourseDetail' as never)}>
         <View style={styles.courseImageContainer}>
           { (item.thumbnailUrl || item.image) ? (
             <Image source={{ uri: (item.thumbnailUrl || item.image) as string }} style={styles.courseImage} resizeMode="cover" />
@@ -206,7 +270,10 @@ const CourseListScreen: React.FC = () => {
             placeholderTextColor="#999"
           />
         </View>
-        <TouchableOpacity style={styles.filterButton}>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setFilterModalVisible(true)}
+        >
           <MaterialIcons name="filter-list" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -226,23 +293,7 @@ const CourseListScreen: React.FC = () => {
               activeTab === "courses" && styles.activeTabText,
             ]}
           >
-            Courses
-          </ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            activeTab === "mentors" && styles.activeTabButton,
-          ]}
-          onPress={() => setActiveTab("mentors")}
-        >
-          <ThemedText
-            style={[
-              styles.tabText,
-              activeTab === "mentors" && styles.activeTabText,
-            ]}
-          >
-            Mentors
+            Các khóa học
           </ThemedText>
         </TouchableOpacity>
       </View>
@@ -257,7 +308,7 @@ const CourseListScreen: React.FC = () => {
         </ThemedText>
         <TouchableOpacity style={styles.resultCountButton}>
           <ThemedText style={styles.resultCount}>
-            {courses.length} FOUND
+            {courses.length} Kết quả tìm thấy
           </ThemedText>
           <MaterialIcons name="chevron-right" size={20} color="#20B2AA" />
         </TouchableOpacity>
@@ -278,6 +329,72 @@ const CourseListScreen: React.FC = () => {
           </View>
         }
       />
+
+      {/* Filter modal */}
+      <Modal
+        visible={filterModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={styles.modalTitle}>
+                Chọn danh mục
+              </ThemedText>
+              <TouchableOpacity
+                onPress={() => setFilterModalVisible(false)}
+                style={styles.modalCloseButton}
+              >
+                <MaterialIcons name="close" size={22} color="#333" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={filterCategories}
+              keyExtractor={(item) => item.id}
+              ItemSeparatorComponent={() => (
+                <View style={styles.modalDivider} />
+              )}
+              renderItem={({ item }) => {
+                const isActive = selectedFilterId === item.id;
+                return (
+                  <TouchableOpacity
+                    style={styles.modalItem}
+                    onPress={() => {
+                      setSelectedFilterId(item.id);
+                      setFilterModalVisible(false);
+                    }}
+                  >
+                    <View style={styles.modalItemInfo}>
+                      <MaterialIcons
+                        name="category"
+                        size={20}
+                        color={isActive ? "#20B2AA" : "#999"}
+                      />
+                      <ThemedText
+                        style={[
+                          styles.modalItemText,
+                          isActive && styles.modalItemTextActive,
+                        ]}
+                      >
+                        {item.name}
+                      </ThemedText>
+                    </View>
+                    {isActive ? (
+                      <MaterialIcons
+                        name="check-circle"
+                        size={22}
+                        color="#20B2AA"
+                      />
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 };
@@ -516,6 +633,55 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#999",
     textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    maxHeight: "70%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111",
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: "#f0f0f0",
+  },
+  modalItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  modalItemInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  modalItemText: {
+    fontSize: 15,
+    color: "#333",
+  },
+  modalItemTextActive: {
+    color: "#20B2AA",
+    fontWeight: "600",
   },
 });
 

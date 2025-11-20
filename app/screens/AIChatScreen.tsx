@@ -220,7 +220,12 @@ const handleSuggestQuestions = async () => {
           <MaterialIcons name="psychology" size={24} color="#20B2AA" />
           <Text style={styles.headerTitle}>AI Trợ Lý</Text>
         </View>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity
+          onPress={() => (navigation as any).navigate("VideoSummary")}
+          style={styles.headerActionButton}
+        >
+          <MaterialIcons name="video-library" size={22} color="#20B2AA" />
+        </TouchableOpacity>
       </View>
 
       {selectedCourse ? (
@@ -389,6 +394,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#333",
+  },
+  headerActionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f0f9f8",
   },
   messagesList: {
     padding: 16,

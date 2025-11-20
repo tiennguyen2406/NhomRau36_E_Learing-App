@@ -11,6 +11,9 @@ import {
   getInstructorReviews,
   submitInstructorReview,
   deleteInstructorReview,
+  followInstructor,
+  unfollowInstructor,
+  checkFollowStatus,
 } from "../api/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { database } from "../firebase";
@@ -21,8 +24,10 @@ type Props = NativeStackScreenProps<RootStackParamList, "InstructorDetail">;
 const InstructorDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { instructorId } = route.params;
   const [courseCount, setCourseCount] = useState<number>(0);
-  const [studentsTotal, setStudentsTotal] = useState<number>(0);
+  const [followersCount, setFollowersCount] = useState<number>(0);
   const [avgRating, setAvgRating] = useState<number>(0);
+  const [isFollowing, setIsFollowing] = useState<boolean>(false);
+  const [followLoading, setFollowLoading] = useState(false);
   const [coursesByInstructor, setCoursesByInstructor] = useState<any[]>([]);
   const [instructorName, setInstructorName] = useState<string>("Instructor");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -59,11 +64,7 @@ const InstructorDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         });
         setCoursesByInstructor(taughtCourses);
         setCourseCount(taughtCourses.length);
-        const studentsSum = taughtCourses.reduce((sum: number, c: any) => sum + (Number(c.students) || 0), 0);
-        setStudentsTotal(studentsSum);
-        const ratings = taughtCourses.map((c: any) => Number(c.rating)).filter((n: number) => !Number.isNaN(n));
-        const avg = ratings.length ? (ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length) : 0;
-        setAvgRating(Number(avg.toFixed(1)));
+        // Không lấy avgRating từ khóa học, avgRating sẽ được tính hoàn toàn từ đánh giá của học viên (reviews)
       } catch {}
     })();
     return () => { mounted = false; };
@@ -75,9 +76,24 @@ const InstructorDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       const data = await getInstructorReviews(instructorId);
       const list = Array.isArray(data?.reviews) ? data.reviews : [];
       setReviews(list);
-      if (typeof data?.averageRating === "number") {
-        setAvgRating(Number(data.averageRating.toFixed(1)));
-      }
+
+      const ratings = list
+        .map((rev: any) => Number(rev.rating))
+        .filter((value: number) => !Number.isNaN(value));
+
+      const computedAverage =
+        ratings.length > 0
+          ? ratings.reduce((sum: number, value: number) => sum + value, 0) /
+            ratings.length
+          : 0;
+
+      const serverAverage =
+        typeof data?.averageRating === "number" ? data.averageRating : null;
+
+      const finalAverage =
+        serverAverage !== null ? serverAverage : computedAverage;
+
+      setAvgRating(Number(finalAverage.toFixed(1)));
       setReviewCount(Number(data?.totalReviews || list.length || 0));
     } catch (error) {
       console.warn("Error loading instructor reviews:", error);
@@ -110,6 +126,65 @@ const InstructorDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       mounted = false;
     };
   }, []);
+
+  // Load followers count và follow status
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const instructor = await getUserById(instructorId);
+        if (!mounted || !instructor) return;
+        
+        // Lấy số lượng followers
+        const followers = instructor.followers || [];
+        setFollowersCount(Array.isArray(followers) ? followers.length : 0);
+
+        // Kiểm tra follow status nếu đã đăng nhập
+        if (currentUserId) {
+          const status = await checkFollowStatus(currentUserId, instructorId);
+          if (mounted) {
+            setIsFollowing(status.isFollowing || false);
+          }
+        }
+      } catch (error) {
+        console.warn("Error loading followers:", error);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [instructorId, currentUserId]);
+
+  const handleFollowPress = async () => {
+    if (!currentUserId) {
+      Alert.alert("Thông báo", "Vui lòng đăng nhập để follow instructor.");
+      return;
+    }
+    if (String(currentUserId) === String(instructorId)) {
+      Alert.alert("Thông báo", "Bạn không thể follow chính mình.");
+      return;
+    }
+
+    setFollowLoading(true);
+    try {
+      if (isFollowing) {
+        await unfollowInstructor(currentUserId, instructorId);
+        setIsFollowing(false);
+        setFollowersCount((prev) => Math.max(0, prev - 1));
+        Alert.alert("Thành công", "Đã unfollow instructor.");
+      } else {
+        await followInstructor(currentUserId, instructorId);
+        setIsFollowing(true);
+        setFollowersCount((prev) => prev + 1);
+        Alert.alert("Thành công", "Đã follow instructor.");
+      }
+    } catch (error: any) {
+      console.error("Error following/unfollowing:", error);
+      Alert.alert("Lỗi", error?.error || error?.message || "Không thể follow/unfollow instructor.");
+    } finally {
+      setFollowLoading(false);
+    }
+  };
 
   const createConversationInBackground = (
     conversationId: string,
@@ -259,14 +334,28 @@ const InstructorDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={styles.sub}>ID: {instructorId}</Text>
 
           <View style={styles.statsRow}>
-            <View style={styles.stat}><Text style={styles.statValue}>{courseCount}</Text><Text style={styles.statLabel}>Courses</Text></View>
-            <View style={styles.stat}><Text style={styles.statValue}>{studentsTotal}</Text><Text style={styles.statLabel}>Students</Text></View>
-            <View style={styles.stat}><Text style={styles.statValue}>{avgRating}</Text><Text style={styles.statLabel}>Rating</Text></View>
+            <View style={styles.stat}><Text style={styles.statValue}>{courseCount}</Text><Text style={styles.statLabel}>Khóa học</Text></View>
+            <View style={styles.stat}><Text style={styles.statValue}>{followersCount}</Text><Text style={styles.statLabel}>Người theo dõi</Text></View>
+            <View style={styles.stat}><Text style={styles.statValue}>{avgRating}</Text><Text style={styles.statLabel}>Đánh giá</Text></View>
           </View>
 
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.follow}>
-              <Text style={styles.actionText}>Follow</Text>
+            <TouchableOpacity
+              style={[
+                styles.follow,
+                isFollowing && styles.followActive,
+                followLoading && { opacity: 0.6 },
+              ]}
+              onPress={handleFollowPress}
+              disabled={followLoading}
+            >
+              {followLoading ? (
+                <ActivityIndicator size="small" color={isFollowing ? "#fff" : "#111"} />
+              ) : (
+                <Text style={[styles.actionText, isFollowing && styles.actionTextActive]}>
+                  {isFollowing ? "Đang theo dõi" : "Theo dõi"}
+                </Text>
+              )}
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.message, messageLoading && { opacity: 0.6 }]}
@@ -276,7 +365,7 @@ const InstructorDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               {messageLoading ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.messageText}>Message</Text>
+                <Text style={styles.messageText}>Tin nhắn</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -289,13 +378,13 @@ const InstructorDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               style={[styles.tabButton, activeTab === "courses" && styles.tabButtonActive]}
               onPress={() => setActiveTab("courses")}
             >
-              <Text style={[styles.tabText, activeTab === "courses" && styles.tabTextActive]}>Courses</Text>
+              <Text style={[styles.tabText, activeTab === "courses" && styles.tabTextActive]}>Khóa học</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tabButton, activeTab === "ratings" && styles.tabButtonActive]}
               onPress={() => setActiveTab("ratings")}
             >
-              <Text style={[styles.tabText, activeTab === "ratings" && styles.tabTextActive]}>Ratings</Text>
+              <Text style={[styles.tabText, activeTab === "ratings" && styles.tabTextActive]}>Đánh giá</Text>
             </TouchableOpacity>
           </View>
 
@@ -440,8 +529,10 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 10, color: "#6b7280" },
   actions: { flexDirection: "row", gap: 12, marginTop: 16 },
   follow: { paddingHorizontal: 22, paddingVertical: 12, backgroundColor: "#e8eefc", borderRadius: 20 },
+  followActive: { backgroundColor: "#20B2AA" },
   message: { paddingHorizontal: 22, paddingVertical: 12, backgroundColor: "#20B2AA", borderRadius: 20 },
   actionText: { color: "#111", fontWeight: "600" },
+  actionTextActive: { color: "#fff" },
   messageText: { color: "#fff", fontWeight: "600" },
   section: { paddingHorizontal: 16, paddingTop: 12 },
   tabs: { flexDirection: "row", backgroundColor: "#edf2f7", borderRadius: 10, padding: 4, gap: 8, alignSelf: "flex-start", marginBottom: 12 },

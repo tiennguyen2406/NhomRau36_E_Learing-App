@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Image } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  FlatList,
+  Image,
+  Modal,
+} from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/AppNavigator";
@@ -18,6 +27,10 @@ const MentorListScreen: React.FC<Props> = ({ navigation }) => {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [instructors, setInstructors] = useState<InstructorItem[]>([]);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [categoryFilters, setCategoryFilters] = useState<string[]>(["Tất cả"]);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] =
+    useState<string>("Tất cả");
 
   useEffect(() => {
     (async () => {
@@ -48,10 +61,15 @@ const MentorListScreen: React.FC<Props> = ({ navigation }) => {
             fullName: u.fullName || u.username || "Instructor",
             username: u.username,
             profileImage: u.profileImage,
-            // attach resolved category label if found
-            categoryLabel: instructorToCategory.get(u.username || "") || undefined,
+            categoryLabel:
+              instructorToCategory.get(u.username || "") || undefined,
           }));
         setInstructors(ins);
+
+        const uniqueCategories = Array.from(
+          new Set(ins.map((i: any) => i.categoryLabel).filter(Boolean))
+        ) as string[];
+        setCategoryFilters(["Tất cả", ...uniqueCategories]);
       } finally {
         setLoading(false);
       }
@@ -60,13 +78,18 @@ const MentorListScreen: React.FC<Props> = ({ navigation }) => {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return instructors;
-    return instructors.filter(i =>
-      (i.fullName || "").toLowerCase().includes(q) ||
-      (i.username || "").toLowerCase().includes(q) ||
-      ((i as any).categoryLabel || "").toLowerCase().includes(q)
-    );
-  }, [query, instructors]);
+    return instructors.filter((i: any) => {
+      const matchQuery =
+        !q ||
+        (i.fullName || "").toLowerCase().includes(q) ||
+        (i.username || "").toLowerCase().includes(q) ||
+        ((i.categoryLabel || "").toLowerCase().includes(q));
+      const matchCategory =
+        selectedCategoryFilter === "Tất cả" ||
+        (i.categoryLabel || "") === selectedCategoryFilter;
+      return matchQuery && matchCategory;
+    });
+  }, [query, instructors, selectedCategoryFilter]);
 
   const renderItem = ({ item }: { item: InstructorItem & { categoryLabel?: string } }) => (
     <TouchableOpacity style={styles.item} activeOpacity={0.85} onPress={() => navigation.navigate("InstructorDetail", { instructorId: item.uid })}>
@@ -84,56 +107,277 @@ const MentorListScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <MaterialIcons name="arrow-back" size={24} color="#fff" />
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <MaterialIcons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.title}>Mentors</Text>
-        <View style={{ width: 40 }} />
+        <Text style={styles.headerTitle}>Người hướng dẫn</Text>
       </View>
 
-      <View style={styles.searchBar}>
-        <TextInput
-          placeholder="Search"
-          placeholderTextColor="#9ca3af"
-          style={styles.searchInput}
-          value={query}
-          onChangeText={setQuery}
-        />
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <MaterialIcons name="search" size={20} color="#999" />
+          <TextInput
+            placeholder="Tìm kiếm mentor..."
+            placeholderTextColor="#999"
+            style={styles.searchInput}
+            value={query}
+            onChangeText={setQuery}
+          />
+        </View>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setFilterModalVisible(true)}
+        >
+          <MaterialIcons name="filter-list" size={22} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.resultRow}>
-        <Text style={styles.resultText}>Result for <Text style={{ color: "#20B2AA"}}>“{query || "All"}”</Text></Text>
-        <Text style={styles.countText}>{loading ? "…" : `${filtered.length} FOUND`} ▸</Text>
+        <Text style={styles.resultText}>
+          Kết quả cho{" "}
+          <Text style={styles.resultHighlight}>“{query || "All"}”</Text>
+        </Text>
+        <View style={styles.resultCountButton}>
+          <Text style={styles.resultCountText}>
+            {loading ? "…" : `${filtered.length} Kết quả tìm thấy`}
+          </Text>
+          <MaterialIcons name="chevron-right" size={20} color="#20B2AA" />
+        </View>
       </View>
 
       <FlatList
         data={filtered}
         keyExtractor={(i) => i.uid}
         renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={styles.sep} />}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
       />
+
+      <Modal
+        visible={filterModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chọn lĩnh vực</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setFilterModalVisible(false)}
+              >
+                <MaterialIcons name="close" size={22} color="#333" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={categoryFilters}
+              keyExtractor={(item) => item}
+              ItemSeparatorComponent={() => (
+                <View style={styles.modalDivider} />
+              )}
+              renderItem={({ item }) => {
+                const isActive = selectedCategoryFilter === item;
+                return (
+                  <TouchableOpacity
+                    style={styles.modalItem}
+                    onPress={() => {
+                      setSelectedCategoryFilter(item);
+                      setFilterModalVisible(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.modalItemText,
+                        isActive && styles.modalItemTextActive,
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                    {isActive ? (
+                      <MaterialIcons
+                        name="check-circle"
+                        size={22}
+                        color="#20B2AA"
+                      />
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  headerRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 40, paddingBottom: 12 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.35)" },
-  title: { flex: 1, textAlign: "center", fontSize: 16, fontWeight: "700", color: "#111" },
-  searchBar: { marginHorizontal: 16, backgroundColor: "#f5f5f5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 12 },
-  searchInput: { fontSize: 14, color: "#111" },
-  resultRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, marginBottom: 8 },
-  resultText: { color: "#6b7280", fontSize: 12 },
-  countText: { color: "#6b7280", fontSize: 12 },
-  item: { flexDirection: "row", alignItems: "center", paddingVertical: 14 },
-  sep: { height: 1, backgroundColor: "#eee" },
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#111", marginRight: 12, justifyContent: "center", alignItems: "center" },
-  initial: { color: "#fff", fontWeight: "700" },
-  name: { color: "#111", fontWeight: "700" },
-  sub: { color: "#6b7280", fontSize: 12, marginTop: 2 },
+  container: {
+    flex: 1,
+    backgroundColor: "#f8f8f8",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 16,
+    backgroundColor: "#fff",
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  searchContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    gap: 12,
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    height: 48,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#333",
+  },
+  filterButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#20B2AA",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  resultRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  resultText: {
+    color: "#666",
+    fontSize: 14,
+  },
+  resultHighlight: {
+    color: "#20B2AA",
+    fontWeight: "600",
+  },
+  resultCountButton: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  resultCountText: {
+    color: "#20B2AA",
+    fontSize: 13,
+    marginRight: 4,
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+  },
+  item: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#20B2AA",
+    marginRight: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  initial: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 18,
+  },
+  name: {
+    color: "#111",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  sub: {
+    color: "#6b7280",
+    fontSize: 13,
+    marginTop: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    maxHeight: "70%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111",
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: "#f0f0f0",
+  },
+  modalItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  modalItemText: {
+    fontSize: 15,
+    color: "#444",
+  },
+  modalItemTextActive: {
+    color: "#20B2AA",
+    fontWeight: "600",
+  },
 });
 
 export default MentorListScreen;

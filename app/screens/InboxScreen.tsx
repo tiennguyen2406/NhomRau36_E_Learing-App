@@ -355,7 +355,7 @@ const InboxScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Inbox</Text>
+          <Text style={styles.headerTitle}>Tin nhắn</Text>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#20B2AA" />
@@ -368,17 +368,17 @@ const InboxScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Inbox</Text>
+        <Text style={styles.headerTitle}>Tin nhắn</Text>
         <TouchableOpacity onPress={createNewChat} style={styles.newChatButton}>
           <Text style={styles.newChatButtonText}>+ Mới</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.tabs}>
         <TouchableOpacity style={[styles.tabBtn, tab === "chat" && styles.tabActive]} onPress={() => setTab("chat")}>
-          <Text style={[styles.tabText, tab === "chat" && styles.tabTextActive]}>Chat</Text>
+          <Text style={[styles.tabText, tab === "chat" && styles.tabTextActive]}>Các cuộc hội thoại</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.tabBtn, tab === "calls" && styles.tabActive]} onPress={() => setTab("calls")}>
-          <Text style={[styles.tabText, tab === "calls" && styles.tabTextActive]}>Calls</Text>
+          <Text style={[styles.tabText, tab === "calls" && styles.tabTextActive]}>Các cuộc gọi</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.searchBox}>

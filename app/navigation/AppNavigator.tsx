@@ -33,6 +33,7 @@ import InboxScreen from "../screens/InboxScreen";
 import ChatScreen from "../screens/ChatScreen";
 import QuizLessonScreen from "../screens/QuizLessonScreen";
 import AIChatScreen from "../screens/AIChatScreen";
+import VideoSummaryScreen from "../screens/VideoSummaryScreen";
 
 // Định nghĩa kiểu cho routes trong ứng dụng
 export type RootStackParamList = {
@@ -76,6 +77,7 @@ export type RootStackParamList = {
   CreateCourse: { courseId?: string; mode?: string } | undefined;
   AIChat: undefined;
   Notifications: undefined;
+  VideoSummary: undefined;
 };
 
 export type AuthStackParamList = {
@@ -350,6 +352,8 @@ const AppNavigator = () => {
         component={CreateVideoLessonScreen}
       />
       <RootStack.Screen name="AIChat" component={AIChatScreen} />
+      <RootStack.Screen name="VideoSummary" component={VideoSummaryScreen} />
+      <RootStack.Screen name="Notifications" component={NotificationsScreen} />
     </RootStack.Navigator>
   );
 };

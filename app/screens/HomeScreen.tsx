@@ -414,7 +414,14 @@ const HomeScreen: React.FC = () => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Khóa học phổ biến</Text>
-            <TouchableOpacity>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate("CourseList", {
+                  categoryName: "Khóa học phổ biến",
+                  categoryId: "all",
+                })
+              }
+            >
               <Text style={styles.viewAllText}>XEM TẤT CẢ</Text>
             </TouchableOpacity>
           </View>

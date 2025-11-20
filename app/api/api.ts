@@ -117,6 +117,29 @@ export const updateUser = async (uid: string, data: any) => {
   });
 };
 
+// Follow/Unfollow instructor
+export const followInstructor = async (userId: string, instructorId: string) => {
+  return requestJson(`${BASE_URL}/users/follow`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, instructorId }),
+  });
+};
+
+export const unfollowInstructor = async (userId: string, instructorId: string) => {
+  return requestJson(`${BASE_URL}/users/unfollow`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, instructorId }),
+  });
+};
+
+export const checkFollowStatus = async (userId: string, instructorId: string) => {
+  return requestJson(
+    `${BASE_URL}/users/check-follow?userId=${encodeURIComponent(userId)}&instructorId=${encodeURIComponent(instructorId)}`
+  );
+};
+
 // May not be supported on backend yet
 export const deleteUser = async (uid: string) => {
   return requestJson(`${BASE_URL}/users/${uid}`, { method: "DELETE" as any });
@@ -481,6 +504,78 @@ export const updateCourse = async (courseId: string, data: any) => {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
+  });
+};
+
+// Tóm tắt video sử dụng AI
+export const summarizeVideo = async (
+  file: { uri: string; name?: string; type?: string; size?: number },
+  onProgress?: (progress: number) => void
+) => {
+  const form = new FormData();
+
+  if (Platform.OS === "web") {
+    const resp = await fetch(file.uri);
+    const blob = await resp.blob();
+    const filename = file.name || "video.mp4";
+    // @ts-ignore
+    const webFile = new File([blob], filename, {
+      type: file.type || blob.type || "video/mp4",
+    });
+    // @ts-ignore
+    form.append("video", webFile);
+  } else {
+    // @ts-ignore React Native FormData
+    form.append("video", {
+      uri: file.uri,
+      name: file.name || "video.mp4",
+      type: file.type || "video/mp4",
+    } as any);
+  }
+
+  return new Promise<any>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BASE_URL}/video-summary`);
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          onProgress?.(1);
+          resolve(data);
+        } catch (error) {
+          reject(error);
+        }
+      } else {
+        try {
+          const errorData = JSON.parse(xhr.responseText);
+          const errorMsg = errorData.error || errorData.details || "Upload failed";
+          const error = new Error(errorMsg);
+          // @ts-ignore
+          error.error = errorData.error;
+          // @ts-ignore
+          error.details = errorData.details;
+          reject(error);
+        } catch {
+          const error = new Error(xhr.responseText || "Upload failed");
+          // @ts-ignore
+          error.rawResponse = xhr.responseText;
+          reject(error);
+        }
+      }
+    };
+
+    xhr.onerror = () => reject(new Error("Upload failed"));
+
+    if (xhr.upload && typeof onProgress === "function") {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          onProgress(event.loaded / event.total);
+        }
+      };
+    }
+
+    xhr.send(form as any);
   });
 };
 

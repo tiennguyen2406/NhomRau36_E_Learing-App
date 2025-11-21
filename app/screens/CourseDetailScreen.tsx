@@ -60,16 +60,67 @@ const CourseDetailScreen: React.FC = () => {
           setReviewCount(reviews.length);
         }
 
-        const nameFromCourse = courseData?.instructorName || courseData?.instructor || "";
-        const nameFromUsers = (() => {
-          const id = courseData?.instructorId || courseData?.instructorUID || courseData?.uid;
-          if (!id) return "";
-          const u = (users || []).find((x: any) => x.uid === id);
-          if (!u) return "";
-          setInstructorAvatar(u.profileImage);
-          return (u.fullName || u.username || "Instructor");
+        const resolvedInstructor = (() => {
+          if (!courseData) return null;
+
+          const nameFromCourse =
+            courseData.instructorName ||
+            courseData.instructor ||
+            courseData.authorName;
+
+          const avatarFromCourse =
+            courseData.instructorAvatar ||
+            courseData.instructorImage ||
+            courseData.instructorPhoto ||
+            courseData.avatarUrl;
+
+          if (nameFromCourse && avatarFromCourse) {
+            return { name: nameFromCourse, avatar: avatarFromCourse };
+          }
+
+          const instructorId =
+            courseData.instructorId ||
+            courseData.instructorUID ||
+            courseData.uid ||
+            courseData.authorId;
+
+          if (!instructorId) {
+            return {
+              name: nameFromCourse || "Instructor",
+              avatar: avatarFromCourse,
+            };
+          }
+
+          const matchedUser = (users || []).find(
+            (u: any) =>
+              u.uid === instructorId ||
+              u.id === instructorId ||
+              u._id === instructorId
+          );
+
+          if (matchedUser) {
+            return {
+              name:
+                matchedUser.fullName ||
+                matchedUser.username ||
+                nameFromCourse ||
+                "Instructor",
+              avatar:
+                matchedUser.profileImage ||
+                matchedUser.photoURL ||
+                matchedUser.avatar ||
+                avatarFromCourse,
+            };
+          }
+
+          return {
+            name: nameFromCourse || "Instructor",
+            avatar: avatarFromCourse,
+          };
         })();
-        setInstructorName(nameFromCourse || nameFromUsers || "Instructor");
+
+        setInstructorName(resolvedInstructor?.name || "Instructor");
+        setInstructorAvatar(resolvedInstructor?.avatar);
         setError(null);
       } catch (e: any) {
         setError(e?.message || "Không tải được chi tiết khóa học");
@@ -80,7 +131,15 @@ const CourseDetailScreen: React.FC = () => {
     return () => { mounted = false; };
   }, [courseId]);
 
-  const thumbnail = useMemo(() => course?.thumbnailUrl || course?.image || course?.coverUrl || undefined, [course]);
+  const thumbnail = useMemo(
+    () =>
+      course?.thumbnailUrl ||
+      course?.imageUrl ||
+      course?.image ||
+      course?.coverUrl ||
+      undefined,
+    [course]
+  );
   const durationText = useMemo(() => {
     if (!course) return "";
     const d = course.duration || course.totalDuration || course.totalTime;

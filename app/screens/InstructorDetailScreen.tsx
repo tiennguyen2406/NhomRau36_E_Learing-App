@@ -452,17 +452,54 @@ const InstructorDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </TouchableOpacity>
           </View>
 
-          {activeTab === "courses" && coursesByInstructor.map((c, idx) => (
-            <TouchableOpacity key={c.id || idx} style={[styles.card, dynamicStyles.card, { marginBottom: 10 }] } activeOpacity={0.85} onPress={() => navigation.navigate('CourseDetail', { courseId: c.id })}>
-              <View style={styles.thumb} />
-              <View style={{ flex: 1 }}>
-                <ThemedText style={[styles.cat, dynamicStyles.cat]}>{c.categoryName || c.category || "Category"}</ThemedText>
-                <ThemedText style={[styles.title, dynamicStyles.title]} numberOfLines={1}>{c.title}</ThemedText>
-                <View style={styles.row}><Text style={styles.priceNew}>${Number(c.price || 0)}</Text></View>
-                <View style={styles.row}><Text style={styles.star}>★ {Number(c.rating || 0).toFixed(1)}</Text><ThemedText style={[styles.muted, dynamicStyles.muted]}>  {Number(c.students || 0)} Std</ThemedText></View>
-              </View>
-            </TouchableOpacity>
-          ))}
+          {activeTab === "courses" &&
+            coursesByInstructor.map((c, idx) => {
+              const cover =
+                c.thumbnailUrl ||
+                c.imageUrl ||
+                c.image ||
+                c.coverUrl ||
+                (c.media && c.media.thumbnail) ||
+                null;
+              return (
+                <TouchableOpacity
+                  key={c.id || idx}
+                  style={[styles.card, dynamicStyles.card, { marginBottom: 10 }]}
+                  activeOpacity={0.85}
+                  onPress={() => navigation.navigate("CourseDetail", { courseId: c.id })}
+                >
+                  {cover ? (
+                    <Image source={{ uri: cover }} style={styles.thumb} />
+                  ) : (
+                    <View style={[styles.thumb, styles.thumbPlaceholder]}>
+                      <MaterialIcons name="image" size={24} color="#9ca3af" />
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <ThemedText style={[styles.cat, dynamicStyles.cat]}>
+                      {c.categoryName || c.category || "Category"}
+                    </ThemedText>
+                    <ThemedText style={[styles.title, dynamicStyles.title]} numberOfLines={1}>
+                      {c.title}
+                    </ThemedText>
+                    <View style={styles.row}>
+                      <Text style={styles.priceNew}>
+                        {Number(c.price || 0) === 0
+                          ? "Miễn phí"
+                          : `${Number(c.price || 0).toLocaleString("vi-VN")} đ`}
+                      </Text>
+                    </View>
+                    <View style={styles.row}>
+                      <Text style={styles.star}>★ {Number(c.rating || 0).toFixed(1)}</Text>
+                      <ThemedText style={[styles.muted, dynamicStyles.muted]}>
+                        {"  "}
+                        {Number(c.students || 0)} Std
+                      </ThemedText>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
         </View>
 
         {activeTab === "ratings" && (
@@ -607,7 +644,12 @@ const styles = StyleSheet.create({
   tabText: { fontWeight: "600" },
   tabTextActive: { color: "#111" },
   card: { flexDirection: "row", padding: 12, borderRadius: 12, gap: 12, elevation: 2 },
-  thumb: { width: 64, height: 64, borderRadius: 8, backgroundColor: "#111" },
+  thumb: { width: 64, height: 64, borderRadius: 8, backgroundColor: "#111", overflow: "hidden" },
+  thumbPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1f2937",
+  },
   cat: { fontSize: 12 },
   title: { fontSize: 14, fontWeight: "700", marginVertical: 2 },
   row: { flexDirection: "row", alignItems: "center", marginTop: 2 },

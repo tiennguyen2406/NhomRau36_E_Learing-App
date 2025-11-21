@@ -181,7 +181,7 @@ export const getSavedCourses = async (uid: string) => {
 
     const courses = await response.json();
     const normalizedCourses = normalizeMongoData(courses || []);
-    
+
     // Map để trả về format tương thích với code hiện tại
     return normalizedCourses.map((course: any) => ({
       course,

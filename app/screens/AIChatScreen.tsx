@@ -57,7 +57,8 @@ const AIChatScreen: React.FC = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [myCourses, setMyCourses] = useState<MyCourse[]>([]);
   const [courseModalVisible, setCourseModalVisible] = useState(false);
-  const [coursesLoading, setCoursesLoading] = useState(false);
+  const [coursesLoading, setCoursesLoading] = useState(true);
+  const [coursesLoaded, setCoursesLoaded] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<MyCourse | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
@@ -95,7 +96,10 @@ const AIChatScreen: React.FC = () => {
       } catch (error) {
         console.error("Error loading user courses:", error);
       } finally {
-        if (mounted) setCoursesLoading(false);
+        if (mounted) {
+          setCoursesLoading(false);
+          setCoursesLoaded(true);
+        }
       }
     })();
     return () => {
@@ -402,10 +406,10 @@ const handleSummarizeVideo = async () => {
             <TouchableOpacity
               style={[
                 styles.selectorButton,
-                (coursesLoading || !myCourses.length) && styles.selectorButtonDisabled,
+                (coursesLoaded && !myCourses.length) && styles.selectorButtonDisabled,
               ]}
               onPress={() => setCourseModalVisible(true)}
-              disabled={coursesLoading || !myCourses.length}
+              disabled={coursesLoaded && !myCourses.length}
             >
               <MaterialIcons
                 name="school"
@@ -738,7 +742,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   selectorButtonDisabled: {
-    opacity: 0.4,
+    opacity: 0.5,
+    backgroundColor: "#999",
   },
   quickActionButton: {
     width: 44,

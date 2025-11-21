@@ -207,8 +207,9 @@ const ChatScreen: React.FC = () => {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         quality: 0.7,
+        allowsEditing: false,
       });
       if (result.canceled) return;
 
@@ -221,10 +222,23 @@ const ChatScreen: React.FC = () => {
         return;
       }
 
+      // Xác định type dựa trên fileName nếu asset.type không có
+      let imageType = asset.type || asset.mimeType || "image/jpeg";
+      if (!imageType || imageType === "image") {
+        const fileName = asset.fileName || "photo.jpg";
+        if (fileName.toLowerCase().endsWith(".png")) {
+          imageType = "image/png";
+        } else if (fileName.toLowerCase().endsWith(".jpg") || fileName.toLowerCase().endsWith(".jpeg")) {
+          imageType = "image/jpeg";
+        } else {
+          imageType = "image/jpeg"; // default
+        }
+      }
+
       setAttachment({
         uri: asset.uri,
-        name: asset.fileName || "photo.jpg",
-        type: asset.type || "image/jpeg",
+        name: asset.fileName || `photo_${Date.now()}.jpg`,
+        type: imageType,
         size: fileSize,
       });
     } catch (error) {

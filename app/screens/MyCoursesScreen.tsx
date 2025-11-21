@@ -311,6 +311,54 @@ const MyCoursesScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
+  const renderSavedCourse = ({ item }: { item: Course }) => (
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.8}
+      onPress={() =>
+        navigation.navigate("CourseDetail" as any, { courseId: item.id })
+      }
+    >
+      {item.thumbnailUrl || item.image || item.imageUrl ? (
+        <Image
+          source={{
+            uri: (item.thumbnailUrl || item.image || item.imageUrl) as string,
+          }}
+          style={styles.thumb}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={styles.thumb} />
+      )}
+      <View style={styles.cardBody}>
+        <Text style={styles.category} numberOfLines={1}>
+          {item.categoryName || item.category || "Course"}
+        </Text>
+        <Text style={styles.title} numberOfLines={2}>
+          {item.title || item.id}
+        </Text>
+        <View style={styles.metaRow}>
+          <View style={styles.ratingRow}>
+            <MaterialIcons name="star" size={14} color="#FFD700" />
+            <Text style={styles.mutedSmall}>{item.rating ?? 0}</Text>
+          </View>
+          <Text style={styles.mutedSmall}>{item.students ?? 0} học viên</Text>
+        </View>
+        {item.currentPrice !== undefined ? (
+          <View style={styles.priceRow}>
+            {item.currentPrice === 0 ? (
+              <Text style={styles.priceText}>Miễn phí</Text>
+            ) : (
+              <Text style={styles.priceText}>
+                {item.currentPrice.toLocaleString("vi-VN")} VNĐ
+              </Text>
+            )}
+          </View>
+        ) : null}
+      </View>
+    </TouchableOpacity>
+  );
+
   const renderCreatedItem = ({ item }: { item: Course }) => (
     <TouchableOpacity
       style={styles.card}
@@ -502,7 +550,7 @@ const MyCoursesScreen: React.FC = () => {
       ) : activeTab === "saved" ? (
         <FlatList
           data={filteredSaved}
-          renderItem={renderEnrolledCourse}
+          renderItem={renderSavedCourse}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
@@ -671,6 +719,8 @@ const styles = StyleSheet.create({
   muted: { color: "#777" },
   mutedSmall: { color: "#777", fontSize: 12, marginLeft: 4 },
   error: { color: "#e74c3c", marginTop: 16, textAlign: "center" },
+  priceRow: { marginTop: 4 },
+  priceText: { color: "#20B2AA", fontSize: 14, fontWeight: "700" },
 });
 
 export default MyCoursesScreen;

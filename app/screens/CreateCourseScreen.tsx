@@ -225,8 +225,9 @@ const CreateCourseScreen: React.FC = () => {
       return;
     }
     const rs = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 0.9,
+      allowsEditing: false,
     });
     if (!rs.canceled && rs.assets?.length) {
       const a = rs.assets[0];
@@ -236,41 +237,47 @@ const CreateCourseScreen: React.FC = () => {
   };
 
   const pickVideoForLesson = async (index: number) => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (perm.status !== "granted") {
-      Alert.alert("Quyền truy cập", "Cần cấp quyền truy cập thư viện để chọn video.");
-      return;
-    }
-    const rs = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      quality: 1,
-    });
-    if (!rs.canceled && rs.assets?.length) {
-      const a = rs.assets[0];
-      try {
-        setLessonUploadProgress((prev) => ({ ...prev, [index]: 0 }));
-        const url = await uploadProofFile(
-          { uri: a.uri, name: a.fileName || "video.mp4", type: a.mimeType || "video/mp4" },
-          (progress) => {
-            setLessonUploadProgress((prev) => ({ ...prev, [index]: progress }));
-          }
-        );
-        updateLesson(index, { videoUrl: url });
-        setTimeout(() => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (perm.status !== "granted") {
+        Alert.alert("Quyền truy cập", "Cần cấp quyền truy cập thư viện để chọn video.");
+        return;
+      }
+      const rs = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['videos'],
+        quality: 1,
+        allowsEditing: false,
+      });
+      if (!rs.canceled && rs.assets?.length) {
+        const a = rs.assets[0];
+        try {
+          setLessonUploadProgress((prev) => ({ ...prev, [index]: 0 }));
+          const url = await uploadProofFile(
+            { uri: a.uri, name: a.fileName || `video_${Date.now()}.mp4`, type: a.mimeType || "video/mp4" },
+            (progress) => {
+              setLessonUploadProgress((prev) => ({ ...prev, [index]: progress }));
+            }
+          );
+          updateLesson(index, { videoUrl: url });
+          setTimeout(() => {
+            setLessonUploadProgress((prev) => {
+              const copy = { ...prev };
+              delete copy[index];
+              return copy;
+            });
+          }, 800);
+        } catch (e: any) {
           setLessonUploadProgress((prev) => {
             const copy = { ...prev };
             delete copy[index];
             return copy;
           });
-        }, 800);
-      } catch (e: any) {
-        setLessonUploadProgress((prev) => {
-          const copy = { ...prev };
-          delete copy[index];
-          return copy;
-        });
-        Alert.alert("Lỗi", e?.message || "Tải video thất bại.");
+          Alert.alert("Lỗi", e?.message || "Tải video thất bại.");
+        }
       }
+    } catch (error: any) {
+      console.error("Error picking video:", error);
+      Alert.alert("Lỗi", error?.message || "Không thể chọn video. Vui lòng thử lại.");
     }
   };
   const addVideoLesson = () => {

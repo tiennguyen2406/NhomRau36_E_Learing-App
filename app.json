@@ -9,7 +9,13 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Ứng dụng cần quyền truy cập thư viện ảnh để chọn ảnh và video cho khóa học của bạn.",
+        "NSCameraUsageDescription": "Ứng dụng cần quyền truy cập camera để chụp ảnh và quay video.",
+        "NSMicrophoneUsageDescription": "Ứng dụng cần quyền truy cập microphone để quay video có âm thanh.",
+        "NSPhotoLibraryAddUsageDescription": "Ứng dụng cần quyền để lưu ảnh vào thư viện của bạn."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -38,6 +44,13 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Ứng dụng cần quyền truy cập thư viện ảnh để chọn ảnh và video cho khóa học của bạn.",
+          "cameraPermission": "Ứng dụng cần quyền truy cập camera để chụp ảnh và quay video."
         }
       ]
     ],

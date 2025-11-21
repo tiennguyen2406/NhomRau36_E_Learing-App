@@ -11,8 +11,11 @@ export function useThemeColors() {
   return useMemo(() => {
     const colors = Colors[theme];
     
+    const accentColor = '#20B2AA';
+
     return {
       ...colors,
+      accent: accentColor,
       // Thêm các màu bổ sung cho dark mode
       cardBackground: isDark ? '#1E1E1E' : '#fff',
       sectionBackground: isDark ? '#1E1E1E' : '#fff',

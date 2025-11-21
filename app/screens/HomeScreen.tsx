@@ -38,6 +38,7 @@ interface Course {
   students: number;
   image?: string;
   thumbnailUrl?: string;
+  imageUrl?: string;
 }
 
 interface Instructor {
@@ -249,14 +250,20 @@ const HomeScreen: React.FC = () => {
     }
   };
 
-  const renderCourseCard = ({ item }: { item: Course }) => (
-    <TouchableOpacity style={[styles.courseCard, dynamicStyles.courseCard]} activeOpacity={0.8} onPress={() => navigation.navigate('CourseDetail', { courseId: item.id })}>
-      <View style={styles.courseImageContainer}>
-        { (item.thumbnailUrl || item.image) ? (
-          <Image source={{ uri: (item.thumbnailUrl || item.image) as string }} style={styles.courseImage} resizeMode="cover" />
-        ) : (
-          <View style={styles.courseImagePlaceholder} />
-        ) }
+  const renderCourseCard = ({ item }: { item: Course }) => {
+    const coverImage = item.thumbnailUrl || item.imageUrl || item.image;
+    return (
+      <TouchableOpacity
+        style={[styles.courseCard, dynamicStyles.courseCard]}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('CourseDetail', { courseId: item.id })}
+      >
+        <View style={styles.courseImageContainer}>
+          {coverImage ? (
+            <Image source={{ uri: coverImage }} style={styles.courseImage} resizeMode="cover" />
+          ) : (
+            <View style={styles.courseImagePlaceholder} />
+          )}
         <TouchableOpacity
           style={styles.bookmarkButton}
           onPress={(e) => {
@@ -270,21 +277,24 @@ const HomeScreen: React.FC = () => {
             color={savedCourses[item.id] ? "#20B2AA" : colors.secondaryText}
           />
         </TouchableOpacity>
-      </View>
-      <ThemedText style={[styles.courseCategory, dynamicStyles.courseCategory]} numberOfLines={1}>{item.categoryName || item.category || 'Course'}</ThemedText>
-      <ThemedText style={[styles.courseTitle, dynamicStyles.courseTitle]} numberOfLines={2}>
-        {item.title}
-      </ThemedText>
-      <View style={styles.courseStats}>
-        <ThemedText style={[styles.lessonCount, dynamicStyles.lessonCount]}>{item.totalLessons} bài</ThemedText>
-        <View style={styles.ratingContainer}>
-          <MaterialIcons name="star" size={14} color="#FFD700" />
-          <ThemedText style={[styles.rating, dynamicStyles.rating]}>{item.rating}</ThemedText>
         </View>
-        <ThemedText style={[styles.studentCount, dynamicStyles.studentCount]}>{item.students} Std</ThemedText>
-      </View>
-    </TouchableOpacity>
-  );
+        <ThemedText style={[styles.courseCategory, dynamicStyles.courseCategory]} numberOfLines={1}>
+          {item.categoryName || item.category || 'Course'}
+        </ThemedText>
+        <ThemedText style={[styles.courseTitle, dynamicStyles.courseTitle]} numberOfLines={2}>
+          {item.title}
+        </ThemedText>
+        <View style={styles.courseStats}>
+          <ThemedText style={[styles.lessonCount, dynamicStyles.lessonCount]}>{item.totalLessons} bài</ThemedText>
+          <View style={styles.ratingContainer}>
+            <MaterialIcons name="star" size={14} color="#FFD700" />
+            <ThemedText style={[styles.rating, dynamicStyles.rating]}>{item.rating}</ThemedText>
+          </View>
+          <ThemedText style={[styles.studentCount, dynamicStyles.studentCount]}>{item.students} Std</ThemedText>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderInstructor = ({ item }: { item: Instructor }) => (
     <TouchableOpacity

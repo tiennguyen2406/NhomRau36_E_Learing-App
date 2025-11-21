@@ -5,7 +5,8 @@ import {
   NativeStackNavigationProp,
 } from "@react-navigation/native-stack";
 import React, { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getUserByUsername } from "../api/api";
 import { useThemeColors } from "@/hooks/use-theme-colors";
@@ -182,15 +183,19 @@ const TabNavigator = () => {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isInstructor, setIsInstructor] = useState<boolean>(false);
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+  
   const tabBarStyle = useMemo(
     () => [
       styles.tabBar,
       {
         backgroundColor: colors.headerBackground,
         borderTopColor: colors.borderColor,
+        paddingBottom: Platform.OS === 'android' ? Math.max(insets.bottom, 12) : insets.bottom + 8,
+        height: Platform.OS === 'android' ? 65 : 60 + insets.bottom,
       },
     ],
-    [colors]
+    [colors, insets.bottom]
   );
 
   useEffect(() => {
@@ -388,13 +393,13 @@ const AppNavigator = () => {
 const styles = StyleSheet.create({
   tabBar: {
     borderTopWidth: 0.5,
+    paddingTop: 10,
     paddingBottom: 8,
-    paddingTop: 8,
   },
   tabLabel: {
-    fontSize: 10,
-    fontWeight: "500",
-    marginTop: 2,
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 4,
     textAlign: "center",
   },
   emptyContainer: {

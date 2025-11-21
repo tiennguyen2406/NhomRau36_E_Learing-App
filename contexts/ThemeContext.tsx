@@ -64,12 +64,13 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
         }
       }
 
-      // Nếu không có user hoặc chưa set preference, dùng local storage hoặc system theme
+      // Nếu không có user hoặc chưa set preference, mặc định dùng light theme
       const savedTheme = await AsyncStorage.getItem("theme");
       if (savedTheme === "light" || savedTheme === "dark") {
         setThemeState(savedTheme);
       } else {
-        setThemeState(systemTheme === "dark" ? "dark" : "light");
+        // Mặc định luôn là light theme khi đăng nhập
+        setThemeState("light");
       }
     } catch (error) {
       console.error("Error loading theme:", error);

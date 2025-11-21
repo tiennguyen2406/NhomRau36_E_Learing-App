@@ -30,9 +30,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.khaitien600.NhomRau36_E_LearingApp",
       "versionCode": 1,
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
     "web": {
       "output": "static",
@@ -67,7 +65,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "834465c0-99c4-43e4-9ab2-2b30ca377b40"
+        "projectId": "0b1a4eba-16cc-44ef-a7e3-469ebb94fc54"
       }
     }
   }

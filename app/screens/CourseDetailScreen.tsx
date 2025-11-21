@@ -130,37 +130,49 @@ const CourseDetailScreen: React.FC = () => {
       
       if (status === 'paid' || status === 'completed' || status === 'success') {
         // Thanh toán thành công nhưng chưa enroll - Có thể backend đang xử lý
-        Alert.alert(
-          'Thanh toán thành công!',
-          'Thanh toán của bạn đã được xác nhận. Khóa học sẽ được kích hoạt trong giây lát.',
-          [
-            { 
-              text: 'OK', 
-              onPress: () => (navigation as any).navigate('MainTabs', { screen: 'Courses' }) 
-            }
-          ]
-        );
+        setTimeout(() => {
+          Alert.alert(
+            'Thanh toán thành công!',
+            'Thanh toán của bạn đã được xác nhận. Khóa học sẽ được kích hoạt trong giây lát.',
+            [
+              { 
+                text: 'OK', 
+                onPress: () => (navigation as any).navigate('MainTabs', { screen: 'Courses' }) 
+              }
+            ],
+            { cancelable: false }
+          );
+        }, 100);
       } else if (status === 'cancelled' || status === 'canceled') {
         // Thanh toán bị hủy
-        Alert.alert(
-          'Thanh toán bị hủy',
-          'Bạn đã hủy thanh toán. Vui lòng thử lại nếu muốn tham gia khóa học.',
-          [{ text: 'OK' }]
-        );
+        setTimeout(() => {
+          Alert.alert(
+            'Thanh toán bị hủy',
+            'Bạn đã hủy thanh toán. Vui lòng thử lại nếu muốn tham gia khóa học.',
+            [{ text: 'OK' }],
+            { cancelable: false }
+          );
+        }, 100);
       } else if (status === 'pending' || status === 'processing') {
         // Thanh toán đang chờ xử lý
-        Alert.alert(
-          'Đang xử lý thanh toán',
-          'Thanh toán của bạn đang được xử lý. Vui lòng kiểm tra lại trong "Khóa học của tôi" sau vài phút.',
-          [{ text: 'OK' }]
-        );
+        setTimeout(() => {
+          Alert.alert(
+            'Đang xử lý thanh toán',
+            'Thanh toán của bạn đang được xử lý. Vui lòng kiểm tra lại trong "Khóa học của tôi" sau vài phút.',
+            [{ text: 'OK' }],
+            { cancelable: false }
+          );
+        }, 100);
       } else {
         // Trạng thái không xác định - Cho user biết kiểm tra lại
-        Alert.alert(
-          'Vui lòng kiểm tra lại',
-          'Không thể xác nhận trạng thái thanh toán. Vui lòng kiểm tra trong "Khóa học của tôi" sau vài phút.',
-          [{ text: 'OK' }]
-        );
+        setTimeout(() => {
+          Alert.alert(
+            'Vui lòng kiểm tra lại',
+            'Không thể xác nhận trạng thái thanh toán. Vui lòng kiểm tra trong "Khóa học của tôi" sau vài phút.',
+            [{ text: 'OK' }],
+            { cancelable: false }
+          );
+        }, 100);
       }
     } catch (error: any) {
       console.error('Error checking payment:', error);
@@ -204,28 +216,29 @@ const CourseDetailScreen: React.FC = () => {
             if (supported) {
               await Linking.openURL(paymentData.checkoutUrl);
               
+              // Tắt loading trước khi hiện Alert
+              setEnrolling(false);
+              
               // Hiển thị alert và kiểm tra thanh toán khi nhấn OK
-              Alert.alert(
-                'Chuyển đến trang thanh toán',
-                'Vui lòng hoàn tất thanh toán. Sau khi thanh toán xong, nhấn OK để kiểm tra.',
-                [
-                  { 
-                    text: 'Hủy', 
-                    style: 'cancel',
-                    onPress: () => {
-                      setEnrolling(false);
+              setTimeout(() => {
+                Alert.alert(
+                  'Chuyển đến trang thanh toán',
+                  'Vui lòng hoàn tất thanh toán. Sau khi thanh toán xong, nhấn OK để kiểm tra.',
+                  [
+                    { 
+                      text: 'Hủy', 
+                      style: 'cancel'
+                    },
+                    { 
+                      text: 'OK', 
+                      onPress: async () => {
+                        await handleCheckPayment(orderCode, user.uid);
+                      }
                     }
-                  },
-                  { 
-                    text: 'OK', 
-                    onPress: async () => {
-                      await handleCheckPayment(orderCode, user.uid);
-                      setEnrolling(false);
-                    }
-                  }
-                ]
-              );
-              // Không set enrolling = false ở đây vì sẽ set trong callback
+                  ],
+                  { cancelable: false }
+                );
+              }, 300);
               return;
             } else {
               Alert.alert('Lỗi', 'Không thể mở link thanh toán');

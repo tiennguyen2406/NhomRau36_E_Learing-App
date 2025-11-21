@@ -14,10 +14,13 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
+  Switch,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { Dropdown } from "react-native-element-dropdown";
 import {
   createCategory,
+  createCourse,
   createLesson,
   createUser,
   deleteCategory,
@@ -29,6 +32,7 @@ import {
   getLessons,
   getUsers,
   updateCategory,
+  updateCourse,
   updateLesson,
   updateUser,
   updateProofStatus,
@@ -38,7 +42,19 @@ import {
 } from "../api/api";
 import { MaterialIcons } from "@expo/vector-icons";
 
-type EntityType = "users" | "categories" | "lessons" | "proofs" | "proofCourses";
+type EntityType = "users" | "categories" | "lessons" | "courses" | "proofs" | "proofCourses";
+
+const defaultCourseForm = {
+  title: "",
+  description: "",
+  categoryId: "",
+  price: "0",
+  thumbnailUrl: "",
+  instructorId: "",
+  instructorName: "",
+  isPublished: false,
+  status: "draft",
+};
 
 const AdminManageScreen: React.FC = () => {
   const [entity, setEntity] = useState<EntityType>("users");
@@ -84,6 +100,10 @@ const AdminManageScreen: React.FC = () => {
   });
   const [videoLocal, setVideoLocal] = useState<{ uri: string; name?: string; type?: string } | null>(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [courseForm, setCourseForm] = useState({ ...defaultCourseForm });
+  const [courseThumbnailLocal, setCourseThumbnailLocal] = useState<{ uri: string; name?: string; type?: string } | null>(null);
+  const [uploadingCourseThumbnail, setUploadingCourseThumbnail] = useState(false);
+  const [courseCategories, setCourseCategories] = useState<{ label: string; value: string }[]>([]);
 
   const columns = useMemo(() => {
     switch (entity) {
@@ -93,6 +113,8 @@ const AdminManageScreen: React.FC = () => {
         return ["id", "name", "courseCount", "isActive"]; 
       case "lessons":
         return ["id", "courseId", "title", "order", "duration"]; 
+      case "courses":
+        return ["id", "title", "categoryLabel", "priceLabel", "publishLabel"];
       case "proofs":
         return ["id", "username", "requestedRole", "statusLabel", "createdAtLabel"];
       case "proofCourses":
@@ -114,6 +136,33 @@ const AdminManageScreen: React.FC = () => {
       } else if (entity === "lessons") {
         const data = await getLessons();
         setItems(Array.isArray(data) ? data : []);
+      } else if (entity === "courses") {
+        const data = await getCourses();
+        const normalized = Array.isArray(data)
+          ? data.map((course: any) => {
+              const categoryLabel =
+                course.categoryName ||
+                course.category?.name ||
+                course.category ||
+                "—";
+              const priceValue =
+                typeof course.currentPrice === "number"
+                  ? course.currentPrice
+                  : typeof course.price === "number"
+                  ? course.price
+                  : Number(course.price) || 0;
+              return {
+                ...course,
+                categoryLabel,
+                priceLabel:
+                  typeof priceValue === "number"
+                    ? `${priceValue.toLocaleString("vi-VN")} đ`
+                    : String(priceValue || ""),
+                publishLabel: course.isPublished ? "Published" : "Draft",
+              };
+            })
+          : [];
+        setItems(normalized);
       } else if (entity === "proofs") {
         // Chỉ lấy các proof ở trạng thái pending
         const data = await getProofs();
@@ -192,6 +241,26 @@ const AdminManageScreen: React.FC = () => {
     })();
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const cats = await getCategories();
+        const options = Array.isArray(cats)
+          ? cats
+              .map((cat: any) => ({
+                label: String(cat.name || "Danh mục"),
+                value: String(cat.id || cat._id || cat.categoryId || ""),
+              }))
+              .filter((opt) => !!opt.value)
+          : [];
+        setCourseCategories(options);
+      } catch (error) {
+        console.warn("Không thể tải danh mục cho quản lý khóa học:", error);
+        setCourseCategories([]);
+      }
+    })();
+  }, []);
+
   const resetForms = () => {
     setEditingId(null);
     setSelectedProof(null);
@@ -203,6 +272,8 @@ const AdminManageScreen: React.FC = () => {
     setIconLocal(null);
     setLessonForm({ courseId: "", title: "", description: "", videoUrl: "", duration: "0", order: "0", isPreview: false });
     setVideoLocal(null);
+    setCourseForm({ ...defaultCourseForm });
+    setCourseThumbnailLocal(null);
   };
 
   const pickIcon = async () => {
@@ -229,6 +300,35 @@ const AdminManageScreen: React.FC = () => {
     } catch (error) {
       console.error("Lỗi khi chọn ảnh:", error);
       Alert.alert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại.");
+    }
+  };
+
+  const pickCourseThumbnail = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permissionResult.granted === false) {
+        Alert.alert("Quyền truy cập", "Cần quyền truy cập thư viện ảnh để chọn ảnh bìa.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.85,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        setCourseThumbnailLocal({
+          uri: asset.uri,
+          name: asset.fileName || `course_thumb_${Date.now()}.jpg`,
+          type: asset.mimeType || "image/jpeg",
+        });
+        setCourseForm((prev) => ({ ...prev, thumbnailUrl: asset.uri }));
+      }
+    } catch (error) {
+      console.error("Lỗi khi chọn thumbnail khóa học:", error);
+      Alert.alert("Lỗi", "Không thể chọn ảnh bìa. Vui lòng thử lại.");
     }
   };
 
@@ -319,6 +419,52 @@ const AdminManageScreen: React.FC = () => {
         } else {
           await createLesson(payload);
         }
+      } else if (entity === "courses") {
+        if (!courseForm.title.trim()) {
+          Alert.alert("Thiếu thông tin", "Vui lòng nhập tiêu đề khóa học.");
+          return;
+        }
+        if (!courseForm.categoryId) {
+          Alert.alert("Thiếu thông tin", "Vui lòng chọn danh mục.");
+          return;
+        }
+
+        let finalThumbnail = courseForm.thumbnailUrl;
+        if (courseThumbnailLocal?.uri) {
+          try {
+            setUploadingCourseThumbnail(true);
+            finalThumbnail = await uploadProofFile(courseThumbnailLocal);
+          } catch (e) {
+            console.error("Upload thumbnail failed:", e);
+            Alert.alert("Cảnh báo", "Không thể tải ảnh bìa. Sử dụng đường dẫn hiện có.");
+          } finally {
+            setUploadingCourseThumbnail(false);
+          }
+        }
+
+        const payload: any = {
+          title: courseForm.title.trim(),
+          description: courseForm.description.trim(),
+          category: courseForm.categoryId,
+          price: Number(courseForm.price) || 0,
+          thumbnailUrl: finalThumbnail,
+          imageUrl: finalThumbnail,
+          isPublished: courseForm.isPublished,
+          status: courseForm.status || (courseForm.isPublished ? "published" : "draft"),
+        };
+
+        if (courseForm.instructorId) {
+          payload.instructorId = courseForm.instructorId;
+        }
+        if (courseForm.instructorName) {
+          payload.instructor = courseForm.instructorName;
+        }
+
+        if (editingId) {
+          await updateCourse(editingId, payload);
+        } else {
+          await createCourse(payload);
+        }
       }
       resetForms();
       await load();
@@ -382,6 +528,30 @@ const AdminManageScreen: React.FC = () => {
         isPreview: !!row.isPreview,
       });
       setVideoLocal(null);
+    } else if (entity === "courses") {
+      const categoryValue =
+        row.categoryId ||
+        row.category?._id ||
+        row.category?.id ||
+        row.category ||
+        "";
+      setCourseForm({
+        title: row.title || "",
+        description: row.description || "",
+        categoryId: String(categoryValue || ""),
+        price: String(
+          row.price ??
+            row.currentPrice ??
+            row.originalPrice ??
+            0
+        ),
+        thumbnailUrl: row.thumbnailUrl || row.imageUrl || "",
+        instructorId: row.instructorId || "",
+        instructorName: row.instructor || row.instructorName || "",
+        isPublished: !!row.isPublished,
+        status: row.status || (row.isPublished ? "published" : "draft"),
+      });
+      setCourseThumbnailLocal(null);
     }
   };
 
@@ -489,11 +659,33 @@ const AdminManageScreen: React.FC = () => {
     );
   };
 
+  const toggleCoursePublish = async (course: any) => {
+    if (!course?.id) return;
+    const nextState = !course.isPublished;
+    try {
+      setLoading(true);
+      await updateCourse(course.id, {
+        isPublished: nextState,
+        status: nextState ? "published" : "draft",
+      });
+      await load();
+      Alert.alert(
+        "Thành công",
+        nextState ? "Khóa học đã được xuất bản." : "Khóa học đã được ẩn."
+      );
+    } catch (err: any) {
+      Alert.alert("Lỗi", err?.message || "Không thể cập nhật khóa học");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const SectionSelector = () => {
     const opts: { key: EntityType; label: string }[] = [
       { key: "users", label: "Users" },
       { key: "categories", label: "Categories" },
       { key: "lessons", label: "Lessons" },
+      { key: "courses", label: "Courses" },
       { key: "proofs", label: "Proofs" },
       { key: "proofCourses", label: "Proof Courses" },
     ];
@@ -754,6 +946,148 @@ const AdminManageScreen: React.FC = () => {
       </View>
     );
 
+    if (entity === "courses") {
+      return (
+        <View style={styles.formCard}>
+          <Text style={styles.formTitle}>{editingId ? "Sửa Khóa học" : "Thêm Khóa học"}</Text>
+          <View style={styles.row}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Tiêu đề</Text>
+              <TextInput
+                placeholder="Tiêu đề khóa học"
+                value={courseForm.title}
+                onChangeText={(t) => setCourseForm((s) => ({ ...s, title: t }))}
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Danh mục</Text>
+              <Dropdown
+                data={courseCategories}
+                labelField="label"
+                valueField="value"
+                value={courseForm.categoryId || null}
+                placeholder="Chọn danh mục"
+                style={styles.dropdownInput}
+                placeholderStyle={styles.dropdownPlaceholder}
+                selectedTextStyle={styles.dropdownSelected}
+                onChange={(item) =>
+                  setCourseForm((s) => ({ ...s, categoryId: item.value }))
+                }
+              />
+            </View>
+          </View>
+          <View style={styles.row}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Giá (VND)</Text>
+              <TextInput
+                placeholder="Giá khóa học"
+                value={courseForm.price}
+                keyboardType="numeric"
+                onChangeText={(t) => setCourseForm((s) => ({ ...s, price: t }))}
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Trạng thái</Text>
+              <TextInput
+                placeholder="draft / published / archived"
+                value={courseForm.status}
+                autoCapitalize="none"
+                onChangeText={(t) => setCourseForm((s) => ({ ...s, status: t }))}
+                style={styles.input}
+              />
+            </View>
+          </View>
+          <View style={styles.row}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Giảng viên (username)</Text>
+              <TextInput
+                placeholder="Tên hiển thị hoặc username"
+                value={courseForm.instructorName}
+                onChangeText={(t) => setCourseForm((s) => ({ ...s, instructorName: t }))}
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Giảng viên ID</Text>
+              <TextInput
+                placeholder="ID người tạo"
+                value={courseForm.instructorId}
+                onChangeText={(t) => setCourseForm((s) => ({ ...s, instructorId: t }))}
+                style={styles.input}
+              />
+            </View>
+          </View>
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.label}>Mô tả</Text>
+              <TextInput
+                placeholder="Mô tả khóa học"
+                value={courseForm.description}
+                onChangeText={(t) => setCourseForm((s) => ({ ...s, description: t }))}
+                style={[styles.input, styles.textArea]}
+                multiline
+              />
+            </View>
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Ảnh bìa</Text>
+            <TouchableOpacity
+              style={styles.fileButton}
+              onPress={pickCourseThumbnail}
+              disabled={uploadingCourseThumbnail}
+            >
+              {uploadingCourseThumbnail ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <MaterialIcons name="image" size={20} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={styles.fileButtonText}>
+                    {courseThumbnailLocal
+                      ? "Đã chọn ảnh"
+                      : courseForm.thumbnailUrl
+                      ? "Thay đổi ảnh"
+                      : "Chọn ảnh"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+            {courseThumbnailLocal ? (
+              <Image source={{ uri: courseThumbnailLocal.uri }} style={styles.previewImage} />
+            ) : courseForm.thumbnailUrl ? (
+              <Image source={{ uri: courseForm.thumbnailUrl }} style={styles.previewImage} />
+            ) : null}
+          </View>
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>Xuất bản ngay</Text>
+            <Switch
+              value={courseForm.isPublished}
+              onValueChange={(val) =>
+                setCourseForm((s) => ({
+                  ...s,
+                  isPublished: val,
+                  status: val ? "published" : s.status === "archived" ? "archived" : "draft",
+                }))
+              }
+              trackColor={{ false: "#d1d1d1", true: "#20B2AA" }}
+              thumbColor="#fff"
+            />
+          </View>
+          <View style={styles.actions}>
+            {editingId && (
+              <TouchableOpacity style={styles.cancelBtn} onPress={resetForms}>
+                <Text style={styles.cancelText}>Hủy</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.saveBtn} onPress={onSubmit} disabled={loading || uploadingCourseThumbnail}>
+              <Text style={styles.saveText}>{editingId ? "Cập nhật" : "Thêm mới"}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.formCard}>
         <Text style={styles.formTitle}>{editingId ? "Sửa Bài học" : "Thêm Bài học"}</Text>
@@ -857,6 +1191,8 @@ const AdminManageScreen: React.FC = () => {
     const isProofCourse = entity === "proofCourses";
     const isPendingProof = isProof && item.status === "pending";
     const isPendingProofCourse = isProofCourse && item.status === "pending";
+    const canDelete =
+      entity === "users" || entity === "categories" || entity === "lessons";
 
     return (
       <TouchableOpacity
@@ -912,14 +1248,29 @@ const AdminManageScreen: React.FC = () => {
                 <Text style={styles.proofRowText}>Từ chối</Text>
               </TouchableOpacity>
             </View>
-          ) : (
+          ) : entity === "courses" ? (
+            <View style={styles.courseRowActions}>
+              <TouchableOpacity
+                style={[
+                  styles.publishToggleBtn,
+                  item.isPublished ? styles.unpublishBtn : styles.publishBtn,
+                ]}
+                onPress={() => toggleCoursePublish(item)}
+                disabled={loading}
+              >
+                <Text style={styles.publishToggleText}>
+                  {item.isPublished ? "Ẩn" : "Xuất bản"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : canDelete ? (
             <TouchableOpacity
               onPress={() => onDelete(item.uid || item.id)}
               style={styles.deleteBtn}
             >
               <Text style={styles.deleteText}>Xóa</Text>
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
       </TouchableOpacity>
     );
@@ -1149,6 +1500,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 8,
   },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
   inputGroup: {
     flex: 1,
     marginRight: 8,
@@ -1209,6 +1564,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 8,
+  },
+  dropdownInput: {
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: "#f2f2f2",
+    paddingHorizontal: 10,
+    justifyContent: "center",
+  },
+  dropdownPlaceholder: {
+    color: "#999",
+    fontSize: 14,
+  },
+  dropdownSelected: {
+    color: "#333",
+    fontSize: 14,
   },
   headerRow: {
     flexDirection: "row",
@@ -1287,6 +1657,16 @@ const styles = StyleSheet.create({
     marginTop: 16,
     justifyContent: "flex-end",
   },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+  },
+  switchLabel: {
+    fontSize: 14,
+    color: "#666",
+    marginRight: 12,
+  },
   proofActionBtn: {
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -1317,6 +1697,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
   },
+  courseRowActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+  },
   proofRowBtn: {
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -1327,6 +1711,21 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 12,
     fontWeight: "700",
+  },
+  publishToggleBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  publishToggleText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  publishBtn: {
+    backgroundColor: "#2ECC71",
+  },
+  unpublishBtn: {
+    backgroundColor: "#F39C12",
   },
   previewOverlay: {
     flex: 1,

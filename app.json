@@ -10,6 +10,8 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.khaitien600.NhomRau36ELearingApp",
+      "buildNumber": "1.0.0",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Ứng dụng cần quyền truy cập thư viện ảnh để chọn ảnh và video cho khóa học của bạn.",
         "NSCameraUsageDescription": "Ứng dụng cần quyền truy cập camera để chụp ảnh và quay video.",
@@ -27,9 +29,8 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.khaitien600.NhomRau36_E_LearingApp",
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "versionCode": 1,
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
     "web": {
       "output": "static",

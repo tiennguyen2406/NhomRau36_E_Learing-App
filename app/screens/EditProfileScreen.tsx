@@ -335,6 +335,24 @@ const EditProfileScreen: React.FC = () => {
     headerTitle: {
       color: colors.primaryText,
     },
+    profileImageSection: {
+      backgroundColor: colors.cardBackground,
+      borderColor: colors.borderColor,
+    },
+    avatar: {
+      backgroundColor: colors.searchBackground,
+      borderColor: colors.accent,
+    },
+    avatarText: {
+      color: colors.accent,
+    },
+    editAvatarButton: {
+      backgroundColor: colors.accent,
+    },
+    formSection: {
+      backgroundColor: colors.cardBackground,
+      borderColor: colors.borderColor,
+    },
     inputLabel: {
       color: colors.primaryText,
     },
@@ -356,8 +374,21 @@ const EditProfileScreen: React.FC = () => {
     dropdownSelectedText: {
       color: colors.primaryText,
     },
+    phoneContainer: {
+      borderColor: colors.borderColor,
+    },
+    phonePrefix: {
+      backgroundColor: colors.searchBackground,
+      borderRightColor: colors.borderColor,
+    },
     phonePrefixText: {
       color: colors.primaryText,
+    },
+    updateButton: {
+      backgroundColor: colors.accent,
+    },
+    retryButton: {
+      backgroundColor: colors.accent,
     },
   }), [colors]);
 
@@ -365,7 +396,7 @@ const EditProfileScreen: React.FC = () => {
   if (loading) {
     return (
       <ThemedView style={[styles.container, dynamicStyles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#20B2AA" />
+        <ActivityIndicator size="large" color={colors.accent} />
         <ThemedText style={[styles.loadingText, { color: colors.secondaryText }]}>
           Đang tải thông tin...
         </ThemedText>
@@ -377,10 +408,10 @@ const EditProfileScreen: React.FC = () => {
   if (error) {
     return (
       <ThemedView style={[styles.container, dynamicStyles.container, styles.centerContent]}>
-        <MaterialIcons name="error-outline" size={40} color="#e74c3c" />
+        <MaterialIcons name="error-outline" size={40} color={colors.accent} />
         <ThemedText style={[styles.errorText, { color: colors.primaryText }]}>{error}</ThemedText>
         <TouchableOpacity
-          style={styles.retryButton}
+          style={[styles.retryButton, dynamicStyles.retryButton]}
           onPress={() => navigation.goBack()}
         >
           <ThemedText style={styles.retryButtonText}>Quay lại</ThemedText>
@@ -407,9 +438,9 @@ const EditProfileScreen: React.FC = () => {
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.profileImageSection}>
+          <View style={[styles.profileImageSection, dynamicStyles.profileImageSection]}>
             <View style={styles.avatarContainer}>
-              <View style={styles.avatar}>
+              <View style={[styles.avatar, dynamicStyles.avatar]}>
                 {profileImageLocal?.uri ? (
                   <Image
                     source={{ uri: profileImageLocal.uri }}
@@ -421,13 +452,13 @@ const EditProfileScreen: React.FC = () => {
                     style={styles.avatarImage}
                   />
                 ) : (
-                  <ThemedText style={styles.avatarText}>
+                  <ThemedText style={[styles.avatarText, dynamicStyles.avatarText]}>
                     {user?.username?.charAt(0).toUpperCase() || "?"}
                   </ThemedText>
                 )}
               </View>
               <TouchableOpacity
-                style={styles.editAvatarButton}
+                style={[styles.editAvatarButton, dynamicStyles.editAvatarButton]}
                 onPress={handleProfileImagePicker}
                 disabled={uploadingImage}
               >
@@ -440,7 +471,7 @@ const EditProfileScreen: React.FC = () => {
             </View>
           </View>
 
-          <View style={styles.formSection}>
+          <View style={[styles.formSection, dynamicStyles.formSection]}>
             {/* Full Name */}
             <View style={styles.inputGroup}>
               <ThemedText style={[styles.inputLabel, dynamicStyles.inputLabel]}>Họ và tên</ThemedText>
@@ -515,8 +546,8 @@ const EditProfileScreen: React.FC = () => {
             {/* Phone Number */}
             <View style={styles.inputGroup}>
               <ThemedText style={[styles.inputLabel, dynamicStyles.inputLabel]}>Số điện thoại</ThemedText>
-              <View style={styles.phoneContainer}>
-                <View style={styles.phonePrefix}>
+              <View style={[styles.phoneContainer, dynamicStyles.phoneContainer]}>
+                <View style={[styles.phonePrefix, dynamicStyles.phonePrefix]}>
                   <ThemedText style={[styles.phonePrefixText, dynamicStyles.phonePrefixText]}>+84</ThemedText>
                 </View>
                 <TextInput
@@ -603,7 +634,7 @@ const EditProfileScreen: React.FC = () => {
 
             {/* Update Button */}
             <TouchableOpacity
-              style={styles.updateButton}
+              style={[styles.updateButton, dynamicStyles.updateButton]}
               onPress={handleUpdateProfile}
               disabled={
                 saving ||

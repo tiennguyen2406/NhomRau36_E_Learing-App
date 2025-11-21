@@ -45,6 +45,7 @@ interface Course {
   totalLessons?: number;
   thumbnailUrl?: string;
   image?: string;
+  imageUrl?: string;
 }
 
 interface RouteParams {
@@ -278,11 +279,19 @@ const CourseListScreen: React.FC = () => {
         }}
       >
         <View style={styles.courseImageContainer}>
-          { (item.thumbnailUrl || item.image) ? (
-            <Image source={{ uri: (item.thumbnailUrl || item.image) as string }} style={styles.courseImage} resizeMode="cover" />
-          ) : (
-            <View style={styles.courseImagePlaceholder} />
-          ) }
+          {(() => {
+            const coverImage = item.thumbnailUrl || item.imageUrl || item.image;
+            if (coverImage) {
+              return (
+                <Image
+                  source={{ uri: coverImage }}
+                  style={styles.courseImage}
+                  resizeMode="cover"
+                />
+              );
+            }
+            return <View style={styles.courseImagePlaceholder} />;
+          })()}
         </View>
         <View style={styles.courseContent}>
           <ThemedText style={styles.courseCategory}>

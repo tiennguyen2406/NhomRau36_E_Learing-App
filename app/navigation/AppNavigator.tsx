@@ -4,10 +4,11 @@ import {
   createNativeStackNavigator,
   NativeStackNavigationProp,
 } from "@react-navigation/native-stack";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getUserByUsername } from "../api/api";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 // Màn hình
 import CategoryScreen from "../screens/CategoryScreen";
@@ -180,6 +181,17 @@ const InboxStackNavigator = () => {
 const TabNavigator = () => {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isInstructor, setIsInstructor] = useState<boolean>(false);
+  const colors = useThemeColors();
+  const tabBarStyle = useMemo(
+    () => [
+      styles.tabBar,
+      {
+        backgroundColor: colors.headerBackground,
+        borderTopColor: colors.borderColor,
+      },
+    ],
+    [colors]
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -242,10 +254,10 @@ const TabNavigator = () => {
             <MaterialIcons name={iconName as any} size={size} color={color} />
           );
         },
-        tabBarActiveTintColor: "#20B2AA",
-        tabBarInactiveTintColor: "#666",
+        tabBarActiveTintColor: colors.tint,
+        tabBarInactiveTintColor: colors.secondaryText,
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle,
         tabBarLabelStyle: styles.tabLabel,
       })}
     >
@@ -375,9 +387,7 @@ const AppNavigator = () => {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: "#fff",
     borderTopWidth: 0.5,
-    borderTopColor: "#e0e0e0",
     paddingBottom: 8,
     paddingTop: 8,
   },

@@ -1,7 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,6 +22,7 @@ import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
 import { ProfileStackParamList } from "../navigation/AppNavigator";
 import { getUserByUsername, updateUser, createProof, uploadProofFile } from "../api/api";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 
 type NavigationProp = NativeStackNavigationProp<ProfileStackParamList>;
 
@@ -51,6 +52,7 @@ const genderData = [
 
 const EditProfileScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const colors = useThemeColors();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -321,12 +323,50 @@ const EditProfileScreen: React.FC = () => {
     }
   };
 
+  // Dynamic styles
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.containerBackground,
+    },
+    header: {
+      backgroundColor: colors.headerBackground,
+    },
+    headerTitle: {
+      color: colors.primaryText,
+    },
+    inputLabel: {
+      color: colors.primaryText,
+    },
+    textInput: {
+      backgroundColor: colors.searchBackground,
+      color: colors.primaryText,
+      borderColor: colors.borderColor,
+    },
+    dateText: {
+      color: colors.primaryText,
+    },
+    dropdown: {
+      backgroundColor: colors.searchBackground,
+      borderColor: colors.borderColor,
+    },
+    dropdownPlaceholderText: {
+      color: colors.placeholderText,
+    },
+    dropdownSelectedText: {
+      color: colors.primaryText,
+    },
+    phonePrefixText: {
+      color: colors.primaryText,
+    },
+  }), [colors]);
+
   // Hiển thị trạng thái loading
   if (loading) {
     return (
-      <ThemedView style={[styles.container, styles.centerContent]}>
+      <ThemedView style={[styles.container, dynamicStyles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color="#20B2AA" />
-        <ThemedText style={styles.loadingText}>
+        <ThemedText style={[styles.loadingText, { color: colors.secondaryText }]}>
           Đang tải thông tin...
         </ThemedText>
       </ThemedView>
@@ -336,9 +376,9 @@ const EditProfileScreen: React.FC = () => {
   // Hiển thị trạng thái lỗi
   if (error) {
     return (
-      <ThemedView style={[styles.container, styles.centerContent]}>
+      <ThemedView style={[styles.container, dynamicStyles.container, styles.centerContent]}>
         <MaterialIcons name="error-outline" size={40} color="#e74c3c" />
-        <ThemedText style={styles.errorText}>{error}</ThemedText>
+        <ThemedText style={[styles.errorText, { color: colors.primaryText }]}>{error}</ThemedText>
         <TouchableOpacity
           style={styles.retryButton}
           onPress={() => navigation.goBack()}
@@ -350,20 +390,20 @@ const EditProfileScreen: React.FC = () => {
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={[styles.container, dynamicStyles.container]}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, dynamicStyles.header]}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <MaterialIcons name="arrow-back" size={24} color="#333" />
+            <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
           </TouchableOpacity>
-          <ThemedText style={styles.headerTitle}>Chỉnh sửa hồ sơ</ThemedText>
+          <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]}>Chỉnh sửa hồ sơ</ThemedText>
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -403,25 +443,25 @@ const EditProfileScreen: React.FC = () => {
           <View style={styles.formSection}>
             {/* Full Name */}
             <View style={styles.inputGroup}>
-              <ThemedText style={styles.inputLabel}>Họ và tên</ThemedText>
+              <ThemedText style={[styles.inputLabel, dynamicStyles.inputLabel]}>Họ và tên</ThemedText>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, dynamicStyles.textInput]}
                 value={fullName}
                 onChangeText={setFullName}
                 placeholder="Nhập họ và tên"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholderText}
               />
             </View>
 
             {/* Nick Name */}
             <View style={styles.inputGroup}>
-              <ThemedText style={styles.inputLabel}>Biệt danh</ThemedText>
+              <ThemedText style={[styles.inputLabel, dynamicStyles.inputLabel]}>Biệt danh</ThemedText>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, dynamicStyles.textInput]}
                 value={nickName}
                 onChangeText={setNickName}
                 placeholder="Nhập biệt danh"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholderText}
               />
             </View>
 
@@ -429,17 +469,17 @@ const EditProfileScreen: React.FC = () => {
             <View style={styles.inputGroup}>
               <ThemedText style={styles.inputLabel}>Ngày sinh</ThemedText>
               <TouchableOpacity
-                style={styles.textInput}
+                style={[styles.textInput, dynamicStyles.textInput]}
                 onPress={() => setShowDatePicker(true)}
               >
                 <View style={styles.datePickerButton}>
                   <MaterialIcons
                     name="calendar-today"
                     size={20}
-                    color="#666"
+                    color={colors.placeholderText}
                     style={styles.dateIcon}
                   />
-                  <ThemedText style={styles.dateText}>
+                  <ThemedText style={[styles.dateText, dynamicStyles.dateText]}>
                     {dateOfBirth
                       ? dateOfBirth.toLocaleDateString()
                       : "Chọn ngày sinh"}
@@ -460,13 +500,13 @@ const EditProfileScreen: React.FC = () => {
 
             {/* Email */}
             <View style={styles.inputGroup}>
-              <ThemedText style={styles.inputLabel}>Email</ThemedText>
+              <ThemedText style={[styles.inputLabel, dynamicStyles.inputLabel]}>Email</ThemedText>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, dynamicStyles.textInput]}
                 value={email}
                 onChangeText={setEmail}
                 placeholder="Nhập email"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholderText}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
@@ -474,17 +514,17 @@ const EditProfileScreen: React.FC = () => {
 
             {/* Phone Number */}
             <View style={styles.inputGroup}>
-              <ThemedText style={styles.inputLabel}>Số điện thoại</ThemedText>
+              <ThemedText style={[styles.inputLabel, dynamicStyles.inputLabel]}>Số điện thoại</ThemedText>
               <View style={styles.phoneContainer}>
                 <View style={styles.phonePrefix}>
-                  <ThemedText style={styles.phonePrefixText}>+84</ThemedText>
+                  <ThemedText style={[styles.phonePrefixText, dynamicStyles.phonePrefixText]}>+84</ThemedText>
                 </View>
                 <TextInput
-                  style={styles.phoneInput}
+                  style={[styles.phoneInput, dynamicStyles.textInput]}
                   value={phoneNumber}
                   onChangeText={setPhoneNumber}
                   placeholder="Nhập số điện thoại"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.placeholderText}
                   keyboardType="phone-pad"
                 />
               </View>
@@ -492,11 +532,11 @@ const EditProfileScreen: React.FC = () => {
 
             {/* Gender */}
             <View style={styles.inputGroup}>
-              <ThemedText style={styles.inputLabel}>Giới tính</ThemedText>
+              <ThemedText style={[styles.inputLabel, dynamicStyles.inputLabel]}>Giới tính</ThemedText>
               <Dropdown
-                style={styles.dropdown}
-                placeholderStyle={styles.dropdownPlaceholderText}
-                selectedTextStyle={styles.dropdownSelectedText}
+                style={[styles.dropdown, dynamicStyles.dropdown]}
+                placeholderStyle={[styles.dropdownPlaceholderText, dynamicStyles.dropdownPlaceholderText]}
+                selectedTextStyle={[styles.dropdownSelectedText, dynamicStyles.dropdownSelectedText]}
                 data={genderData}
                 maxHeight={300}
                 labelField="label"
@@ -511,11 +551,11 @@ const EditProfileScreen: React.FC = () => {
 
             {/* Role - chọn student/instructor */}
             <View style={styles.inputGroup}>
-              <ThemedText style={styles.inputLabel}>Vai trò</ThemedText>
+              <ThemedText style={[styles.inputLabel, dynamicStyles.inputLabel]}>Vai trò</ThemedText>
               <Dropdown
-                style={styles.dropdown}
-                placeholderStyle={styles.dropdownPlaceholderText}
-                selectedTextStyle={styles.dropdownSelectedText}
+                style={[styles.dropdown, dynamicStyles.dropdown]}
+                placeholderStyle={[styles.dropdownPlaceholderText, dynamicStyles.dropdownPlaceholderText]}
+                selectedTextStyle={[styles.dropdownSelectedText, dynamicStyles.dropdownSelectedText]}
                 data={[
                   { label: "Học viên", value: "student" },
                   { label: "Giảng viên", value: "instructor" },
@@ -537,21 +577,21 @@ const EditProfileScreen: React.FC = () => {
 
             {originalRole === "student" && role === "instructor" && (
               <View style={styles.inputGroup}>
-                <ThemedText style={styles.inputLabel}>
+                <ThemedText style={[styles.inputLabel, dynamicStyles.inputLabel]}>
                   Minh chứng (ảnh/video/tài liệu)
                 </ThemedText>
                 <TouchableOpacity
-                  style={styles.textInput}
+                  style={[styles.textInput, dynamicStyles.textInput]}
                   onPress={pickProofFromLibrary}
                 >
                   <View style={styles.datePickerButton}>
                     <MaterialIcons
                       name="attach-file"
                       size={20}
-                      color="#666"
+                      color={colors.placeholderText}
                       style={styles.dateIcon}
                     />
-                    <ThemedText style={styles.dateText}>
+                    <ThemedText style={[styles.dateText, dynamicStyles.dateText]}>
                       {proofFile?.name ||
                         proofFile?.uri?.split("/").pop() ||
                         "Chọn tệp minh chứng"}
@@ -597,7 +637,6 @@ const EditProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f8f8",
   },
   keyboardView: {
     flex: 1,
@@ -612,7 +651,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 20,
-    backgroundColor: "#fff",
   },
   backButton: {
     marginRight: 16,
@@ -620,7 +658,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#333",
   },
   content: {
     flex: 1,

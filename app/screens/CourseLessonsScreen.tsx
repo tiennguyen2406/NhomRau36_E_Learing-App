@@ -1,9 +1,12 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getLessonsByCourse, getQuizResultsByCourse, getUserByUsername } from "../api/api";
+import { ThemedText } from "../../components/themed-text";
+import { ThemedView } from "../../components/themed-view";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 
 type RouteParams = { courseId: string; title?: string };
 
@@ -26,6 +29,7 @@ interface Lesson {
 const CourseLessonsScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const colors = useThemeColors();
   const { courseId, title } = (route.params || {}) as RouteParams;
 
   const [loading, setLoading] = useState(true);
@@ -137,10 +141,33 @@ const CourseLessonsScreen: React.FC = () => {
     });
   };
 
+  // Dynamic styles
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.containerBackground,
+    },
+    header: {
+      backgroundColor: colors.headerBackground,
+    },
+    headerTitle: {
+      color: colors.primaryText,
+    },
+    lessonItem: {
+      backgroundColor: colors.cardBackground,
+    },
+    lessonTitle: {
+      color: colors.primaryText,
+    },
+    lessonDuration: {
+      color: colors.secondaryText,
+    },
+  }), [colors]);
+
   const renderItem = ({ item }: { item: Lesson }) => {
     const isQuiz = (item.kind || "").toLowerCase() === "quiz";
     return (
-      <View style={styles.lessonItem}>
+      <View style={[styles.lessonItem, dynamicStyles.lessonItem]}>
         <View style={styles.lessonLeft}>
           <View style={styles.lessonIndex}>
             <Text style={styles.lessonIndexText}>
@@ -149,9 +176,9 @@ const CourseLessonsScreen: React.FC = () => {
           </View>
           <View style={{ flex: 1 }}>
             <View style={styles.lessonTitleRow}>
-              <Text style={styles.lessonTitle} numberOfLines={1}>
+              <ThemedText style={[styles.lessonTitle, dynamicStyles.lessonTitle]} numberOfLines={1}>
                 {item.title || "Bài học"}
-              </Text>
+              </ThemedText>
               {isQuiz ? (
                 <View style={styles.quizChip}>
                   <Text style={styles.quizChipText}>Quiz</Text>
@@ -159,11 +186,11 @@ const CourseLessonsScreen: React.FC = () => {
               ) : null}
             </View>
             {item.duration ? (
-              <Text style={styles.lessonDuration} numberOfLines={1}>
+              <ThemedText style={[styles.lessonDuration, dynamicStyles.lessonDuration]} numberOfLines={1}>
                 {typeof item.duration === "number"
                   ? `${item.duration} phút`
                   : item.duration}
-              </Text>
+              </ThemedText>
             ) : null}
           </View>
         </View>
@@ -199,16 +226,16 @@ const CourseLessonsScreen: React.FC = () => {
     );
   };
 
-  if (loading) return <View style={styles.center}><ActivityIndicator color="#20B2AA" /><Text style={{marginTop:8}}>Đang tải...</Text></View>;
-  if (error) return <View style={styles.center}><Text>{error}</Text></View>;
+  if (loading) return <ThemedView style={styles.center}><ActivityIndicator color="#20B2AA" /><ThemedText style={{marginTop:8, color: colors.secondaryText}}>Đang tải...</ThemedText></ThemedView>;
+  if (error) return <ThemedView style={styles.center}><ThemedText style={{color: colors.primaryText}}>{error}</ThemedText></ThemedView>;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <ThemedView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity onPress={() => (navigation as any).goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{title || 'Bài học'}</Text>
+        <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]} numberOfLines={1}>{title || 'Bài học'}</ThemedText>
         <TouchableOpacity 
           onPress={() => (navigation as any).navigate('CourseReview', { 
             courseId, 
@@ -226,24 +253,24 @@ const CourseLessonsScreen: React.FC = () => {
         contentContainerStyle={{ padding: 16 }}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
       />
-    </View>
+    </ThemedView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f8f8' },
+  container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 50, paddingBottom: 12, backgroundColor: '#fff' },
-  headerTitle: { marginLeft: 12, fontSize: 18, fontWeight: '700', color: '#333', flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 50, paddingBottom: 12 },
+  headerTitle: { marginLeft: 12, fontSize: 18, fontWeight: '700', flex: 1 },
   reviewBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff8e1', alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
-  lessonItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 12 },
+  lessonItem: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, padding: 12 },
   lessonLeft: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   lessonIndex: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#eef6f6', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   lessonIndexText: { color: '#20B2AA', fontWeight: '700' },
   lessonTitleRow: { flexDirection: 'row', alignItems: 'center' },
-  lessonTitle: { color: '#333', fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  lessonTitle: { fontSize: 14, fontWeight: '700', flexShrink: 1 },
   lessonRight: { marginLeft: 10 },
-  lessonDuration: { color: '#777', fontSize: 12, marginTop: 2 },
+  lessonDuration: { fontSize: 12, marginTop: 2 },
   playBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#20B2AA', alignItems: 'center', justifyContent: 'center' },
   quizProgressBtn: { minWidth: 64, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#20B2AA', alignItems: 'center', justifyContent: 'center' },
   quizProgressText: { color: '#fff', fontWeight: '700', fontSize: 13 },

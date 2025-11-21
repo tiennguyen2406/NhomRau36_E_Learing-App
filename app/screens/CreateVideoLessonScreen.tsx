@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   SafeAreaView,
@@ -17,6 +17,8 @@ import {
   getLessonCountByCourse,
   uploadProofFile,
 } from "../api/api";
+import { useThemeColors } from "../../hooks/use-theme-colors";
+import { ThemedText } from "../../components/themed-text";
 
 type RouteParams = {
   courseId: string;
@@ -27,6 +29,7 @@ const CreateVideoLessonScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { courseId, title } = (route.params || {}) as RouteParams;
+  const colors = useThemeColors();
 
   const [lessonTitle, setLessonTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -35,6 +38,26 @@ const CreateVideoLessonScreen: React.FC = () => {
   const [duration, setDuration] = useState("");
   const [order, setOrder] = useState("1");
   const [loading, setLoading] = useState(false);
+
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { backgroundColor: colors.containerBackground },
+        header: { backgroundColor: colors.headerBackground, borderBottomColor: colors.borderColor },
+        headerTitle: { color: colors.primaryText },
+        label: { color: colors.secondaryText },
+        input: {
+          borderColor: colors.borderColor,
+          backgroundColor: colors.cardBackground,
+          color: colors.primaryText,
+        },
+        uploadBtn: { borderColor: colors.borderColor, backgroundColor: colors.searchBackground },
+        uploadText: { color: colors.primaryText },
+        fileName: { color: colors.secondaryText },
+        submitBtn: { backgroundColor: colors.tint || "#20B2AA" },
+      }),
+    [colors]
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -146,32 +169,34 @@ const CreateVideoLessonScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity onPress={() => (navigation as any).goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
+        <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]} numberOfLines={1}>
           Tạo video mới
-        </Text>
+        </ThemedText>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Tiêu đề video</Text>
+          <ThemedText style={[styles.label, dynamicStyles.label]}>Tiêu đề video</ThemedText>
           <TextInput
-            style={styles.input}
+            style={[styles.input, dynamicStyles.input]}
             placeholder="Ví dụ: Giới thiệu khóa học"
+            placeholderTextColor={colors.placeholderText}
             value={lessonTitle}
             onChangeText={setLessonTitle}
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Mô tả</Text>
+          <ThemedText style={[styles.label, dynamicStyles.label]}>Mô tả</ThemedText>
           <TextInput
-            style={[styles.input, styles.multiline]}
+            style={[styles.input, styles.multiline, dynamicStyles.input]}
             placeholder="Nội dung chính của video..."
+            placeholderTextColor={colors.placeholderText}
             value={description}
             onChangeText={setDescription}
             multiline
@@ -181,20 +206,22 @@ const CreateVideoLessonScreen: React.FC = () => {
 
         <View style={styles.row}>
           <View style={[styles.inputGroup, styles.rowItem]}>
-            <Text style={styles.label}>Thời lượng (phút)</Text>
+            <ThemedText style={[styles.label, dynamicStyles.label]}>Thời lượng (phút)</ThemedText>
             <TextInput
-              style={styles.input}
+              style={[styles.input, dynamicStyles.input]}
               placeholder="10"
+              placeholderTextColor={colors.placeholderText}
               keyboardType="numeric"
               value={duration}
               onChangeText={setDuration}
             />
           </View>
           <View style={[styles.inputGroup, styles.rowItem]}>
-            <Text style={styles.label}>Thứ tự</Text>
+            <ThemedText style={[styles.label, dynamicStyles.label]}>Thứ tự</ThemedText>
             <TextInput
-              style={styles.input}
+              style={[styles.input, dynamicStyles.input]}
               placeholder="1"
+              placeholderTextColor={colors.placeholderText}
               keyboardType="numeric"
               value={order}
               onChangeText={setOrder}
@@ -203,22 +230,22 @@ const CreateVideoLessonScreen: React.FC = () => {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Video bài học</Text>
-          <TouchableOpacity style={styles.uploadBtn} onPress={pickVideo}>
+          <ThemedText style={[styles.label, dynamicStyles.label]}>Video bài học</ThemedText>
+          <TouchableOpacity style={[styles.uploadBtn, dynamicStyles.uploadBtn]} onPress={pickVideo}>
             <MaterialIcons name="video-library" size={20} color="#20B2AA" />
-            <Text style={styles.uploadText}>
+            <ThemedText style={[styles.uploadText, dynamicStyles.uploadText]}>
               {videoLocal ? "Đã chọn video" : "Chọn video từ thiết bị"}
-            </Text>
+            </ThemedText>
           </TouchableOpacity>
           {videoLocal ? (
-            <Text style={styles.fileName} numberOfLines={2}>
+            <ThemedText style={[styles.fileName, dynamicStyles.fileName]} numberOfLines={2}>
               {videoLocal.name || videoLocal.uri}
-            </Text>
+            </ThemedText>
           ) : null}
         </View>
 
         <TouchableOpacity
-          style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+          style={[styles.submitBtn, dynamicStyles.submitBtn, loading && styles.submitBtnDisabled]}
           onPress={handleSubmit}
           disabled={loading}
         >
@@ -232,20 +259,18 @@ const CreateVideoLessonScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f7f9fc" },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingTop: 50,
     paddingBottom: 12,
-    backgroundColor: "#fff",
   },
   headerTitle: {
     marginLeft: 12,
     fontSize: 18,
     fontWeight: "700",
-    color: "#333",
     flex: 1,
   },
   content: {
@@ -255,21 +280,33 @@ const styles = StyleSheet.create({
   inputGroup: {
     marginBottom: 16,
   },
+  uploadBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  uploadText: {
+    fontWeight: "600",
+  },
+  fileName: {
+    marginTop: 8,
+    fontSize: 13,
+  },
   label: {
     fontSize: 13,
-    color: "#5f6b6d",
     marginBottom: 6,
     fontWeight: "600",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#dde4e6",
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: "#fff",
     fontSize: 14,
-    color: "#333",
   },
   multiline: {
     minHeight: 90,
@@ -283,7 +320,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   submitBtn: {
-    backgroundColor: "#20B2AA",
     paddingVertical: 14,
     borderRadius: 16,
     alignItems: "center",

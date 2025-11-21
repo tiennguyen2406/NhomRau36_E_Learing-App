@@ -201,6 +201,29 @@ export const updateUser = async (uid: string, data: any) => {
   });
 };
 
+// Cập nhật preferences của user (tối ưu cho theme)
+export const updateUserPreferences = async (uid: string, preferences: any) => {
+  try {
+    const response = await fetch(`${BASE_URL}/users/${uid}/preferences`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ preferences }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ updateUserPreferences error:", response.status, errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error: any) {
+    console.error("Error updating user preferences:", error);
+    throw error;
+  }
+};
+
 // Follow/Unfollow instructor
 export const followInstructor = async (
   userId: string,

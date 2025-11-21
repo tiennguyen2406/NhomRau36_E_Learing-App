@@ -17,12 +17,15 @@ import { RootStackNavProps, RootStackParamList } from "../navigation/AppNavigato
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialIcons } from "@expo/vector-icons";
+import { ThemedText } from "../../components/themed-text";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 
 type CreateCourseRouteProp = RouteProp<RootStackParamList, 'CreateCourse'>;
 
 const CreateCourseScreen: React.FC = () => {
   const navigation = useNavigation<RootStackNavProps>();
   const route = useRoute<CreateCourseRouteProp>();
+  const colors = useThemeColors();
   const { courseId, mode } = (route.params as any) || {};
   
   const [title, setTitle] = useState("");
@@ -37,6 +40,41 @@ const CreateCourseScreen: React.FC = () => {
   const [thumbnailLocal, setThumbnailLocal] = useState<{ uri: string; type?: string; name?: string } | null>(null);
   const [editMode, setEditMode] = useState<boolean>(false);
   const [lessonUploadProgress, setLessonUploadProgress] = useState<Record<number, number>>({});
+
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { backgroundColor: colors.containerBackground },
+        header: { backgroundColor: colors.headerBackground },
+        headerTitle: { color: colors.primaryText },
+        card: { backgroundColor: colors.cardBackground },
+        label: { color: colors.secondaryText },
+        input: {
+          backgroundColor: colors.searchBackground,
+          color: colors.primaryText,
+          borderColor: colors.borderColor,
+        },
+        dropdown: {
+          backgroundColor: colors.searchBackground,
+          borderColor: colors.borderColor,
+        },
+        section: { color: colors.primaryText },
+        smallBtn: { backgroundColor: colors.headerBackground },
+        smallBtnText: { color: colors.primaryText },
+        lessonCard: { backgroundColor: colors.cardBackground },
+        smallLabel: { color: colors.secondaryText },
+        uploadBox: {
+          backgroundColor: colors.searchBackground,
+          borderColor: colors.borderColor,
+        },
+        uploadText: { color: colors.primaryText },
+        hint: { color: colors.secondaryText },
+        secondaryBtn: { backgroundColor: colors.headerBackground },
+        secondaryText: { color: colors.primaryText },
+        progressPercent: { color: colors.secondaryText },
+      }),
+    [colors]
+  );
 
   useEffect(() => {
     (async () => {
@@ -345,41 +383,43 @@ const CreateCourseScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
           <MaterialIcons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
+        <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]}>
           {editMode ? "Chỉnh sửa khóa học" : "Tạo khóa học"}
-        </Text>
+        </ThemedText>
       </View>
       <ScrollView contentContainerStyle={styles.scroll}>
 
-        <View style={styles.card}>
-          <Text style={styles.label}>Tiêu đề</Text>
+        <View style={[styles.card, dynamicStyles.card]}>
+          <ThemedText style={[styles.label, dynamicStyles.label]}>Tiêu đề</ThemedText>
           <TextInput
-            style={styles.input}
+            style={[styles.input, dynamicStyles.input]}
             placeholder="Nhập tiêu đề khóa học"
+            placeholderTextColor={colors.placeholderText}
             value={title}
             onChangeText={setTitle}
           />
 
-          <Text style={styles.label}>Mô tả</Text>
+          <ThemedText style={[styles.label, dynamicStyles.label]}>Mô tả</ThemedText>
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[styles.input, styles.textArea, dynamicStyles.input]}
             placeholder="Nhập mô tả"
+            placeholderTextColor={colors.placeholderText}
             value={description}
             onChangeText={setDescription}
             multiline
           />
 
-          <Text style={styles.label}>Danh mục</Text>
+          <ThemedText style={[styles.label, dynamicStyles.label]}>Danh mục</ThemedText>
           <Dropdown
-            style={styles.dropdown}
+            style={[styles.dropdown, dynamicStyles.dropdown]}
             data={categoryOptions}
             labelField="label"
             valueField="value"
@@ -388,25 +428,26 @@ const CreateCourseScreen: React.FC = () => {
             onChange={(it: any) => setCategoryId(it.value)}
           />
 
-          <Text style={styles.label}>Giá khóa học (VND)</Text>
+          <ThemedText style={[styles.label, dynamicStyles.label]}>Giá khóa học (VND)</ThemedText>
           <TextInput
-            style={styles.input}
+            style={[styles.input, dynamicStyles.input]}
             placeholder="Nhập giá (VD: 100000 cho khóa học trả phí, 0 cho khóa học miễn phí)"
+            placeholderTextColor={colors.placeholderText}
             keyboardType="numeric"
             value={price}
             onChangeText={setPrice}
           />
-          <Text style={styles.hint}>Để giá = 0 nếu khóa học miễn phí. Học viên sẽ phải thanh toán nếu giá {'>'} 0</Text>
+          <ThemedText style={[styles.hint, dynamicStyles.hint]}>Để giá = 0 nếu khóa học miễn phí. Học viên sẽ phải thanh toán nếu giá {'>'} 0</ThemedText>
 
-          <Text style={styles.label}>Thumbnail</Text>
-          <TouchableOpacity style={styles.uploadBox} onPress={pickThumbnail}>
-            <Text style={styles.uploadText}>
+          <ThemedText style={[styles.label, dynamicStyles.label]}>Thumbnail</ThemedText>
+          <TouchableOpacity style={[styles.uploadBox, dynamicStyles.uploadBox]} onPress={pickThumbnail}>
+            <ThemedText style={[styles.uploadText, dynamicStyles.uploadText]}>
               {thumbnailLocal?.uri ? "Đã chọn ảnh từ máy" : "Chọn ảnh từ máy"}
-            </Text>
+            </ThemedText>
           </TouchableOpacity>
 
           <View style={styles.rowBetween}>
-            <Text style={styles.label}>Xuất bản</Text>
+            <ThemedText style={[styles.label, dynamicStyles.label]}>Xuất bản</ThemedText>
             <Switch value={isPublished} onValueChange={setIsPublished} />
           </View>
 
@@ -419,50 +460,53 @@ const CreateCourseScreen: React.FC = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.secondaryBtn]}
+            style={[styles.secondaryBtn, dynamicStyles.secondaryBtn]}
             onPress={() => navigation.navigate("CreateQuizLesson" as any)}
           >
-            <Text style={styles.secondaryText}>+ Tạo bài học Quiz</Text>
+            <ThemedText style={[styles.secondaryText, dynamicStyles.secondaryText]}>+ Tạo bài học Quiz</ThemedText>
           </TouchableOpacity>
 
-          <Text style={styles.section}>Bài học ban đầu</Text>
+          <ThemedText style={[styles.section, dynamicStyles.section]}>Bài học ban đầu</ThemedText>
           <View style={{ flexDirection: "row" }}>
-            <TouchableOpacity style={[styles.smallBtn]} onPress={addVideoLesson}>
-              <Text style={styles.smallBtnText}>+ Video</Text>
+            <TouchableOpacity style={[styles.smallBtn, dynamicStyles.smallBtn]} onPress={addVideoLesson}>
+              <ThemedText style={[styles.smallBtnText, dynamicStyles.smallBtnText]}>+ Video</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.smallBtn]}
+              style={[styles.smallBtn, dynamicStyles.smallBtn]}
               onPress={() => navigation.navigate("CreateQuizLesson" as any)}
             >
-              <Text style={styles.smallBtnText}>+ Quiz</Text>
+              <ThemedText style={[styles.smallBtnText, dynamicStyles.smallBtnText]}>+ Quiz</ThemedText>
             </TouchableOpacity>
           </View>
 
           {lessons.map((l, idx) => (
-            <View key={idx} style={styles.lessonCard}>
+            <View key={idx} style={[styles.lessonCard, dynamicStyles.lessonCard]}>
               <View style={styles.lessonHeaderRow}>
-                <Text style={styles.smallLabel}>Bài học {idx + 1} ({l.kind})</Text>
+                <ThemedText style={[styles.smallLabel, dynamicStyles.smallLabel]}>Bài học {idx + 1} ({l.kind})</ThemedText>
                 <TouchableOpacity style={styles.deleteChip} onPress={() => removeLesson(idx)}>
                   <Text style={styles.deleteChipText}>Xóa</Text>
                 </TouchableOpacity>
               </View>
               <TextInput
-                style={styles.input}
+                style={[styles.input, dynamicStyles.input]}
                 placeholder="Tiêu đề bài học"
+                placeholderTextColor={colors.placeholderText}
                 value={l.title}
                 onChangeText={(t) => updateLesson(idx, { title: t })}
               />
               <TextInput
-                style={[styles.input, styles.textArea]}
+                style={[styles.input, styles.textArea, dynamicStyles.input]}
                 placeholder="Mô tả"
+                placeholderTextColor={colors.placeholderText}
                 value={l.description}
                 onChangeText={(t) => updateLesson(idx, { description: t })}
                 multiline
               />
-              <Text style={styles.smallLabel}>Thứ tự</Text>
+              <ThemedText style={[styles.smallLabel, dynamicStyles.smallLabel]}>Thứ tự</ThemedText>
               <TextInput
-                style={styles.input}
+                style={[styles.input, dynamicStyles.input]}
                 placeholder="0"
+                placeholderTextColor={colors.placeholderText}
                 keyboardType="numeric"
                 value={l.order}
                 onChangeText={(t) => updateLesson(idx, { order: t })}
@@ -470,11 +514,11 @@ const CreateCourseScreen: React.FC = () => {
 
               {l.kind === "video" ? (
                 <>
-                  <Text style={styles.smallLabel}>Video bài học</Text>
-                  <TouchableOpacity style={styles.uploadBox} onPress={() => pickVideoForLesson(idx)}>
-                    <Text style={styles.uploadText}>
+                  <ThemedText style={[styles.smallLabel, dynamicStyles.smallLabel]}>Video bài học</ThemedText>
+                  <TouchableOpacity style={[styles.uploadBox, dynamicStyles.uploadBox]} onPress={() => pickVideoForLesson(idx)}>
+                    <ThemedText style={[styles.uploadText, dynamicStyles.uploadText]}>
                       {l.videoUrl ? "Đã tải video" : "Chọn video và tải lên"}
-                    </Text>
+                    </ThemedText>
                   </TouchableOpacity>
                   {typeof lessonUploadProgress[idx] === "number" ? (
                     <View style={styles.progressWrapper}>
@@ -486,29 +530,31 @@ const CreateCourseScreen: React.FC = () => {
                           ]}
                         />
                       </View>
-                      <Text style={styles.progressPercent}>
+                      <ThemedText style={[styles.progressPercent, dynamicStyles.progressPercent]}>
                         {Math.round(Math.min(lessonUploadProgress[idx], 1) * 100)}%
-                      </Text>
+                      </ThemedText>
                     </View>
                   ) : null}
                 </>
               ) : (
                 <View>
-                  <Text style={styles.smallLabel}>Câu hỏi</Text>
+                  <ThemedText style={[styles.smallLabel, dynamicStyles.smallLabel]}>Câu hỏi</ThemedText>
                   {(l.questions || []).map((q: any, qi: number) => (
                     <View key={qi} style={styles.qRow}>
                       <TextInput
-                        style={styles.input}
+                        style={[styles.input, dynamicStyles.input]}
                         placeholder={`Câu hỏi ${qi + 1}`}
+                        placeholderTextColor={colors.placeholderText}
                         value={q.text}
                         onChangeText={(t) => updateQuizQuestion(idx, qi, { text: t })}
                       />
-                      <Text style={styles.smallLabel}>Lựa chọn</Text>
+                      <ThemedText style={[styles.smallLabel, dynamicStyles.smallLabel]}>Lựa chọn</ThemedText>
                       {(q.options || []).map((op: string, oi: number) => (
                         <TextInput
                           key={oi}
-                          style={styles.input}
+                          style={[styles.input, dynamicStyles.input]}
                           placeholder={`Lựa chọn ${oi + 1}`}
+                          placeholderTextColor={colors.placeholderText}
                           value={op}
                           onChangeText={(t) => {
                             const opts = [...(q.options || [])];
@@ -517,13 +563,14 @@ const CreateCourseScreen: React.FC = () => {
                           }}
                         />
                       ))}
-                      <TouchableOpacity style={styles.smallBtn} onPress={() => addQuizOption(idx, qi)}>
-                        <Text style={styles.smallBtnText}>+ Lựa chọn</Text>
+                      <TouchableOpacity style={[styles.smallBtn, dynamicStyles.smallBtn]} onPress={() => addQuizOption(idx, qi)}>
+                        <ThemedText style={[styles.smallBtnText, dynamicStyles.smallBtnText]}>+ Lựa chọn</ThemedText>
                       </TouchableOpacity>
-                      <Text style={styles.smallLabel}>Đáp án đúng (chỉ số)</Text>
+                      <ThemedText style={[styles.smallLabel, dynamicStyles.smallLabel]}>Đáp án đúng (chỉ số)</ThemedText>
                       <TextInput
-                        style={styles.input}
+                        style={[styles.input, dynamicStyles.input]}
                         placeholder="0,1,2..."
+                        placeholderTextColor={colors.placeholderText}
                         keyboardType="numeric"
                         value={String(q.correctIndex)}
                         onChangeText={(t) =>
@@ -532,8 +579,8 @@ const CreateCourseScreen: React.FC = () => {
                       />
                     </View>
                   ))}
-                  <TouchableOpacity style={styles.smallBtn} onPress={() => addQuizQuestionRow(idx)}>
-                    <Text style={styles.smallBtnText}>+ Câu hỏi</Text>
+                  <TouchableOpacity style={[styles.smallBtn, dynamicStyles.smallBtn]} onPress={() => addQuizQuestionRow(idx)}>
+                    <ThemedText style={[styles.smallBtnText, dynamicStyles.smallBtnText]}>+ Câu hỏi</ThemedText>
                   </TouchableOpacity>
                 </View>
               )}

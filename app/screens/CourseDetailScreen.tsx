@@ -4,12 +4,16 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCourseById, getUsers, getLessonCountByCourse, enrollCourse, getUserByUsername, createPaymentLink, checkPaymentStatus, getUserCourses, getCourseReviews } from "../api/api";
+import { ThemedText } from "../../components/themed-text";
+import { ThemedView } from "../../components/themed-view";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 
 type RouteParams = { courseId: string };
 
 const CourseDetailScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const colors = useThemeColors();
   const { courseId } = (route.params || {}) as RouteParams;
 
   const [loading, setLoading] = useState(true);
@@ -250,18 +254,48 @@ const CourseDetailScreen: React.FC = () => {
     }
   };
 
-  if (loading) return <View style={styles.center}><Text>Đang tải...</Text></View>;
+  // Dynamic styles
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.containerBackground,
+    },
+    content: {
+      backgroundColor: colors.containerBackground,
+    },
+    title: {
+      color: colors.primaryText,
+    },
+    sectionTitle: {
+      color: colors.primaryText,
+    },
+    description: {
+      color: colors.secondaryText,
+    },
+    rowText: {
+      color: colors.primaryText,
+    },
+    reviewCountText: {
+      color: colors.secondaryText,
+    },
+    footerCta: {
+      backgroundColor: colors.cardBackground,
+      borderTopColor: colors.borderColor,
+    },
+  }), [colors]);
+
+  if (loading) return <ThemedView style={styles.center}><ThemedText style={{ color: colors.secondaryText }}>Đang tải...</ThemedText></ThemedView>;
   if (error) return (
-    <View style={styles.center}>
-      <Text>{error}</Text>
+    <ThemedView style={styles.center}>
+      <ThemedText style={{ color: colors.primaryText }}>{error}</ThemedText>
       <TouchableOpacity style={styles.retry} onPress={() => navigation.goBack()}>
         <Text style={{color:'#fff'}}>Quay lại</Text>
       </TouchableOpacity>
-    </View>
+    </ThemedView>
   );
 
   return (
-    <View style={styles.container}>
+    <ThemedView style={[styles.container, dynamicStyles.container]}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerBar}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -273,11 +307,11 @@ const CourseDetailScreen: React.FC = () => {
           {!thumbnail && <View style={{flex:1, backgroundColor:'#333'}} />}
         </ImageBackground>
 
-        <View style={styles.content}>
-          <Text style={styles.title}>{course?.title || "Course"}</Text>
+        <View style={[styles.content, dynamicStyles.content]}>
+          <ThemedText style={[styles.title, dynamicStyles.title]}>{course?.title || "Course"}</ThemedText>
           
-          <Text style={styles.sectionTitle}>About</Text>
-          <Text style={styles.description}>{course?.description || "Không có mô tả"}</Text>
+          <ThemedText style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>About</ThemedText>
+          <ThemedText style={[styles.description, dynamicStyles.description]}>{course?.description || "Không có mô tả"}</ThemedText>
 
           {instructorName ? (
             <View style={[styles.row, {marginTop: 16}]}> 
@@ -289,32 +323,32 @@ const CourseDetailScreen: React.FC = () => {
                 </View>
               )}
               <View style={{marginLeft: 10}}>
-                <Text style={styles.rowText}>{instructorName}</Text>
+                <ThemedText style={[styles.rowText, dynamicStyles.rowText]}>{instructorName}</ThemedText>
               </View>
             </View>
           ) : null}
           {course?.level ? (
             <View style={styles.row}>
               <MaterialIcons name="trending-up" size={18} color="#20B2AA" />
-              <Text style={styles.rowText}>Level: {course.level}</Text>
+              <ThemedText style={[styles.rowText, dynamicStyles.rowText]}>Level: {course.level}</ThemedText>
             </View>
           ) : null}
           {durationText ? (
             <View style={styles.row}>
               <MaterialIcons name="schedule" size={18} color="#20B2AA" />
-              <Text style={styles.rowText}>{durationText}</Text>
+              <ThemedText style={[styles.rowText, dynamicStyles.rowText]}>{durationText}</ThemedText>
             </View>
           ) : null}
           {typeof lessonCount === 'number' ? (
             <View style={styles.row}>
               <MaterialIcons name="menu-book" size={18} color="#20B2AA" />
-              <Text style={styles.rowText}>{lessonCount} bài học</Text>
+              <ThemedText style={[styles.rowText, dynamicStyles.rowText]}>{lessonCount} bài học</ThemedText>
             </View>
           ) : null}
           {typeof course?.price !== 'undefined' ? (
             <View style={styles.row}>
               <MaterialIcons name="attach-money" size={18} color="#20B2AA" />
-              <Text style={styles.rowText}>Giá: </Text>
+              <ThemedText style={[styles.rowText, dynamicStyles.rowText]}>Giá: </ThemedText>
               <Text style={styles.priceText}>
                 {course.price === 0 || !course.price ? 'Miễn phí' : `${course.price.toLocaleString('vi-VN')} VND`}
               </Text>
@@ -332,10 +366,10 @@ const CourseDetailScreen: React.FC = () => {
               <Text style={styles.ratingText}>
                 {averageRating.toFixed(1)}
               </Text>
-              <Text style={styles.reviewCountText}>
+              <ThemedText style={[styles.reviewCountText, dynamicStyles.reviewCountText]}>
                 ({reviewCount} đánh giá)
-              </Text>
-              <MaterialIcons name="chevron-right" size={18} color="#999" />
+              </ThemedText>
+              <MaterialIcons name="chevron-right" size={18} color={colors.placeholderText} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity 
@@ -345,17 +379,17 @@ const CourseDetailScreen: React.FC = () => {
                 courseTitle: course?.title 
               })}
             >
-              <MaterialIcons name="rate-review" size={18} color="#999" />
-              <Text style={styles.reviewCountText}>
+              <MaterialIcons name="rate-review" size={18} color={colors.placeholderText} />
+              <ThemedText style={[styles.reviewCountText, dynamicStyles.reviewCountText]}>
                 Chưa có đánh giá
-              </Text>
+              </ThemedText>
               <MaterialIcons name="chevron-right" size={18} color="#999" />
             </TouchableOpacity>
           )}
         </View>
       </ScrollView>
 
-      <View style={styles.footerCta}>
+      <View style={[styles.footerCta, dynamicStyles.footerCta]}>
         <TouchableOpacity 
           style={[styles.joinBtn, (enrolling || checkingPayment) && styles.joinBtnDisabled]} 
           onPress={handleEnroll}
@@ -377,24 +411,24 @@ const CourseDetailScreen: React.FC = () => {
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </ThemedView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1 },
   scrollView: { flex: 1 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   headerBar: { position: "absolute", zIndex: 2, top: 40, left: 16, right: 16 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.35)", alignItems: "center", justifyContent: "center" },
   cover: { width: "100%", height: 220, backgroundColor: "#222" },
   content: { padding: 16 },
-  title: { fontSize: 20, fontWeight: "700", color: "#222", marginBottom: 8 },
+  title: { fontSize: 20, fontWeight: "700", marginBottom: 8 },
   row: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
-  rowText: { marginLeft: 8, color: "#333" },
+  rowText: { marginLeft: 8 },
   avatar: { width: 36, height: 36, borderRadius: 18 },
-  sectionTitle: { fontSize: 16, fontWeight: "600", color: "#222", marginTop: 8, marginBottom: 6 },
-  description: { color: "#444", lineHeight: 20 },
+  sectionTitle: { fontSize: 16, fontWeight: "600", marginTop: 8, marginBottom: 6 },
+  description: { lineHeight: 20 },
   retry: { backgroundColor: "#20B2AA", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, marginTop: 10 },
   priceText: { fontWeight: '700', color: '#20B2AA', marginLeft: 4, fontSize: 15 },
   scrollContent: { paddingBottom: 100 },
@@ -409,15 +443,13 @@ const styles = StyleSheet.create({
   },
   ratingText: { 
     fontSize: 16, 
-    fontWeight: '700', 
-    color: '#333',
+    fontWeight: '700',
   },
   reviewCountText: { 
-    fontSize: 14, 
-    color: '#666',
+    fontSize: 14,
     flex: 1,
   },
-  footerCta: { position: "absolute", bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 32, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#e0e0e0", shadowColor: "#000", shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 5 },
+  footerCta: { position: "absolute", bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 32, borderTopWidth: 1, shadowColor: "#000", shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 5 },
   joinBtn: { backgroundColor: '#20B2AA', borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingVertical: 14 },
   joinBtnDisabled: { opacity: 0.6 },
   joinText: { color: '#fff', fontWeight: '600', fontSize: 16 },

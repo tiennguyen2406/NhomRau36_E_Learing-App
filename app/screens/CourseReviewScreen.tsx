@@ -1,6 +1,6 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +25,9 @@ import {
   deleteCourseReview,
   getUserByUsername,
 } from "../api/api";
+import { ThemedText } from "../../components/themed-text";
+import { ThemedView } from "../../components/themed-view";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 
 type RouteParams = {
   courseId: string;
@@ -44,6 +47,7 @@ type Review = {
 const CourseReviewScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const colors = useThemeColors();
   const { courseId, courseTitle } = (route.params || {}) as RouteParams;
 
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -195,22 +199,76 @@ const CourseReviewScreen: React.FC = () => {
     );
   };
 
+  // Dynamic styles
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.containerBackground,
+    },
+    header: {
+      backgroundColor: colors.headerBackground,
+    },
+    headerTitle: {
+      color: colors.primaryText,
+    },
+    summaryCard: {
+      backgroundColor: colors.cardBackground,
+    },
+    courseTitle: {
+      color: colors.primaryText,
+    },
+    averageRating: {
+      color: colors.primaryText,
+    },
+    reviewCount: {
+      color: colors.secondaryText,
+    },
+    reviewItem: {
+      backgroundColor: colors.cardBackground,
+    },
+    username: {
+      color: colors.primaryText,
+    },
+    date: {
+      color: colors.secondaryText,
+    },
+    comment: {
+      color: colors.primaryText,
+    },
+    emptyText: {
+      color: colors.secondaryText,
+    },
+    modalContent: {
+      backgroundColor: colors.cardBackground,
+    },
+    modalTitle: {
+      color: colors.primaryText,
+    },
+    label: {
+      color: colors.primaryText,
+    },
+    commentInput: {
+      backgroundColor: colors.searchBackground,
+      color: colors.primaryText,
+    },
+  }), [colors]);
+
   const renderReviewItem = ({ item }: { item: Review }) => {
     const isOwnReview = item.userId === currentUserId;
     return (
-      <View style={styles.reviewItem}>
+      <View style={[styles.reviewItem, dynamicStyles.reviewItem]}>
         <View style={styles.reviewHeader}>
           <View style={styles.reviewUserInfo}>
             <View style={styles.avatar}>
-              <MaterialIcons name="person" size={20} color="#666" />
+              <MaterialIcons name="person" size={20} color={colors.placeholderText} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.username}>{item.username}</Text>
+              <ThemedText style={[styles.username, dynamicStyles.username]}>{item.username}</ThemedText>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 {renderStars(item.rating, 14)}
-                <Text style={styles.date}>
+                <ThemedText style={[styles.date, dynamicStyles.date]}>
                   {new Date(item.createdAt).toLocaleDateString("vi-VN")}
-                </Text>
+                </ThemedText>
               </View>
             </View>
           </View>
@@ -232,36 +290,36 @@ const CourseReviewScreen: React.FC = () => {
           )}
         </View>
         {item.comment && (
-          <Text style={styles.comment}>{item.comment}</Text>
+          <ThemedText style={[styles.comment, dynamicStyles.comment]}>{item.comment}</ThemedText>
         )}
       </View>
     );
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <ThemedView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
+        <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]} numberOfLines={1}>
           Đánh giá khóa học
-        </Text>
+        </ThemedText>
         <View style={{ width: 24 }} />
       </View>
 
-      <View style={styles.summaryCard}>
-        <Text style={styles.courseTitle} numberOfLines={2}>
+      <View style={[styles.summaryCard, dynamicStyles.summaryCard]}>
+        <ThemedText style={[styles.courseTitle, dynamicStyles.courseTitle]} numberOfLines={2}>
           {courseTitle || "Khóa học"}
-        </Text>
+        </ThemedText>
         <View style={styles.ratingRow}>
-          <Text style={styles.averageRating}>
+          <ThemedText style={[styles.averageRating, dynamicStyles.averageRating]}>
             {averageRating.toFixed(1)}
-          </Text>
+          </ThemedText>
           {renderStars(Math.round(averageRating), 24)}
-          <Text style={styles.reviewCount}>
+          <ThemedText style={[styles.reviewCount, dynamicStyles.reviewCount]}>
             ({reviews.length} đánh giá)
-          </Text>
+          </ThemedText>
         </View>
         <TouchableOpacity
           style={styles.addReviewButton}
@@ -272,9 +330,9 @@ const CourseReviewScreen: React.FC = () => {
             size={20}
             color="#fff"
           />
-          <Text style={styles.addReviewText}>
+          <ThemedText style={styles.addReviewText}>
             {userReview ? "Sửa đánh giá của bạn" : "Viết đánh giá"}
-          </Text>
+          </ThemedText>
         </TouchableOpacity>
       </View>
 
@@ -290,10 +348,10 @@ const CourseReviewScreen: React.FC = () => {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <MaterialIcons name="rate-review" size={48} color="#ccc" />
-              <Text style={styles.emptyText}>
+              <MaterialIcons name="rate-review" size={48} color={colors.placeholderText} />
+              <ThemedText style={[styles.emptyText, dynamicStyles.emptyText]}>
                 Chưa có đánh giá nào. Hãy là người đầu tiên!
-              </Text>
+              </ThemedText>
             </View>
           }
         />
@@ -316,18 +374,18 @@ const CourseReviewScreen: React.FC = () => {
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View style={styles.modalOverlay}>
               <TouchableWithoutFeedback onPress={() => {}}>
-                <View style={styles.modalContent}>
+                <View style={[styles.modalContent, dynamicStyles.modalContent]}>
                   <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>
+                    <ThemedText style={[styles.modalTitle, dynamicStyles.modalTitle]}>
                       {editingReview ? "Sửa đánh giá" : "Viết đánh giá"}
-                    </Text>
+                    </ThemedText>
                     <TouchableOpacity
                       onPress={() => {
                         Keyboard.dismiss();
                         setModalVisible(false);
                       }}
                     >
-                      <MaterialIcons name="close" size={24} color="#333" />
+                      <MaterialIcons name="close" size={24} color={colors.primaryText} />
                     </TouchableOpacity>
                   </View>
 
@@ -335,7 +393,7 @@ const CourseReviewScreen: React.FC = () => {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                   >
-                    <Text style={styles.label}>Đánh giá của bạn</Text>
+                    <ThemedText style={[styles.label, dynamicStyles.label]}>Đánh giá của bạn</ThemedText>
                     <View style={styles.starSelector}>
                       {[1, 2, 3, 4, 5].map((star) => (
                         <TouchableOpacity
@@ -351,10 +409,11 @@ const CourseReviewScreen: React.FC = () => {
                       ))}
                     </View>
 
-                    <Text style={styles.label}>Nhận xét (không bắt buộc)</Text>
+                    <ThemedText style={[styles.label, dynamicStyles.label]}>Nhận xét (không bắt buộc)</ThemedText>
                     <TextInput
-                      style={styles.textInput}
+                      style={[styles.textInput, dynamicStyles.commentInput]}
                       placeholder="Chia sẻ trải nghiệm của bạn về khóa học này..."
+                      placeholderTextColor={colors.placeholderText}
                       value={comment}
                       onChangeText={setComment}
                       multiline
@@ -375,9 +434,9 @@ const CourseReviewScreen: React.FC = () => {
                       {submitting ? (
                         <ActivityIndicator size="small" color="#fff" />
                       ) : (
-                        <Text style={styles.submitButtonText}>
+                        <ThemedText style={styles.submitButtonText}>
                           {editingReview ? "Cập nhật" : "Gửi đánh giá"}
-                        </Text>
+                        </ThemedText>
                       )}
                     </TouchableOpacity>
                   </ScrollView>
@@ -387,14 +446,13 @@ const CourseReviewScreen: React.FC = () => {
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+    </ThemedView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f8f8",
   },
   header: {
     flexDirection: "row",
@@ -403,28 +461,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 50,
     paddingBottom: 12,
-    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
   },
   headerTitle: {
     flex: 1,
     fontSize: 18,
     fontWeight: "700",
-    color: "#333",
     textAlign: "center",
     marginHorizontal: 16,
   },
   summaryCard: {
-    backgroundColor: "#fff",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
   },
   courseTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
     marginBottom: 12,
   },
   ratingRow: {
@@ -436,11 +488,9 @@ const styles = StyleSheet.create({
   averageRating: {
     fontSize: 32,
     fontWeight: "700",
-    color: "#333",
   },
   reviewCount: {
     fontSize: 14,
-    color: "#666",
   },
   addReviewButton: {
     flexDirection: "row",
@@ -465,7 +515,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   reviewItem: {
-    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -493,16 +542,13 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
     marginBottom: 4,
   },
   date: {
     fontSize: 12,
-    color: "#999",
   },
   comment: {
     fontSize: 14,
-    color: "#666",
     lineHeight: 20,
     marginTop: 8,
   },
@@ -516,7 +562,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: "#999",
     marginTop: 16,
     textAlign: "center",
   },
@@ -526,7 +571,6 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -541,12 +585,10 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#333",
   },
   label: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
     marginBottom: 12,
   },
   starSelector: {
@@ -556,11 +598,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   textInput: {
-    backgroundColor: "#f5f5f5",
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
-    color: "#333",
     minHeight: 100,
     textAlignVertical: "top",
     marginBottom: 20,

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -9,9 +9,28 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { useThemeColors } from "../../hooks/use-theme-colors";
+import { ThemedText } from "../../components/themed-text";
 
 const HelpCenterScreen: React.FC = () => {
   const navigation = useNavigation();
+  const colors = useThemeColors();
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { backgroundColor: colors.containerBackground },
+        header: { backgroundColor: colors.headerBackground, borderBottomColor: colors.borderColor },
+        headerTitle: { color: colors.primaryText },
+        card: { backgroundColor: colors.cardBackground },
+        sectionTitle: { color: colors.tint || "#20B2AA" },
+        contactText: { color: colors.primaryText },
+        sectionText: { color: colors.secondaryText },
+        faqQuestion: { color: colors.primaryText },
+        faqAnswer: { color: colors.secondaryText },
+        primaryButton: { backgroundColor: colors.tint || "#20B2AA" },
+      }),
+    [colors]
+  );
 
   const faqs = [
     {
@@ -32,15 +51,15 @@ const HelpCenterScreen: React.FC = () => {
   ];
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Trung tâm trợ giúp</Text>
+        <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]}>Trung tâm trợ giúp</ThemedText>
       </View>
 
       <ScrollView
@@ -48,14 +67,14 @@ const HelpCenterScreen: React.FC = () => {
         contentContainerStyle={{ paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Liên hệ nhanh</Text>
+        <View style={[styles.card, dynamicStyles.card]}>
+          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>Liên hệ nhanh</Text>
           <TouchableOpacity
             style={styles.contactRow}
             onPress={() => Linking.openURL("mailto:support@36learning.vn")}
           >
             <MaterialIcons name="email" size={20} color="#20B2AA" />
-            <Text style={styles.contactText}>support@36learning.vn</Text>
+            <Text style={[styles.contactText, dynamicStyles.contactText]}>support@36learning.vn</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.contactRow}
@@ -67,22 +86,22 @@ const HelpCenterScreen: React.FC = () => {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Câu hỏi thường gặp</Text>
+          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>Câu hỏi thường gặp</Text>
           {faqs.map((faq) => (
             <View key={faq.question} style={styles.faqItem}>
-              <Text style={styles.faqQuestion}>{faq.question}</Text>
-              <Text style={styles.faqAnswer}>{faq.answer}</Text>
+              <Text style={[styles.faqQuestion, dynamicStyles.faqQuestion]}>{faq.question}</Text>
+              <Text style={[styles.faqAnswer, dynamicStyles.faqAnswer]}>{faq.answer}</Text>
             </View>
           ))}
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Gửi yêu cầu hỗ trợ</Text>
-          <Text style={styles.sectionText}>
+        <View style={[styles.card, dynamicStyles.card]}>
+          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>Gửi yêu cầu hỗ trợ</Text>
+          <Text style={[styles.sectionText, dynamicStyles.sectionText]}>
             Nếu bạn gặp lỗi hoặc cần tư vấn, hãy gửi thông tin chi tiết cho đội
             ngũ hỗ trợ. Chúng tôi sẽ phản hồi trong vòng 24h.
           </Text>
-          <TouchableOpacity style={styles.primaryButton}>
+          <TouchableOpacity style={[styles.primaryButton, dynamicStyles.primaryButton]}>
             <Text style={styles.primaryButtonText}>Gửi yêu cầu</Text>
           </TouchableOpacity>
         </View>
@@ -94,7 +113,6 @@ const HelpCenterScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f8f8",
   },
   header: {
     flexDirection: "row",
@@ -102,7 +120,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 16,
-    backgroundColor: "#fff",
+    borderBottomWidth: 1,
   },
   backButton: {
     marginRight: 16,
@@ -116,7 +134,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   card: {
-    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -124,7 +141,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#20B2AA",
     marginBottom: 12,
   },
   contactRow: {
@@ -135,16 +151,13 @@ const styles = StyleSheet.create({
   },
   contactText: {
     fontSize: 14,
-    color: "#333",
   },
   sectionText: {
     fontSize: 14,
-    color: "#555",
     marginBottom: 12,
     lineHeight: 20,
   },
   primaryButton: {
-    backgroundColor: "#20B2AA",
     paddingVertical: 12,
     borderRadius: 24,
     alignItems: "center",
@@ -159,12 +172,10 @@ const styles = StyleSheet.create({
   faqQuestion: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#333",
     marginBottom: 4,
   },
   faqAnswer: {
     fontSize: 13,
-    color: "#666",
     lineHeight: 18,
   },
 });

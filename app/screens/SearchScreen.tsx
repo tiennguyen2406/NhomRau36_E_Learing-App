@@ -1,7 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   FlatList,
   StyleSheet,
@@ -12,6 +12,7 @@ import {
 
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 import { RootStackParamList } from "../navigation/AppNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -35,7 +36,40 @@ const recentSearches: SearchHistory[] = [
 
 const SearchScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const colors = useThemeColors();
   const [searchText, setSearchText] = useState("");
+
+  // Dynamic styles
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.containerBackground,
+    },
+    header: {
+      backgroundColor: colors.headerBackground,
+    },
+    headerTitle: {
+      color: colors.primaryText,
+    },
+    searchContainer: {
+      backgroundColor: colors.headerBackground,
+    },
+    searchBar: {
+      backgroundColor: colors.searchBackground,
+    },
+    searchInput: {
+      color: colors.primaryText,
+    },
+    sectionTitle: {
+      color: colors.primaryText,
+    },
+    historyItem: {
+      borderBottomColor: colors.borderColor,
+    },
+    historyText: {
+      color: colors.primaryText,
+    },
+  }), [colors]);
 
   const handleSearch = () => {
     if (searchText.trim()) {
@@ -58,37 +92,37 @@ const SearchScreen: React.FC = () => {
 
   const renderSearchHistoryItem = ({ item }: { item: SearchHistory }) => (
     <TouchableOpacity
-      style={styles.historyItem}
+      style={[styles.historyItem, dynamicStyles.historyItem]}
       onPress={() => handleSearchHistoryClick(item.query)}
     >
-      <ThemedText style={styles.historyText}>{item.query}</ThemedText>
+      <ThemedText style={[styles.historyText, dynamicStyles.historyText]}>{item.query}</ThemedText>
       <TouchableOpacity style={styles.removeButton}>
-        <MaterialIcons name="close" size={18} color="#999" />
+        <MaterialIcons name="close" size={18} color={colors.placeholderText} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={[styles.container, dynamicStyles.container]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
         </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>Search</ThemedText>
+        <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]}>Search</ThemedText>
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={20} color="#999" />
+      <View style={[styles.searchContainer, dynamicStyles.searchContainer]}>
+        <View style={[styles.searchBar, dynamicStyles.searchBar]}>
+          <MaterialIcons name="search" size={20} color={colors.placeholderText} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, dynamicStyles.searchInput]}
             placeholder="Tìm kiếm..."
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholderText}
             value={searchText}
             onChangeText={setSearchText}
             onSubmitEditing={handleSearch}
@@ -103,7 +137,7 @@ const SearchScreen: React.FC = () => {
       {/* Recent Search Section */}
       <View style={styles.recentSection}>
         <View style={styles.sectionHeader}>
-          <ThemedText style={styles.sectionTitle}>Recents Search</ThemedText>
+          <ThemedText style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>Recents Search</ThemedText>
           <TouchableOpacity>
             <ThemedText style={styles.viewAllText}>SEE ALL {">"}</ThemedText>
           </TouchableOpacity>
@@ -125,7 +159,6 @@ const SearchScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
   header: {
     flexDirection: "row",
@@ -140,7 +173,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#333",
   },
   searchContainer: {
     flexDirection: "row",
@@ -152,7 +184,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -162,7 +193,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 8,
     fontSize: 16,
-    color: "#333",
   },
   searchButton: {
     width: 48,
@@ -185,7 +215,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#333",
   },
   viewAllText: {
     fontSize: 14,
@@ -200,11 +229,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#f0f0f0",
   },
   historyText: {
     fontSize: 16,
-    color: "#555",
   },
   removeButton: {
     padding: 4,

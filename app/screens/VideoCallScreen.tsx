@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, StyleSheet, TouchableOpacity, Text, Alert } from "react-native";
 import { WebView } from "react-native-webview";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { MaterialIcons } from "@expo/vector-icons";
+import { ThemedText } from "../../components/themed-text";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 
 type RouteParams = {
   roomUrl: string;
@@ -16,6 +18,21 @@ const VideoCallScreen: React.FC = () => {
   const route = useRoute();
   const params = (route.params || {}) as RouteParams;
   const roomUrl = params.roomUrl || FALLBACK_URL;
+  const colors = useThemeColors();
+
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { backgroundColor: colors.containerBackground },
+        header: { backgroundColor: colors.headerBackground },
+        backText: { color: colors.primaryText },
+        headerTitle: { color: colors.primaryText },
+        calleeCard: { backgroundColor: colors.cardBackground },
+        calleeName: { color: colors.primaryText },
+        calleeHint: { color: colors.secondaryText },
+      }),
+    [colors]
+  );
 
   if (!roomUrl) {
     Alert.alert(
@@ -25,18 +42,18 @@ const VideoCallScreen: React.FC = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <MaterialIcons name="arrow-back" size={24} color="#fff" />
-          <Text style={styles.backText}>Quay lại</Text>
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
+          <ThemedText style={[styles.backText, dynamicStyles.backText]}>Quay lại</ThemedText>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
+        <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]}>
           {params.title || "Video Call"}
-        </Text>
+        </ThemedText>
         <View style={{ width: 80 }} />
       </View>
       <WebView
@@ -47,17 +64,19 @@ const VideoCallScreen: React.FC = () => {
         allowsInlineMediaPlayback
       />
       <View style={styles.overlay}>
-        <View style={styles.calleeCard}>
+        <View style={[styles.calleeCard, dynamicStyles.calleeCard]}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
               {(params.title || "K").charAt(0).toUpperCase()}
             </Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.calleeName}>
+            <ThemedText style={[styles.calleeName, dynamicStyles.calleeName]}>
               {params.title || "Đang kết nối"}
-            </Text>
-            <Text style={styles.calleeHint}>Đang thiết lập video call...</Text>
+            </ThemedText>
+            <ThemedText style={[styles.calleeHint, dynamicStyles.calleeHint]}>
+              Đang thiết lập video call...
+            </ThemedText>
           </View>
         </View>
         <TouchableOpacity
@@ -72,7 +91,7 @@ const VideoCallScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#000" },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -80,15 +99,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 50,
     paddingBottom: 12,
-    backgroundColor: "rgba(0,0,0,0.85)",
   },
   backButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
-  backText: { color: "#fff", fontSize: 14, fontWeight: "600" },
-  headerTitle: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  backText: { fontSize: 14, fontWeight: "600" },
+  headerTitle: { fontSize: 16, fontWeight: "700" },
   webview: { flex: 1 },
   overlay: {
     position: "absolute",
@@ -103,7 +121,6 @@ const styles = StyleSheet.create({
   calleeCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.65)",
     borderRadius: 18,
     padding: 12,
     flex: 1,
@@ -119,8 +136,8 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   avatarText: { color: "#fff", fontSize: 20, fontWeight: "700" },
-  calleeName: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  calleeHint: { color: "#dfe7ea", fontSize: 12, marginTop: 2 },
+  calleeName: { fontSize: 16, fontWeight: "700" },
+  calleeHint: { fontSize: 12, marginTop: 2 },
   endButton: {
     width: 60,
     height: 60,

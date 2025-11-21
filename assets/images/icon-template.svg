@@ -1,0 +1,40 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#20B2AA;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E8B57;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E0F7FA;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="512" cy="512" r="512" fill="url(#bgGradient)"/>
+  
+  <!-- School/Education icon in center -->
+  <g transform="translate(512, 380) scale(3.5)">
+    <path d="M12 3L1 9L12 15L21 10.09V17H23V9M5 13.18V17.18L12 21L19 17.18V13.18L12 17L5 13.18Z" 
+          fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.5"/>
+  </g>
+  
+  <!-- "36" text -->
+  <text x="512" y="680" 
+        font-family="'Inter', 'Roboto', -apple-system, sans-serif" 
+        font-size="180" 
+        font-weight="800" 
+        text-anchor="middle" 
+        fill="url(#textGradient)">36</text>
+  
+  <!-- "Learning" text -->
+  <text x="512" y="780" 
+        font-family="'Inter', 'Roboto', -apple-system, sans-serif" 
+        font-size="72" 
+        font-weight="600" 
+        text-anchor="middle" 
+        fill="#FFFFFF" 
+        opacity="0.95">Learning</text>
+</svg>
+

@@ -1,0 +1,26 @@
+<svg width="432" height="432" viewBox="0 0 432 432" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Monochrome icon for Android 13+ themed icons -->
+  
+  <!-- School icon -->
+  <g transform="translate(216, 140) scale(4)">
+    <path d="M12 3L1 9L12 15L21 10.09V17H23V9M5 13.18V17.18L12 21L19 17.18V13.18L12 17L5 13.18Z" 
+          fill="#FFFFFF"/>
+  </g>
+  
+  <!-- "36" text -->
+  <text x="216" y="290" 
+        font-family="'Inter', 'Roboto', -apple-system, sans-serif" 
+        font-size="100" 
+        font-weight="900" 
+        text-anchor="middle" 
+        fill="#FFFFFF">36</text>
+  
+  <!-- "Learning" text -->
+  <text x="216" y="350" 
+        font-family="'Inter', 'Roboto', -apple-system, sans-serif" 
+        font-size="40" 
+        font-weight="600" 
+        text-anchor="middle" 
+        fill="#FFFFFF">Learning</text>
+</svg>
+

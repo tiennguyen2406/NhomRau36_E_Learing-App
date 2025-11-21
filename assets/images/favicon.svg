@@ -1,0 +1,27 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Favicon for web -->
+  <defs>
+    <linearGradient id="favBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#20B2AA;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E8B57;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="48" height="48" rx="8" fill="url(#favBg)"/>
+  
+  <!-- School icon simplified -->
+  <g transform="translate(24, 14) scale(0.6)">
+    <path d="M12 3L1 9L12 15L21 10.09V17H23V9M5 13.18V17.18L12 21L19 17.18V13.18L12 17L5 13.18Z" 
+          fill="#FFFFFF"/>
+  </g>
+  
+  <!-- "36" text -->
+  <text x="24" y="38" 
+        font-family="'Inter', 'Roboto', sans-serif" 
+        font-size="14" 
+        font-weight="900" 
+        text-anchor="middle" 
+        fill="#FFFFFF">36</text>
+</svg>
+

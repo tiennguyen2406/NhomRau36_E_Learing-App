@@ -45,6 +45,8 @@ interface Instructor {
   uid: string;
   fullName: string;
   profileImage?: string;
+  photoURL?: string;
+  avatarUrl?: string;
 }
 
 const HomeScreen: React.FC = () => {
@@ -296,22 +298,33 @@ const HomeScreen: React.FC = () => {
     );
   };
 
-  const renderInstructor = ({ item }: { item: Instructor }) => (
-    <TouchableOpacity
-      style={[styles.instructorItem, dynamicStyles.instructorItem]}
-      activeOpacity={0.85}
-      onPress={() => navigation.navigate('InstructorDetail', { instructorId: item.uid })}
-    >
-      {item.profileImage ? (
-        <Image source={{ uri: item.profileImage }} style={styles.instructorAvatar} />
-      ) : (
+  const renderInstructor = ({ item }: { item: Instructor }) => {
+    const avatarSource = item.profileImage || (item as any).photoURL || (item as any).avatarUrl;
+    const initial = (item.fullName || item.uid || "?").charAt(0).toUpperCase();
+
+    return (
+      <TouchableOpacity
+        style={[styles.instructorItem, dynamicStyles.instructorItem]}
+        activeOpacity={0.85}
+        onPress={() => navigation.navigate("InstructorDetail", { instructorId: item.uid })}
+      >
         <View style={[styles.instructorAvatar, dynamicStyles.instructorAvatar]}>
-          <ThemedText style={styles.instructorInitial}>{(item.fullName || "?").charAt(0)}</ThemedText>
+          {avatarSource ? (
+            <Image
+              source={{ uri: avatarSource }}
+              style={styles.instructorAvatarImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <ThemedText style={styles.instructorInitial}>{initial}</ThemedText>
+          )}
         </View>
-      )}
-      <ThemedText style={[styles.instructorName, dynamicStyles.instructorName]} numberOfLines={1}>{item.fullName}</ThemedText>
-    </TouchableOpacity>
-  );
+        <ThemedText style={[styles.instructorName, dynamicStyles.instructorName]} numberOfLines={1}>
+          {item.fullName}
+        </ThemedText>
+      </TouchableOpacity>
+    );
+  };
 
   // Dynamic styles dựa trên theme
   const dynamicStyles = useMemo(() => StyleSheet.create({
@@ -997,6 +1010,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 2,
     borderColor: "#20B2AA",
+  },
+  instructorAvatarImage: {
+    width: "100%",
+    height: "100%",
   },
   instructorInitial: {
     fontSize: 28,

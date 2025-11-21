@@ -78,7 +78,10 @@ const AdminManageScreen: React.FC = () => {
     password: "",
     fullName: "",
     role: "student",
+    profileImage: "",
   });
+  const [userImageLocal, setUserImageLocal] = useState<{ uri: string; name?: string; type?: string } | null>(null);
+  const [uploadingUserImage, setUploadingUserImage] = useState(false);
 
   const [categoryForm, setCategoryForm] = useState({
     name: "",
@@ -267,11 +270,12 @@ const AdminManageScreen: React.FC = () => {
     setSelectedProofCourse(null);
     setPreviewProof(null);
     setPreviewVisible(false);
-    setUserForm({ email: "", username: "", password: "", fullName: "", role: "student" });
+    setUserForm({ email: "", username: "", password: "", fullName: "", role: "student", profileImage: "" });
     setCategoryForm({ name: "", description: "", iconUrl: "", isActive: true });
     setIconLocal(null);
     setLessonForm({ courseId: "", title: "", description: "", videoUrl: "", duration: "0", order: "0", isPreview: false });
     setVideoLocal(null);
+    setUserImageLocal(null);
     setCourseForm({ ...defaultCourseForm });
     setCourseThumbnailLocal(null);
   };
@@ -299,6 +303,35 @@ const AdminManageScreen: React.FC = () => {
       }
     } catch (error) {
       console.error("Lỗi khi chọn ảnh:", error);
+      Alert.alert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại.");
+    }
+  };
+
+  const pickUserImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permissionResult.granted === false) {
+        Alert.alert("Quyền truy cập", "Cần quyền truy cập thư viện ảnh để chọn ảnh đại diện.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        setUserImageLocal({
+          uri: asset.uri,
+          name: asset.fileName || `avatar_${Date.now()}.jpg`,
+          type: asset.mimeType || "image/jpeg",
+        });
+        setUserForm((prev) => ({ ...prev, profileImage: asset.uri }));
+      }
+    } catch (error) {
+      console.error("Lỗi khi chọn ảnh user:", error);
       Alert.alert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại.");
     }
   };
@@ -365,10 +398,25 @@ const AdminManageScreen: React.FC = () => {
       setLoading(true);
       
       if (entity === "users") {
+        let finalProfileImage = userForm.profileImage;
+        if (userImageLocal?.uri) {
+          try {
+            setUploadingUserImage(true);
+            finalProfileImage = await uploadProofFile(userImageLocal);
+          } catch (e) {
+            console.error("Upload user image failed:", e);
+            Alert.alert("Cảnh báo", "Không thể tải ảnh đại diện. Các thông tin khác vẫn được cập nhật.");
+          } finally {
+            setUploadingUserImage(false);
+          }
+        }
+
+        const userPayload = { ...userForm, profileImage: finalProfileImage };
+
         if (editingId) {
-          await updateUser(editingId, { ...userForm });
+          await updateUser(editingId, userPayload);
         } else {
-          await createUser({ ...userForm });
+          await createUser(userPayload);
         }
       } else if (entity === "categories") {
         let finalIconUrl = categoryForm.iconUrl;
@@ -508,7 +556,9 @@ const AdminManageScreen: React.FC = () => {
         password: "",
         fullName: row.fullName || "",
         role: row.role || "student",
+        profileImage: row.profileImage || "",
       });
+      setUserImageLocal(null);
     } else if (entity === "categories") {
       setCategoryForm({
         name: row.name || "",
@@ -856,6 +906,34 @@ const AdminManageScreen: React.FC = () => {
             />
           </View>
         </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Ảnh đại diện</Text>
+          <TouchableOpacity
+            style={styles.fileButton}
+            onPress={pickUserImage}
+            disabled={uploadingUserImage}
+          >
+            {uploadingUserImage ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <MaterialIcons name="person" size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.fileButtonText}>
+                  {userImageLocal
+                    ? "Đã chọn ảnh"
+                    : userForm.profileImage
+                    ? "Thay đổi ảnh"
+                    : "Chọn ảnh"}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+          {userImageLocal ? (
+            <Image source={{ uri: userImageLocal.uri }} style={styles.previewImage} />
+          ) : userForm.profileImage ? (
+            <Image source={{ uri: userForm.profileImage }} style={styles.previewImage} />
+          ) : null}
+        </View>
         <View style={styles.row}>
           <View style={[styles.inputGroup, { flex: 1 }] }>
             <Text style={styles.label}>Vai trò</Text>
@@ -875,7 +953,7 @@ const AdminManageScreen: React.FC = () => {
               <Text style={styles.cancelText}>Hủy</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={styles.saveBtn} onPress={onSubmit} disabled={loading}>
+          <TouchableOpacity style={styles.saveBtn} onPress={onSubmit} disabled={loading || uploadingUserImage}>
             <Text style={styles.saveText}>{editingId ? "Cập nhật" : "Thêm mới"}</Text>
           </TouchableOpacity>
         </View>

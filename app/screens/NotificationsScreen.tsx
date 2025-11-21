@@ -7,13 +7,14 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Image,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { database } from "../firebase";
 import { DataSnapshot, off, onValue, ref } from "firebase/database";
-import { getUserByUsername } from "../api/api";
+import { getUserByUsername, getUserById, getUsers } from "../api/api";
 import { markNotificationAsRead } from "../utils/notifications";
 
 type NotificationItem = {
@@ -25,6 +26,9 @@ type NotificationItem = {
   status?: "read" | "unread";
   timestamp?: number;
   data?: Record<string, any> | null;
+  senderId?: string;
+  senderName?: string;
+  senderImage?: string;
 };
 
 type RawNotificationData = {
@@ -61,17 +65,27 @@ const NotificationsScreen: React.FC = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<any[]>([]);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const username = await AsyncStorage.getItem("currentUsername");
-        if (!username || !mounted) return;
-        const user = await getUserByUsername(username);
-        if (user?.uid || user?.id) {
-          setCurrentUserId(String(user.uid || user.id));
+        const [username, allUsers] = await Promise.all([
+          AsyncStorage.getItem("currentUsername"),
+          getUsers().catch(() => []),
+        ]);
+        if (!mounted) return;
+        
+        if (username) {
+          const user = await getUserByUsername(username);
+          if (user?.uid || user?.id) {
+            setCurrentUserId(String(user.uid || user.id));
+          }
         }
+        
+        const usersList = Array.isArray(allUsers) ? allUsers : [];
+        setUsers(usersList);
       } catch (error) {
         console.error("Error loading user:", error);
       }
@@ -96,6 +110,19 @@ const NotificationsScreen: React.FC = () => {
         const list: NotificationItem[] = Object.entries(data).map(
           ([id, value]) => {
             const notifData = value as RawNotificationData;
+            const senderId = notifData.data?.fromUserId || notifData.data?.senderId;
+            let senderName: string | undefined;
+            let senderImage: string | undefined;
+            
+            // Tìm thông tin người gửi từ danh sách users
+            if (senderId) {
+              const sender = users.find((u) => (u.uid || u.id) === String(senderId));
+              if (sender) {
+                senderName = sender.fullName || sender.username;
+                senderImage = sender.profileImage;
+              }
+            }
+            
             return {
               id,
               title: notifData.title || "Thông báo",
@@ -108,6 +135,9 @@ const NotificationsScreen: React.FC = () => {
                   ? notifData.timestamp
                   : Number(notifData.timestamp) || Date.now(),
               data: notifData.data || null,
+              senderId: senderId ? String(senderId) : undefined,
+              senderName,
+              senderImage,
             };
           }
         );
@@ -123,7 +153,7 @@ const NotificationsScreen: React.FC = () => {
     return () => {
       off(notifRef);
     };
-  }, [currentUserId]);
+  }, [currentUserId, users]);
 
   const sections = useMemo<SectionData[]>(() => {
     const groups: Record<string, NotificationItem[]> = {};
@@ -184,13 +214,23 @@ const NotificationsScreen: React.FC = () => {
             activeOpacity={0.9}
             onPress={() => handleNotificationPress(item)}
           >
-            <View style={styles.iconWrapper}>
-              <MaterialIcons
-                name={(item.icon as any) || "notifications"}
-                size={20}
-                color="#20B2AA"
-              />
-            </View>
+            {item.senderImage ? (
+              <Image source={{ uri: item.senderImage }} style={styles.avatar} />
+            ) : item.senderName ? (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {item.senderName.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.iconWrapper}>
+                <MaterialIcons
+                  name={(item.icon as any) || "notifications"}
+                  size={20}
+                  color="#20B2AA"
+                />
+              </View>
+            )}
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>{item.title}</Text>
               <Text style={styles.cardMessage} numberOfLines={2}>
@@ -268,6 +308,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "#20B2AA",
+    marginRight: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  avatarText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
   },
   cardTitle: { fontSize: 15, fontWeight: "700", color: "#1f2d3d" },
   cardMessage: { fontSize: 13, color: "#4a5568", marginTop: 4 },

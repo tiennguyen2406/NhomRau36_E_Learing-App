@@ -20,7 +20,13 @@ import {
   getCoursesByCategory,
   getCourses,
   getCategories,
+  saveCourse,
+  unsaveCourse,
+  getSavedCourses,
+  getUserByUsername,
 } from "../api/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Alert } from "react-native";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -41,8 +47,9 @@ interface Course {
 }
 
 interface RouteParams {
-  categoryName: string;
-  categoryId: string;
+  categoryName?: string;
+  categoryId?: string;
+  searchQuery?: string;
 }
 
 type FilterCategory = {
@@ -53,20 +60,19 @@ type FilterCategory = {
 const CourseListScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
-  const { categoryName: initialCategoryName, categoryId } =
+  const { categoryName: initialCategoryName, categoryId, searchQuery } =
     route.params as RouteParams;
   const [activeTab, setActiveTab] = useState("courses");
   const [categoryName, setCategoryName] = useState<string>(
     initialCategoryName || ""
   );
-  const [searchText, setSearchText] = useState("");
+  const [searchText, setSearchText] = useState(searchQuery || "");
   const [courses, setCourses] = useState<Course[]>([]);
+  const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
-  const [savedCourses, setSavedCourses] = useState<{ [key: string]: boolean }>({
-    // Khởi tạo với các khóa học đã được lưu
-    "2": true, // ID của khóa học thứ 2
-  });
+  const [savedCourses, setSavedCourses] = useState<{ [key: string]: boolean }>({});
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [filterCategories, setFilterCategories] = useState<FilterCategory[]>([
     { id: "all", name: "Tất cả" },
   ]);
@@ -78,7 +84,11 @@ const CourseListScreen: React.FC = () => {
   // Cập nhật filter mặc định khi route params thay đổi
   useEffect(() => {
     setSelectedFilterId(categoryId || "all");
-  }, [categoryId]);
+    if (searchQuery) {
+      setSearchText(searchQuery);
+      setCategoryName(`Kết quả tìm kiếm: "${searchQuery}"`);
+    }
+  }, [categoryId, searchQuery]);
 
   // Lấy danh sách categories để hiển thị filter
   useEffect(() => {
@@ -109,10 +119,19 @@ const CourseListScreen: React.FC = () => {
         setLoading(true);
         setError("");
 
-        if (selectedFilterId === "all") {
+        // Nếu có searchQuery, lấy tất cả courses và filter ở client
+        if (searchQuery) {
+          const allCourses = await getCourses();
+          const coursesArray = Array.isArray(allCourses) ? allCourses : [];
+          setCourses(coursesArray);
+          // Filter sẽ được xử lý trong useEffect riêng
+        } else if (selectedFilterId === "all") {
           const title = initialCategoryName || "Tất cả khóa học";
           setCategoryName(title);
-          setSearchText(title);
+          // Không set searchText khi categoryId="all" để tránh filter không mong muốn
+          if (!searchQuery) {
+            setSearchText("");
+          }
           const allCourses = await getCourses();
           const coursesArray = Array.isArray(allCourses) ? allCourses : [];
           console.log('CourseListScreen - Fetched all courses:', coursesArray.length);
@@ -128,12 +147,16 @@ const CourseListScreen: React.FC = () => {
 
           if (currentFilter) {
             setCategoryName(currentFilter.name);
-            setSearchText(currentFilter.name);
+            if (!searchQuery) {
+              setSearchText(currentFilter.name);
+            }
           } else if (!initialCategoryName) {
             try {
               const categoryData = await getCategoryById(selectedFilterId);
               setCategoryName(categoryData.name);
-              setSearchText(categoryData.name);
+              if (!searchQuery) {
+                setSearchText(categoryData.name);
+              }
             } catch (catErr) {
               console.warn("Không thể tải thông tin danh mục:", catErr);
             }
@@ -161,14 +184,77 @@ const CourseListScreen: React.FC = () => {
     selectedFilterId,
     initialCategoryName,
     filterCategories,
+    searchQuery,
   ]);
 
+  // Filter courses theo searchText
+  useEffect(() => {
+    if (searchText && searchText.trim()) {
+      const query = searchText.trim().toLowerCase();
+      const filtered = courses.filter((course) => {
+        const titleMatch = course.title?.toLowerCase().includes(query);
+        const categoryMatch = course.categoryName?.toLowerCase().includes(query);
+        return titleMatch || categoryMatch;
+      });
+      setFilteredCourses(filtered);
+    } else {
+      setFilteredCourses(courses);
+    }
+  }, [searchText, courses]);
+
+  // Load saved courses và currentUserId
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem("currentUsername");
+        if (stored && mounted) {
+          const user = await getUserByUsername(stored);
+          if (user?.uid || user?.id) {
+            const uid = String(user.uid || user.id);
+            setCurrentUserId(uid);
+            // Load saved courses
+            try {
+              const saved = await getSavedCourses(uid);
+              const savedMap: { [key: string]: boolean } = {};
+              if (Array.isArray(saved)) {
+                saved.forEach((course: any) => {
+                  const courseId = course.id || course._id || course.courseId;
+                  if (courseId) savedMap[courseId] = true;
+                });
+              }
+              if (mounted) setSavedCourses(savedMap);
+            } catch (e) {
+              console.error("Error loading saved courses:", e);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error loading user:", e);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   // Hàm xử lý khi người dùng nhấn vào bookmark
-  const toggleBookmark = (courseId: string) => {
-    setSavedCourses((prev) => ({
-      ...prev,
-      [courseId]: !prev[courseId],
-    }));
+  const toggleBookmark = async (courseId: string) => {
+    if (!currentUserId) {
+      Alert.alert("Thông báo", "Vui lòng đăng nhập để lưu khóa học");
+      return;
+    }
+
+    const isSaved = savedCourses[courseId];
+    try {
+      if (isSaved) {
+        await unsaveCourse(currentUserId, courseId);
+        setSavedCourses((prev) => ({ ...prev, [courseId]: false }));
+      } else {
+        await saveCourse(currentUserId, courseId);
+        setSavedCourses((prev) => ({ ...prev, [courseId]: true }));
+      }
+    } catch (error: any) {
+      Alert.alert("Lỗi", error?.message || "Không thể lưu khóa học");
+    }
   };
 
   // Không sử dụng dữ liệu mẫu nữa, dùng state courses đã được fetch từ API
@@ -262,10 +348,17 @@ const CourseListScreen: React.FC = () => {
           onPress={() => {
             setLoading(true);
             setError("");
-            getCoursesByCategory(categoryId)
-              .then((data) => setCourses(data))
-              .catch((err) => setError("Không thể tải thông tin"))
-              .finally(() => setLoading(false));
+            if (categoryId) {
+              getCoursesByCategory(categoryId)
+                .then((data) => setCourses(data))
+                .catch((err) => setError("Không thể tải thông tin"))
+                .finally(() => setLoading(false));
+            } else {
+              getCourses()
+                .then((data) => setCourses(data))
+                .catch((err) => setError("Không thể tải thông tin"))
+                .finally(() => setLoading(false));
+            }
           }}
         >
           <ThemedText style={styles.retryButtonText}>Thử lại</ThemedText>
@@ -294,8 +387,11 @@ const CourseListScreen: React.FC = () => {
             style={styles.searchInput}
             value={searchText}
             onChangeText={setSearchText}
-            placeholder="Search courses..."
+            placeholder="Tìm kiếm khóa học..."
             placeholderTextColor="#999"
+            onSubmitEditing={() => {
+              // Filter courses khi nhấn Enter
+            }}
           />
         </View>
         <TouchableOpacity
@@ -336,7 +432,7 @@ const CourseListScreen: React.FC = () => {
         </ThemedText>
         <TouchableOpacity style={styles.resultCountButton}>
           <ThemedText style={styles.resultCount}>
-            {courses.length} Kết quả tìm thấy
+            {(searchText && searchText.trim() ? filteredCourses : courses).length} Kết quả tìm thấy
           </ThemedText>
           <MaterialIcons name="chevron-right" size={20} color="#20B2AA" />
         </TouchableOpacity>
@@ -344,7 +440,7 @@ const CourseListScreen: React.FC = () => {
 
       {/* Course List */}
       <FlatList
-        data={courses}
+        data={searchText && searchText.trim() ? filteredCourses : courses}
         renderItem={renderCourseItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.courseList}
@@ -352,7 +448,9 @@ const CourseListScreen: React.FC = () => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <ThemedText style={styles.emptyText}>
-              Không tìm thấy khóa học nào trong danh mục này
+              {searchText && searchText.trim()
+                ? `Không tìm thấy khóa học nào cho "${searchText}"`
+                : "Không tìm thấy khóa học nào trong danh mục này"}
             </ThemedText>
           </View>
         }

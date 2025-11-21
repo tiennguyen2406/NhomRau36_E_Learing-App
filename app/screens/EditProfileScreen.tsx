@@ -68,6 +68,8 @@ const EditProfileScreen: React.FC = () => {
   const [verificationMsg, setVerificationMsg] = useState<string>("");
   const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [profileImageLocal, setProfileImageLocal] = useState<{ uri: string } | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -98,6 +100,8 @@ const EditProfileScreen: React.FC = () => {
           if (userData.dateOfBirth) {
             setDateOfBirth(new Date(userData.dateOfBirth));
           }
+          // Reset profileImageLocal khi load lại
+          setProfileImageLocal(null);
         } else {
           setError("Không tìm thấy thông tin người dùng");
           Alert.alert("Lỗi", "Không thể tải thông tin người dùng");
@@ -135,6 +139,7 @@ const EditProfileScreen: React.FC = () => {
         return;
       }
 
+      // Ảnh profile đã được upload và update ngay khi chọn, không cần upload lại
       const updatedData = {
         fullName,
         nickName,
@@ -145,6 +150,7 @@ const EditProfileScreen: React.FC = () => {
         dateOfBirth: dateOfBirth
           ? dateOfBirth.toISOString().split("T")[0]
           : undefined,
+        profileImage: user.profileImage, // Sử dụng profileImage đã được update
         updatedAt: new Date(),
       };
 
@@ -193,6 +199,96 @@ const EditProfileScreen: React.FC = () => {
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleProfileImagePicker = () => {
+    Alert.alert(
+      "Chọn ảnh đại diện",
+      "Bạn muốn chọn ảnh từ đâu?",
+      [
+        { text: "Hủy", style: "cancel" },
+        { text: "Thư viện", onPress: pickProfileImageFromLibrary },
+        { text: "Camera", onPress: captureProfileImage },
+      ]
+    );
+  };
+
+  const pickProfileImageFromLibrary = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permissionResult.granted === false) {
+        Alert.alert("Quyền truy cập", "Cần quyền truy cập thư viện ảnh để chọn ảnh.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0] && user) {
+        // Upload và update ngay lập tức khi chọn ảnh
+        await uploadAndUpdateProfileImageImmediately(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error("Lỗi khi chọn ảnh:", error);
+      Alert.alert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại.");
+    }
+  };
+
+  const captureProfileImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (permissionResult.granted === false) {
+        Alert.alert("Quyền truy cập", "Cần quyền truy cập camera để chụp ảnh.");
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0] && user) {
+        // Upload và update ngay lập tức khi chụp ảnh
+        await uploadAndUpdateProfileImageImmediately(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error("Lỗi khi chụp ảnh:", error);
+      Alert.alert("Lỗi", "Không thể chụp ảnh. Vui lòng thử lại.");
+    }
+  };
+
+  const uploadAndUpdateProfileImageImmediately = async (imageUri: string) => {
+    if (!user) return;
+
+    try {
+      setUploadingImage(true);
+      
+      // Upload ảnh lên Cloudinary trực tiếp
+      const imageUrl = await uploadViaBackend(
+        imageUri,
+        "image/jpeg",
+        `profile_${user.uid}_${Date.now()}.jpg`
+      );
+
+      // Cập nhật profileImage vào database ngay lập tức (không cần duyệt)
+      await updateUser(user.uid, {
+        profileImage: imageUrl,
+      });
+
+      // Cập nhật state để hiển thị ngay
+      setUser({ ...user, profileImage: imageUrl });
+      setProfileImageLocal({ uri: imageUri });
+    } catch (error) {
+      console.error("Lỗi khi upload ảnh:", error);
+      Alert.alert("Lỗi", "Không thể tải ảnh lên. Vui lòng thử lại.");
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -274,7 +370,12 @@ const EditProfileScreen: React.FC = () => {
           <View style={styles.profileImageSection}>
             <View style={styles.avatarContainer}>
               <View style={styles.avatar}>
-                {user?.profileImage ? (
+                {profileImageLocal?.uri ? (
+                  <Image
+                    source={{ uri: profileImageLocal.uri }}
+                    style={styles.avatarImage}
+                  />
+                ) : user?.profileImage ? (
                   <Image
                     source={{ uri: user.profileImage }}
                     style={styles.avatarImage}
@@ -285,9 +386,17 @@ const EditProfileScreen: React.FC = () => {
                   </ThemedText>
                 )}
               </View>
-              <View style={styles.editAvatarButton}>
-                <MaterialIcons name="photo-camera" size={18} color="#fff" />
-              </View>
+              <TouchableOpacity
+                style={styles.editAvatarButton}
+                onPress={handleProfileImagePicker}
+                disabled={uploadingImage}
+              >
+                {uploadingImage ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <MaterialIcons name="photo-camera" size={18} color="#fff" />
+                )}
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -458,6 +567,7 @@ const EditProfileScreen: React.FC = () => {
               onPress={handleUpdateProfile}
               disabled={
                 saving ||
+                uploadingImage ||
                 (originalRole === "student" &&
                   role === "instructor" &&
                   !proofFile?.uri)

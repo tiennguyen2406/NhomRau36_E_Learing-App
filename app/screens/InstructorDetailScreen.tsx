@@ -30,6 +30,7 @@ const InstructorDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [followLoading, setFollowLoading] = useState(false);
   const [coursesByInstructor, setCoursesByInstructor] = useState<any[]>([]);
   const [instructorName, setInstructorName] = useState<string>("Instructor");
+  const [instructorProfileImage, setInstructorProfileImage] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUsername, setCurrentUsername] = useState<string | null>(null);
   const [messageLoading, setMessageLoading] = useState(false);
@@ -54,6 +55,7 @@ const InstructorDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         const username = (user?.username || "").toString();
         const fullName = (user?.fullName || "").toString();
         setInstructorName(fullName || username || "Instructor");
+        setInstructorProfileImage(user?.profileImage || null);
 
         const taughtCourses = (courses || []).filter((c: any) => {
           const ins = (c.instructor || c.instructorName || "").toString().trim().toLowerCase();
@@ -329,7 +331,15 @@ const InstructorDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       <ScrollView contentContainerStyle={{ paddingTop: 80, paddingBottom: 24 }}>
 
         <View style={styles.header}>
-          <View style={styles.avatar} />
+          {instructorProfileImage ? (
+            <Image source={{ uri: instructorProfileImage }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {instructorName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
           <Text style={styles.name}>{instructorName}</Text>
           <Text style={styles.sub}>ID: {instructorId}</Text>
 
@@ -520,7 +530,8 @@ const styles = StyleSheet.create({
   headerBar: { position: "absolute", zIndex: 2, top: 40, left: 16, right: 16 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.35)", alignItems: "center", justifyContent: "center" },
   header: { alignItems: "center", padding: 16 },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: "#111", marginBottom: 12 },
+  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: "#20B2AA", marginBottom: 12, justifyContent: "center", alignItems: "center", overflow: "hidden" },
+  avatarText: { fontSize: 32, fontWeight: "bold", color: "#fff" },
   name: { fontSize: 16, fontWeight: "700", color: "#111" },
   sub: { fontSize: 12, color: "#6b7280", marginTop: 4 },
   statsRow: { flexDirection: "row", gap: 24, marginTop: 12 },

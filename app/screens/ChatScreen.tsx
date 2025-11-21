@@ -34,6 +34,10 @@ import * as ImagePicker from "expo-image-picker";
 import { uploadProofFile } from "../api/api";
 import { addNotification } from "../utils/notifications";
 import { Video, ResizeMode } from "expo-av";
+import { RootStackNavProps } from "../navigation/AppNavigator";
+
+const JITSI_ROOM_URL =
+  "https://8x8.vc/vpaas-magic-cookie-29d1be449b2f4aaf91fe689e3687c128/meeting1";
 
 type AttachmentDraft = {
   uri: string;
@@ -54,8 +58,10 @@ type Msg = {
   attachmentSize?: number | null;
 };
 
+const DAILY_ROOM_URL = "https://your-daily-room.daily.co/demo";
+
 const ChatScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<RootStackNavProps>();
   const route = useRoute<any>();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -64,6 +70,7 @@ const ChatScreen: React.FC = () => {
   const [sending, setSending] = useState(false);
   const [preview, setPreview] = useState<{ url: string; type: "image" | "video" } | null>(null);
   const listRef = useRef<FlatList>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>("Bạn");
 
   const chatId = route?.params?.chatId;
   const name = route?.params?.name || "Inbox";
@@ -85,6 +92,9 @@ const ChatScreen: React.FC = () => {
           const user = await getUserByUsername(username);
           if (user?.uid || user?.id) {
             setCurrentUserId(String(user.uid || user.id));
+            setCurrentUserName(
+              user.fullName || user.username || "Bạn"
+            );
           }
         }
       } catch (e) {
@@ -321,14 +331,6 @@ const ChatScreen: React.FC = () => {
 
   const closePreview = () => setPreview(null);
 
-  const startVideoCall = () => {
-    if (!otherUserId) {
-      Alert.alert("Không thể gọi", "Không xác định được người nhận cuộc gọi.");
-      return;
-    }
-    Alert.alert("Video call", "Tính năng gọi video đang được phát triển.");
-  };
-
   const renderItem = ({ item }: { item: Msg }) => {
     const isImage = item.attachmentType?.startsWith("image/");
     const isVideo = item.attachmentType?.startsWith("video/");
@@ -443,6 +445,14 @@ const ChatScreen: React.FC = () => {
       </View>
     </View>
   );
+  };
+
+  const startVideoCall = () => {
+    const baseUrl = JITSI_ROOM_URL; // không có # ở cuối
+    const url = `${baseUrl}#userInfo.displayName="${encodeURIComponent(
+      currentUserName || "User"
+    )}"&config.prejoinPageEnabled=false&interfaceConfig.SHOW_PREJOIN_PAGE=false`;
+    navigation.navigate("VideoCall", { roomUrl: url, title: name });
   };
 
   return (

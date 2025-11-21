@@ -35,15 +35,37 @@ const recentSearches: SearchHistory[] = [
 
 const SearchScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-  const [searchText, setSearchText] = useState("Graphic Design");
+  const [searchText, setSearchText] = useState("");
+
+  const handleSearch = () => {
+    if (searchText.trim()) {
+      navigation.navigate("CourseList", {
+        searchQuery: searchText.trim(),
+        categoryName: `Kết quả tìm kiếm: "${searchText.trim()}"`,
+        categoryId: "all",
+      } as never);
+    }
+  };
+
+  const handleSearchHistoryClick = (query: string) => {
+    setSearchText(query);
+    navigation.navigate("CourseList", {
+      searchQuery: query,
+      categoryName: `Kết quả tìm kiếm: "${query}"`,
+      categoryId: "all",
+    } as never);
+  };
 
   const renderSearchHistoryItem = ({ item }: { item: SearchHistory }) => (
-    <View style={styles.historyItem}>
+    <TouchableOpacity
+      style={styles.historyItem}
+      onPress={() => handleSearchHistoryClick(item.query)}
+    >
       <ThemedText style={styles.historyText}>{item.query}</ThemedText>
       <TouchableOpacity style={styles.removeButton}>
         <MaterialIcons name="close" size={18} color="#999" />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -69,9 +91,11 @@ const SearchScreen: React.FC = () => {
             placeholderTextColor="#999"
             value={searchText}
             onChangeText={setSearchText}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
           />
         </View>
-        <TouchableOpacity style={styles.searchButton}>
+        <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
           <MaterialIcons name="search" size={22} color="#fff" />
         </TouchableOpacity>
       </View>

@@ -126,6 +126,73 @@ export const getUserCourses = async (uid: string) => {
   return requestJson(`${BASE_URL}/users/${uid}/courses`);
 };
 
+export const saveCourse = async (uid: string, courseId: string) => {
+  try {
+    const response = await fetch(`${BASE_URL}/users/${uid}/save-course`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ courseId }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Không thể lưu khóa học");
+    }
+    return data;
+  } catch (error: any) {
+    throw new Error(error?.message || "Không thể lưu khóa học");
+  }
+};
+
+export const unsaveCourse = async (uid: string, courseId: string) => {
+  try {
+    const response = await fetch(`${BASE_URL}/users/${uid}/unsave-course`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ courseId }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Không thể bỏ lưu khóa học");
+    }
+    return data;
+  } catch (error: any) {
+    throw new Error(error?.message || "Không thể bỏ lưu khóa học");
+  }
+};
+
+export const getSavedCourses = async (uid: string) => {
+  try {
+    const response = await fetch(`${BASE_URL}/users/${uid}/saved-courses`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Không thể lấy danh sách khóa học đã lưu");
+    }
+
+    const courses = await response.json();
+    const normalizedCourses = normalizeMongoData(courses || []);
+    
+    // Map để trả về format tương thích với code hiện tại
+    return normalizedCourses.map((course: any) => ({
+      course,
+      courseId: course.id || course._id,
+    }));
+  } catch (error: any) {
+    console.error("Error getting saved courses:", error);
+    return [];
+  }
+};
+
 export const updateUser = async (uid: string, data: any) => {
   return requestJson(`${BASE_URL}/users/${uid}`, {
     method: "PUT",

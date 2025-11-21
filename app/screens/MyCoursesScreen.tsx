@@ -20,6 +20,7 @@ import {
   getUserCourses,
   unenrollCourse,
   getCoursesByInstructor,
+  getSavedCourses,
 } from "../api/api";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -45,11 +46,12 @@ interface Course {
 const MyCoursesScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const [activeTab, setActiveTab] = useState<
-    "completed" | "ongoing" | "created"
+    "completed" | "ongoing" | "created" | "saved"
   >("ongoing");
   const [searchText, setSearchText] = useState("");
   const [courses, setCourses] = useState<Course[]>([]);
   const [createdCourses, setCreatedCourses] = useState<Course[]>([]);
+  const [savedCourses, setSavedCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -70,12 +72,55 @@ const MyCoursesScreen: React.FC = () => {
       const userCourses = await getUserCourses(user.uid);
       setCourses(userCourses || []);
 
-      // Load created courses nếu là instructor
+      // Load created courses nếu là instructor - chỉ lấy các khóa học đã được duyệt
       if ((user.role || "").toLowerCase() === "instructor") {
         const instructorCourses = await getCoursesByInstructor(user.uid);
-        setCreatedCourses(instructorCourses || []);
+        const publishedCourses = (instructorCourses || []).filter(
+          (course: Course) => course.isPublished === true
+        );
+        setCreatedCourses(publishedCourses);
       } else {
         setCreatedCourses([]);
+      }
+
+      // Load saved courses
+      try {
+        const saved = await getSavedCourses(user.uid);
+        if (Array.isArray(saved) && saved.length > 0) {
+          // Map saved courses to Course format
+          const savedCoursesList = saved
+            .map((item: any) => {
+              // getSavedCourses trả về { course, courseId }
+              const course = item.course || item;
+              if (!course || (!course.id && !course._id && !item.courseId)) {
+                return null;
+              }
+              return {
+                id: course.id || course._id || item.courseId,
+                title: course.title || "",
+                category: course.category,
+                categoryName: course.categoryName,
+                description: course.description,
+                currentPrice: course.currentPrice || course.price,
+                originalPrice: course.originalPrice,
+                rating: course.rating,
+                students: course.students,
+                totalLessons: course.totalLessons,
+                thumbnailUrl: course.thumbnailUrl || course.image,
+                image: course.image,
+                imageUrl: course.imageUrl,
+                status: course.status,
+                isPublished: course.isPublished,
+              } as Course;
+            })
+            .filter((c: Course | null): c is Course => c !== null && !!c.id);
+          setSavedCourses(savedCoursesList);
+        } else {
+          setSavedCourses([]);
+        }
+      } catch (e) {
+        console.error("Error loading saved courses:", e);
+        setSavedCourses([]);
       }
 
       setError(""); // Clear error nếu thành công
@@ -106,6 +151,13 @@ const MyCoursesScreen: React.FC = () => {
       return () => clearTimeout(timer);
     }, [])
   );
+
+  // Refresh saved courses khi chuyển sang tab "Đã lưu"
+  useEffect(() => {
+    if (activeTab === "saved") {
+      loadCourses().catch(() => {});
+    }
+  }, [activeTab]);
 
   const onRefresh = async () => {
     try {
@@ -161,6 +213,12 @@ const MyCoursesScreen: React.FC = () => {
   );
 
   const filteredCreated = createdCourses.filter(
+    (c) =>
+      !searchText ||
+      (c.title || "").toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  const filteredSaved = savedCourses.filter(
     (c) =>
       !searchText ||
       (c.title || "").toLowerCase().includes(searchText.toLowerCase())
@@ -409,6 +467,20 @@ const MyCoursesScreen: React.FC = () => {
             Đã tạo
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "saved" && styles.tabActive]}
+          onPress={() => setActiveTab("saved")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "saved" && styles.tabTextActive,
+            ]}
+            numberOfLines={1}
+          >
+            Đã lưu
+          </Text>
+        </TouchableOpacity>
       </View>
       {activeTab === "created" ? (
         <FlatList
@@ -424,6 +496,23 @@ const MyCoursesScreen: React.FC = () => {
               style={[styles.muted, { textAlign: "center", marginTop: 40 }]}
             >
               Bạn chưa tạo khóa học nào
+            </Text>
+          }
+        />
+      ) : activeTab === "saved" ? (
+        <FlatList
+          data={filteredSaved}
+          renderItem={renderEnrolledCourse}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          ListEmptyComponent={
+            <Text
+              style={[styles.muted, { textAlign: "center", marginTop: 40 }]}
+            >
+              Chưa có khóa học đã lưu
             </Text>
           }
         />

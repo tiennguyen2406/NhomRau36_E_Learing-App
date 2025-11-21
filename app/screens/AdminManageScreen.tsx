@@ -15,6 +15,7 @@ import {
   Dimensions,
   ActivityIndicator,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import {
   createCategory,
   createLesson,
@@ -33,7 +34,9 @@ import {
   updateProofStatus,
   getProofCourses,
   updateProofCourseStatus,
+  uploadProofFile,
 } from "../api/api";
+import { MaterialIcons } from "@expo/vector-icons";
 
 type EntityType = "users" | "categories" | "lessons" | "proofs" | "proofCourses";
 
@@ -67,6 +70,8 @@ const AdminManageScreen: React.FC = () => {
     iconUrl: "",
     isActive: true as boolean,
   });
+  const [iconLocal, setIconLocal] = useState<{ uri: string; name?: string; type?: string } | null>(null);
+  const [uploadingIcon, setUploadingIcon] = useState(false);
 
   const [lessonForm, setLessonForm] = useState({
     courseId: "",
@@ -77,6 +82,8 @@ const AdminManageScreen: React.FC = () => {
     order: "0",
     isPreview: false as boolean,
   });
+  const [videoLocal, setVideoLocal] = useState<{ uri: string; name?: string; type?: string } | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   const columns = useMemo(() => {
     switch (entity) {
@@ -108,20 +115,26 @@ const AdminManageScreen: React.FC = () => {
         const data = await getLessons();
         setItems(Array.isArray(data) ? data : []);
       } else if (entity === "proofs") {
+        // Chỉ lấy các proof ở trạng thái pending
         const data = await getProofs();
         const normalized = Array.isArray(data)
-          ? data.map((p: any) => {
-              const statusRaw = (p.status || "pending").toLowerCase();
-              return {
-                ...p,
-                requestedRole: p.requestedRole || "instructor",
-                status: statusRaw,
-                statusLabel: statusRaw.toUpperCase(),
-                createdAtLabel: p.createdAt
-                  ? new Date(p.createdAt).toLocaleString()
-                  : "",
-              };
-            })
+          ? data
+              .filter((p: any) => {
+                const statusRaw = (p.status || "pending").toLowerCase();
+                return statusRaw === "pending";
+              })
+              .map((p: any) => {
+                const statusRaw = (p.status || "pending").toLowerCase();
+                return {
+                  ...p,
+                  requestedRole: p.requestedRole || "instructor",
+                  status: statusRaw,
+                  statusLabel: statusRaw.toUpperCase(),
+                  createdAtLabel: p.createdAt
+                    ? new Date(p.createdAt).toLocaleString()
+                    : "",
+                };
+              })
           : [];
         setItems(normalized);
       } else {
@@ -187,13 +200,70 @@ const AdminManageScreen: React.FC = () => {
     setPreviewVisible(false);
     setUserForm({ email: "", username: "", password: "", fullName: "", role: "student" });
     setCategoryForm({ name: "", description: "", iconUrl: "", isActive: true });
+    setIconLocal(null);
     setLessonForm({ courseId: "", title: "", description: "", videoUrl: "", duration: "0", order: "0", isPreview: false });
+    setVideoLocal(null);
+  };
+
+  const pickIcon = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permissionResult.granted === false) {
+        Alert.alert("Quyền truy cập", "Cần quyền truy cập thư viện ảnh để chọn ảnh.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setIconLocal({
+          uri: result.assets[0].uri,
+          name: `icon_${Date.now()}.jpg`,
+          type: "image/jpeg",
+        });
+      }
+    } catch (error) {
+      console.error("Lỗi khi chọn ảnh:", error);
+      Alert.alert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại.");
+    }
+  };
+
+  const pickVideo = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permissionResult.granted === false) {
+        Alert.alert("Quyền truy cập", "Cần quyền truy cập thư viện để chọn video.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: false,
+        quality: 1,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setVideoLocal({
+          uri: result.assets[0].uri,
+          name: `video_${Date.now()}.mp4`,
+          type: result.assets[0].mimeType || "video/mp4",
+        });
+      }
+    } catch (error) {
+      console.error("Lỗi khi chọn video:", error);
+      Alert.alert("Lỗi", "Không thể chọn video. Vui lòng thử lại.");
+    }
   };
 
   const onSubmit = async () => {
     if (entity === "proofs" || entity === "proofCourses") return;
     try {
       setLoading(true);
+      
       if (entity === "users") {
         if (editingId) {
           await updateUser(editingId, { ...userForm });
@@ -201,14 +271,46 @@ const AdminManageScreen: React.FC = () => {
           await createUser({ ...userForm });
         }
       } else if (entity === "categories") {
+        let finalIconUrl = categoryForm.iconUrl;
+        
+        // Upload icon nếu có
+        if (iconLocal?.uri) {
+          try {
+            setUploadingIcon(true);
+            finalIconUrl = await uploadProofFile(iconLocal);
+          } catch (e) {
+            console.error("Upload icon failed:", e);
+            Alert.alert("Cảnh báo", "Không thể tải ảnh icon. Thông tin khác vẫn được cập nhật.");
+          } finally {
+            setUploadingIcon(false);
+          }
+        }
+
+        const categoryData = { ...categoryForm, iconUrl: finalIconUrl };
         if (editingId) {
-          await updateCategory(editingId, { ...categoryForm });
+          await updateCategory(editingId, categoryData);
         } else {
-          await createCategory({ ...categoryForm });
+          await createCategory(categoryData);
         }
       } else if (entity === "lessons") {
+        let finalVideoUrl = lessonForm.videoUrl;
+        
+        // Upload video nếu có
+        if (videoLocal?.uri) {
+          try {
+            setUploadingVideo(true);
+            finalVideoUrl = await uploadProofFile(videoLocal);
+          } catch (e) {
+            console.error("Upload video failed:", e);
+            Alert.alert("Cảnh báo", "Không thể tải video. Thông tin khác vẫn được cập nhật.");
+          } finally {
+            setUploadingVideo(false);
+          }
+        }
+
         const payload = {
           ...lessonForm,
+          videoUrl: finalVideoUrl,
           duration: Number(lessonForm.duration) || 0,
           order: Number(lessonForm.order) || 0,
         } as any;
@@ -268,6 +370,7 @@ const AdminManageScreen: React.FC = () => {
         iconUrl: row.iconUrl || "",
         isActive: !!row.isActive,
       });
+      setIconLocal(null);
     } else if (entity === "lessons") {
       setLessonForm({
         courseId: row.courseId || "",
@@ -278,6 +381,7 @@ const AdminManageScreen: React.FC = () => {
         order: String(row.order || 0),
         isPreview: !!row.isPreview,
       });
+      setVideoLocal(null);
     }
   };
 
@@ -394,7 +498,12 @@ const AdminManageScreen: React.FC = () => {
       { key: "proofCourses", label: "Proof Courses" },
     ];
     return (
-      <View style={styles.selectorRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.selectorRow}
+        style={styles.selectorRowContainer}
+      >
         {opts.map((o) => (
           <TouchableOpacity
             key={o.key}
@@ -406,7 +515,7 @@ const AdminManageScreen: React.FC = () => {
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
     );
   };
 
@@ -596,15 +705,29 @@ const AdminManageScreen: React.FC = () => {
             />
           </View>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Icon URL</Text>
-            <TextInput
-              placeholder="Icon URL"
-              autoCorrect={false}
-              autoCapitalize="none"
-              value={categoryForm.iconUrl}
-              onChangeText={(t) => setCategoryForm((s) => ({ ...s, iconUrl: t }))}
-              style={styles.input}
-            />
+            <Text style={styles.label}>Icon</Text>
+            <TouchableOpacity
+              style={styles.fileButton}
+              onPress={pickIcon}
+              disabled={uploadingIcon}
+            >
+              {uploadingIcon ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <MaterialIcons name="image" size={20} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={styles.fileButtonText}>
+                    {iconLocal ? "Đã chọn ảnh" : categoryForm.iconUrl ? "Thay đổi ảnh" : "Chọn ảnh"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+            {iconLocal && (
+              <Image source={{ uri: iconLocal.uri }} style={styles.previewImage} />
+            )}
+            {categoryForm.iconUrl && !iconLocal && (
+              <Image source={{ uri: categoryForm.iconUrl }} style={styles.previewImage} />
+            )}
           </View>
         </View>
         <View style={styles.row}>
@@ -668,15 +791,29 @@ const AdminManageScreen: React.FC = () => {
             />
           </View>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Video URL</Text>
-            <TextInput
-              placeholder="Video URL"
-              autoCorrect={false}
-              autoCapitalize="none"
-              value={lessonForm.videoUrl}
-              onChangeText={(t) => setLessonForm((s) => ({ ...s, videoUrl: t }))}
-              style={styles.input}
-            />
+            <Text style={styles.label}>Video</Text>
+            <TouchableOpacity
+              style={styles.fileButton}
+              onPress={pickVideo}
+              disabled={uploadingVideo}
+            >
+              {uploadingVideo ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <MaterialIcons name="video-library" size={20} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={styles.fileButtonText}>
+                    {videoLocal ? "Đã chọn video" : lessonForm.videoUrl ? "Thay đổi video" : "Chọn video"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+            {videoLocal && (
+              <Text style={styles.fileInfoText}>Video đã chọn: {videoLocal.name}</Text>
+            )}
+            {lessonForm.videoUrl && !videoLocal && (
+              <Text style={styles.fileInfoText} numberOfLines={1}>URL hiện tại: {lessonForm.videoUrl}</Text>
+            )}
           </View>
         </View>
         <View style={styles.row}>
@@ -810,7 +947,7 @@ const AdminManageScreen: React.FC = () => {
                 <Image
                   source={{ uri: previewProof.url }}
                   resizeMode="contain"
-                  style={styles.previewImage}
+                  style={styles.previewImageModal}
                 />
               ) : (
                 <View style={styles.previewFallback}>
@@ -959,10 +1096,13 @@ const styles = StyleSheet.create({
     paddingTop: 30,
     marginBottom: 12,
   },
+  selectorRowContainer: {
+    marginBottom: 12,
+  },
   selectorRow: {
     flexDirection: "row",
-    marginBottom: 12,
     paddingLeft: 30,
+    paddingRight: 30,
   },
   selectorBtn: {
     paddingVertical: 8,
@@ -1208,7 +1348,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 12,
   },
-  previewImage: {
+  previewImageModal: {
     width: "100%",
     height: Math.min(windowHeight * 0.6, 460),
     borderRadius: 8,
@@ -1317,6 +1457,35 @@ const styles = StyleSheet.create({
   },
   errorButton: {
     backgroundColor: "#E74C3C",
+  },
+  fileButton: {
+    backgroundColor: "#20B2AA",
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+  },
+  fileButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  previewImage: {
+    width: "100%",
+    height: 120,
+    borderRadius: 8,
+    marginTop: 8,
+    backgroundColor: "#f0f0f0",
+    resizeMode: "cover",
+  },
+  fileInfoText: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
+    fontStyle: "italic",
   },
 });
 

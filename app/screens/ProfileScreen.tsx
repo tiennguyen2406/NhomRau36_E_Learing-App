@@ -12,10 +12,11 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ImagePicker from "expo-image-picker";
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
 import { ProfileStackParamList } from "../navigation/AppNavigator";
-import { getUserByUsername } from "../api/api";
+import { getUserByUsername, updateUser, uploadProofFile } from "../api/api";
 
 type NavigationProp = NativeStackNavigationProp<ProfileStackParamList>;
 
@@ -45,6 +46,7 @@ const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadUserProfile = useCallback(async () => {
@@ -100,6 +102,93 @@ const ProfileScreen: React.FC = () => {
     } catch (err) {
       console.error("Lỗi khi đăng xuất:", err);
       Alert.alert("Lỗi", "Không thể đăng xuất. Vui lòng thử lại.");
+    }
+  };
+
+  const handleImagePicker = () => {
+    Alert.alert(
+      "Chọn ảnh đại diện",
+      "Bạn muốn chọn ảnh từ đâu?",
+      [
+        { text: "Hủy", style: "cancel" },
+        { text: "Thư viện", onPress: pickImageFromLibrary },
+        { text: "Camera", onPress: captureImage },
+      ]
+    );
+  };
+
+  const pickImageFromLibrary = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permissionResult.granted === false) {
+        Alert.alert("Quyền truy cập", "Cần quyền truy cập thư viện ảnh để chọn ảnh.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        await uploadAndUpdateProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error("Lỗi khi chọn ảnh:", error);
+      Alert.alert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại.");
+    }
+  };
+
+  const captureImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (permissionResult.granted === false) {
+        Alert.alert("Quyền truy cập", "Cần quyền truy cập camera để chụp ảnh.");
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        await uploadAndUpdateProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error("Lỗi khi chụp ảnh:", error);
+      Alert.alert("Lỗi", "Không thể chụp ảnh. Vui lòng thử lại.");
+    }
+  };
+
+  const uploadAndUpdateProfileImage = async (imageUri: string) => {
+    if (!user) return;
+
+    try {
+      setUploading(true);
+      
+      // Upload ảnh lên Cloudinary trực tiếp
+      const imageUrl = await uploadProofFile({
+        uri: imageUri,
+        name: `profile_${user.uid}_${Date.now()}.jpg`,
+        type: "image/jpeg",
+      });
+
+      // Cập nhật profileImage vào database ngay lập tức (không cần duyệt)
+      await updateUser(user.uid, {
+        profileImage: imageUrl,
+      });
+
+      // Cập nhật state để hiển thị ngay
+      setUser({ ...user, profileImage: imageUrl });
+    } catch (error) {
+      console.error("Lỗi khi upload ảnh:", error);
+      Alert.alert("Lỗi", "Không thể tải ảnh lên. Vui lòng thử lại.");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -272,9 +361,17 @@ const ProfileScreen: React.FC = () => {
                 </ThemedText>
               )}
             </View>
-            <View style={styles.editAvatarButton}>
-              <MaterialIcons name="photo-camera" size={18} color="#fff" />
-            </View>
+            <TouchableOpacity
+              style={styles.editAvatarButton}
+              onPress={handleImagePicker}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <MaterialIcons name="photo-camera" size={18} color="#fff" />
+              )}
+            </TouchableOpacity>
           </View>
           <ThemedText style={styles.profileName}>
             {user?.fullName || user?.username || "Chưa cập nhật tên"}

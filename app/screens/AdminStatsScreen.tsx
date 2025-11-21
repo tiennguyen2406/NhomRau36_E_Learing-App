@@ -231,7 +231,12 @@ const AdminStatsScreen: React.FC = () => {
       { key: "courses", label: "Courses" },
     ];
     return (
-      <View style={styles.selectorRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.selectorRow}
+        style={styles.selectorRowContainer}
+      >
         {opts.map((o) => (
           <TouchableOpacity
             key={o.key}
@@ -243,7 +248,7 @@ const AdminStatsScreen: React.FC = () => {
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
     );
   };
 
@@ -346,11 +351,13 @@ const styles = StyleSheet.create({
     paddingTop: 30,
     marginBottom: 12,
   },
+  selectorRowContainer: {
+    marginBottom: 12,
+  },
   selectorRow: {
     flexDirection: "row",
-    marginBottom: 12,
     paddingLeft: 30,
-    flexWrap: "nowrap",
+    paddingRight: 30,
   },
   selectorBtn: {
     paddingVertical: 8,

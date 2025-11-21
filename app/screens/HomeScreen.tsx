@@ -15,11 +15,12 @@ import {
   View,
   Image,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { RootStackParamList } from "../navigation/AppNavigator";
 import { database } from "../firebase";
 import { DataSnapshot, onValue, off, ref } from "firebase/database";
-import { getCategories, getCourses, getCoursesByCategory, getUsers, updateAllCategoryCounts, getUserByUsername } from '../api/api';
+import { getCategories, getCourses, getCoursesByCategory, getUsers, updateAllCategoryCounts, getUserByUsername, saveCourse, unsaveCourse, getSavedCourses } from '../api/api';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -65,6 +66,7 @@ const HomeScreen: React.FC = () => {
   const { width: screenWidth } = useWindowDimensions();
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [savedCourses, setSavedCourses] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     let isMounted = true;
@@ -223,6 +225,26 @@ const HomeScreen: React.FC = () => {
     }
   }, [popularCourses]);
 
+  const toggleBookmark = async (courseId: string) => {
+    if (!currentUserId) {
+      Alert.alert("Thông báo", "Vui lòng đăng nhập để lưu khóa học");
+      return;
+    }
+
+    const isSaved = savedCourses[courseId];
+    try {
+      if (isSaved) {
+        await unsaveCourse(currentUserId, courseId);
+        setSavedCourses((prev) => ({ ...prev, [courseId]: false }));
+      } else {
+        await saveCourse(currentUserId, courseId);
+        setSavedCourses((prev) => ({ ...prev, [courseId]: true }));
+      }
+    } catch (error: any) {
+      Alert.alert("Lỗi", error?.message || "Không thể lưu khóa học");
+    }
+  };
+
   const renderCourseCard = ({ item }: { item: Course }) => (
     <TouchableOpacity style={styles.courseCard} activeOpacity={0.8} onPress={() => navigation.navigate('CourseDetail', { courseId: item.id })}>
       <View style={styles.courseImageContainer}>
@@ -231,8 +253,18 @@ const HomeScreen: React.FC = () => {
         ) : (
           <View style={styles.courseImagePlaceholder} />
         ) }
-        <TouchableOpacity style={styles.bookmarkButton}>
-          <MaterialIcons name="bookmark-border" size={20} color="#666" />
+        <TouchableOpacity
+          style={styles.bookmarkButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            toggleBookmark(item.id);
+          }}
+        >
+          <MaterialIcons
+            name={savedCourses[item.id] ? "bookmark" : "bookmark-border"}
+            size={20}
+            color={savedCourses[item.id] ? "#20B2AA" : "#666"}
+          />
         </TouchableOpacity>
       </View>
       <Text style={styles.courseCategory} numberOfLines={1}>{item.categoryName || item.category || 'Course'}</Text>
@@ -417,7 +449,7 @@ const HomeScreen: React.FC = () => {
             <TouchableOpacity
               onPress={() =>
                 navigation.navigate("CourseList", {
-                  categoryName: "Khóa học phổ biến",
+                  categoryName: "Tất cả khóa học",
                   categoryId: "all",
                 })
               }
@@ -827,6 +859,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
+    overflow: "hidden",
   },
   instructorInitial: {
     fontSize: 22,

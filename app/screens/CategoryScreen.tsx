@@ -53,9 +53,11 @@ const getIconSource = (categoryName: string) => {
 const CategoryScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [updating, setUpdating] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+  const [searchText, setSearchText] = useState("");
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -72,6 +74,7 @@ const CategoryScreen: React.FC = () => {
         // Sau đó load danh sách categories
         const data = await getCategories();
         setCategories(data);
+        setFilteredCategories(data);
       } catch (err) {
         console.error("Lỗi khi tải danh mục:", err);
         setError("Không thể tải danh mục, vui lòng thử lại sau");
@@ -82,6 +85,20 @@ const CategoryScreen: React.FC = () => {
 
     fetchCategories();
   }, []);
+
+  // Filter categories theo searchText
+  useEffect(() => {
+    if (searchText && searchText.trim()) {
+      const query = searchText.trim().toLowerCase();
+      const filtered = categories.filter((category) => {
+        const nameMatch = category.name?.toLowerCase().includes(query);
+        return nameMatch;
+      });
+      setFilteredCategories(filtered);
+    } else {
+      setFilteredCategories(categories);
+    }
+  }, [searchText, categories]);
 
   const renderCategoryItem = ({
     item,
@@ -206,20 +223,28 @@ const CategoryScreen: React.FC = () => {
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
+          <MaterialIcons name="search" size={20} color="#999" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Tìm kiếm..."
+            placeholder="Tìm kiếm danh mục..."
             placeholderTextColor="#999"
+            value={searchText}
+            onChangeText={setSearchText}
           />
         </View>
-        <TouchableOpacity style={styles.searchButton}>
-          <MaterialIcons name="search" size={22} color="#fff" />
-        </TouchableOpacity>
+        {searchText.trim() && (
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={() => setSearchText("")}
+          >
+            <MaterialIcons name="close" size={20} color="#999" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Categories Grid */}
       <FlatList
-        data={categories}
+        data={filteredCategories}
         renderItem={renderCategoryItem}
         keyExtractor={(item) => item.id}
         numColumns={2}
@@ -230,7 +255,9 @@ const CategoryScreen: React.FC = () => {
           <View style={styles.emptyContainer}>
             <MaterialIcons name="category" size={40} color="#ccc" />
             <ThemedText style={styles.emptyText}>
-              Không có danh mục nào
+              {searchText.trim()
+                ? `Không tìm thấy danh mục nào cho "${searchText}"`
+                : "Không có danh mục nào"}
             </ThemedText>
           </View>
         }
@@ -300,6 +327,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
+    marginLeft: 8,
     fontSize: 16,
     color: "#333",
   },
@@ -310,6 +338,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#20B2AA",
     justifyContent: "center",
     alignItems: "center",
+  },
+  clearButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
   },
   categoriesContainer: {
     padding: 16,

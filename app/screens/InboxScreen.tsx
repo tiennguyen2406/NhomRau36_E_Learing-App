@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { SafeAreaView, StyleSheet, Text, View, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Alert, Modal } from "react-native";
+import { SafeAreaView, StyleSheet, Text, View, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Alert, Modal, Image } from "react-native";
 import { useNavigation, useFocusEffect, useRoute } from "@react-navigation/native";
 import { InboxStackParamList, RootStackNavProps } from "../navigation/AppNavigator";
 import { database } from "../firebase";
@@ -15,6 +15,7 @@ type ChatItem = {
   time: string;
   unread?: boolean;
   otherUserId?: string;
+  profileImage?: string;
 };
 
 const InboxScreen: React.FC = () => {
@@ -149,6 +150,7 @@ const InboxScreen: React.FC = () => {
               // Tìm tên người dùng
               const otherUser = users.find((u) => (u.uid || u.id) === otherUserId);
               const name = otherUser?.fullName || otherUser?.username || "Unknown User";
+              const profileImage = otherUser?.profileImage || null;
 
               // Format thời gian
               const lastMessageTime = conv.lastMessageTime || 0;
@@ -163,6 +165,7 @@ const InboxScreen: React.FC = () => {
                 time,
                 otherUserId,
                 unread,
+                profileImage,
               });
             }
           }
@@ -339,7 +342,15 @@ const InboxScreen: React.FC = () => {
         openChat(item);
       }}
     >
-      <View style={styles.avatar} />
+      {item.profileImage ? (
+        <Image source={{ uri: item.profileImage }} style={styles.avatar} />
+      ) : (
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>
+            {(item.name || "?").charAt(0).toUpperCase()}
+          </Text>
+        </View>
+      )}
       <View style={styles.rowCenter}>
         <Text numberOfLines={1} style={styles.name}>{item.name}</Text>
         <Text numberOfLines={1} style={styles.preview}>{item.lastMessage}</Text>
@@ -468,11 +479,15 @@ const InboxScreen: React.FC = () => {
                   disabled={creatingConversation}
                 >
                   <View style={styles.userItemContent}>
-                    <View style={styles.userAvatar}>
-                      <Text style={styles.userAvatarText}>
-                        {(item.fullName || item.username || "U").charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
+                    {item.profileImage ? (
+                      <Image source={{ uri: item.profileImage }} style={styles.userAvatar} />
+                    ) : (
+                      <View style={styles.userAvatar}>
+                        <Text style={styles.userAvatarText}>
+                          {(item.fullName || item.username || "U").charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
                     <View style={styles.userInfo}>
                       <Text style={styles.userName}>{item.fullName || item.username || "Unknown User"}</Text>
                       {item.username && item.fullName ? (
@@ -567,7 +582,8 @@ const styles = StyleSheet.create({
   searchInput: { backgroundColor: "#fff", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: "#e6e6e6" },
   row: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 12 },
   rowUnread: { backgroundColor: "#f6fffb" },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#ccc", marginRight: 12 },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#20B2AA", marginRight: 12, justifyContent: "center", alignItems: "center", overflow: "hidden" },
+  avatarText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
   rowCenter: { flex: 1 },
   name: { fontWeight: "700", color: "#222" },
   preview: { color: "#666", marginTop: 2 },
@@ -640,6 +656,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
+    overflow: "hidden",
   },
   userAvatarText: {
     color: "#fff",

@@ -31,6 +31,7 @@ import CreateVideoLessonScreen from "../screens/CreateVideoLessonScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
 import TermsScreen from "@/app/screens/TermsScreen";
 import HelpCenterScreen from "@/app/screens/HelpCenterScreen";
+import VideoCallScreen from "@/app/screens/VideoCallScreen";
 import InboxScreen from "../screens/InboxScreen";
 import ChatScreen from "../screens/ChatScreen";
 import QuizLessonScreen from "../screens/QuizLessonScreen";
@@ -58,8 +59,9 @@ export type RootStackParamList = {
   MentorList: undefined;
   InstructorDetail: { instructorId: string };
   CourseList: {
-    categoryName: string;
-    categoryId: string;
+    categoryName?: string;
+    categoryId?: string;
+    searchQuery?: string;
   };
   CourseDetail: { courseId: string };
   CourseLessons: { courseId: string; title?: string };
@@ -82,6 +84,7 @@ export type RootStackParamList = {
   AIChat: undefined;
   Notifications: undefined;
   VideoSummary: undefined;
+  VideoCall: { roomUrl: string; title?: string } | undefined;
 };
 
 export type AuthStackParamList = {
@@ -364,6 +367,7 @@ const AppNavigator = () => {
       />
       <RootStack.Screen name="AIChat" component={AIChatScreen} />
       <RootStack.Screen name="VideoSummary" component={VideoSummaryScreen} />
+      <RootStack.Screen name="VideoCall" component={VideoCallScreen} />
       <RootStack.Screen name="Notifications" component={NotificationsScreen} />
     </RootStack.Navigator>
   );

@@ -38,16 +38,56 @@ const LoginScreen: React.FC = () => {
     password: "",
   });
 
+  // Validation errors for register form
+  const [registerErrors, setRegisterErrors] = useState({
+    email: "",
+    password: "",
+  });
+
+  // Validation functions
+  const validateEmail = (email: string): string => {
+    if (!email) return "";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return "Email không đúng định dạng";
+    }
+    return "";
+  };
+
+  const validatePassword = (password: string): string => {
+    if (!password) return "";
+    if (password.length < 6) {
+      return "Mật khẩu phải có ít nhất 6 ký tự";
+    }
+    return "";
+  };
+
   // ------------------- Đăng ký -------------------
   const handleRegister = async () => {
+    // Validate all fields
+    const emailError = validateEmail(registerData.email);
+    const passwordError = validatePassword(registerData.password);
+    
+    setRegisterErrors({
+      email: emailError,
+      password: passwordError,
+    });
+
     if (
       !registerData.email ||
       !registerData.username ||
       !registerData.password
     ) {
-      Alert.alert("Lỗi", "Điền đầy đủ thông tin đăng ký");
+      setErrorMessage("Vui lòng điền đầy đủ thông tin");
       return;
     }
+
+    if (emailError || passwordError) {
+      setErrorMessage("Vui lòng sửa các lỗi ở trên");
+      return;
+    }
+
+    setErrorMessage(null);
 
     try {
       const data = {
@@ -69,6 +109,7 @@ const LoginScreen: React.FC = () => {
         password: registerData.password,
       });
       setRegisterData({ email: "", username: "", password: "" });
+      setRegisterErrors({ email: "", password: "" });
     } catch (error) {
       console.error("Đăng ký lỗi:", error);
       let message = "Đăng ký thất bại";
@@ -87,8 +128,7 @@ const LoginScreen: React.FC = () => {
           }
         }
       }
-      setErrorMessage(message); // Thêm hiện ngay dưới form
-      Alert.alert("Lỗi", message);
+      setErrorMessage(message);
     }
   };
 
@@ -96,9 +136,10 @@ const LoginScreen: React.FC = () => {
   const handleLogin = async () => {
     if (!loginData.username || !loginData.password) {
       setErrorMessage("Vui lòng nhập tên đăng nhập và mật khẩu");
-      Alert.alert("Lỗi", "Điền tên đăng nhập và mật khẩu");
       return;
     }
+
+    setErrorMessage(null);
 
     try {
       const response = await loginUser(loginData.username, loginData.password);
@@ -110,11 +151,10 @@ const LoginScreen: React.FC = () => {
         navigation.getParent()?.navigate("MainTabs" as never);
       } else {
         setErrorMessage("Tài khoản không tồn tại hoặc mật khẩu sai");
-        Alert.alert("Lỗi", "Tài khoản không tồn tại hoặc mật khẩu sai");
       }
     } catch (error) {
       console.error("Đăng nhập lỗi:", error);
-      let message = "Đăng nhập thất bại";
+      let message = "Tài khoản không tồn tại hoặc mật khẩu sai";
       const err: any = error;
       if (typeof err?.message === "string") {
         // Match JSON {"error":"..."}
@@ -131,7 +171,6 @@ const LoginScreen: React.FC = () => {
         }
       }
       setErrorMessage(message);
-      Alert.alert("Lỗi", message);
     }
   };
 
@@ -173,7 +212,11 @@ const LoginScreen: React.FC = () => {
                   styles.toggleButton,
                   isLogin && styles.toggleButtonActive,
                 ]}
-                onPress={() => setIsLogin(true)}
+                onPress={() => {
+                  setIsLogin(true);
+                  setErrorMessage(null);
+                  setRegisterErrors({ email: "", password: "" });
+                }}
               >
                 <Text
                   style={[
@@ -189,7 +232,11 @@ const LoginScreen: React.FC = () => {
                   styles.toggleButton,
                   !isLogin && styles.toggleButtonActive,
                 ]}
-                onPress={() => setIsLogin(false)}
+                onPress={() => {
+                  setIsLogin(false);
+                  setErrorMessage(null);
+                  setRegisterErrors({ email: "", password: "" });
+                }}
               >
                 <Text
                   style={[
@@ -208,6 +255,9 @@ const LoginScreen: React.FC = () => {
 
             {/* Form */}
             <View style={styles.formContainer}>
+              {isLogin && errorMessage && (
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              )}
               {!isLogin && errorMessage && (
                 <Text style={styles.errorText}>{errorMessage}</Text>
               )}
@@ -215,16 +265,28 @@ const LoginScreen: React.FC = () => {
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Địa chỉ email</Text>
                   <TextInput
-                    style={styles.textInput}
+                    style={[
+                      styles.textInput,
+                      registerErrors.email ? styles.inputError : null,
+                    ]}
                     placeholder="Nhập email của bạn"
                     placeholderTextColor="#999"
                     value={registerData.email}
-                    onChangeText={(text) =>
-                      setRegisterData({ ...registerData, email: text })
-                    }
+                    onChangeText={(text) => {
+                      setRegisterData({ ...registerData, email: text });
+                      setRegisterErrors({
+                        ...registerErrors,
+                        email: validateEmail(text),
+                      });
+                    }}
                     keyboardType="email-address"
                     autoCapitalize="none"
                   />
+                  {registerErrors.email ? (
+                    <Text style={styles.fieldErrorText}>
+                      {registerErrors.email}
+                    </Text>
+                  ) : null}
                 </View>
               )}
 
@@ -246,17 +308,30 @@ const LoginScreen: React.FC = () => {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Mật khẩu</Text>
-                <View style={styles.passwordContainer}>
+                <View
+                  style={[
+                    styles.passwordContainer,
+                    !isLogin && registerErrors.password
+                      ? styles.inputError
+                      : null,
+                  ]}
+                >
                   <TextInput
                     style={styles.passwordInput}
                     placeholder="Nhập mật khẩu của bạn"
                     placeholderTextColor="#999"
                     value={isLogin ? loginData.password : registerData.password}
-                    onChangeText={(text) =>
-                      isLogin
-                        ? setLoginData({ ...loginData, password: text })
-                        : setRegisterData({ ...registerData, password: text })
-                    }
+                    onChangeText={(text) => {
+                      if (isLogin) {
+                        setLoginData({ ...loginData, password: text });
+                      } else {
+                        setRegisterData({ ...registerData, password: text });
+                        setRegisterErrors({
+                          ...registerErrors,
+                          password: validatePassword(text),
+                        });
+                      }
+                    }}
                     secureTextEntry={!showPassword}
                   />
                   <TouchableOpacity
@@ -270,11 +345,12 @@ const LoginScreen: React.FC = () => {
                     />
                   </TouchableOpacity>
                 </View>
+                {!isLogin && registerErrors.password ? (
+                  <Text style={styles.fieldErrorText}>
+                    {registerErrors.password}
+                  </Text>
+                ) : null}
               </View>
-
-              {isLogin && !!errorMessage && (
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              )}
 
               {/* Submit */}
               <TouchableOpacity
@@ -424,5 +500,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     marginBottom: 12,
+    fontSize: 14,
+  },
+  inputError: {
+    borderWidth: 1,
+    borderColor: "#ff6b6b",
+  },
+  fieldErrorText: {
+    color: "#ffdddd",
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
   },
 });

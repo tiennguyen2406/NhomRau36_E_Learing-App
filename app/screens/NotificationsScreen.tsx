@@ -16,6 +16,9 @@ import { database } from "../firebase";
 import { DataSnapshot, off, onValue, ref } from "firebase/database";
 import { getUserByUsername, getUserById, getUsers } from "../api/api";
 import { markNotificationAsRead } from "../utils/notifications";
+import { ThemedText } from "../../components/themed-text";
+import { ThemedView } from "../../components/themed-view";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 
 type NotificationItem = {
   id: string;
@@ -62,6 +65,7 @@ const formatSectionTitle = (date: Date) => {
 
 const NotificationsScreen: React.FC = () => {
   const navigation = useNavigation();
+  const colors = useThemeColors();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -180,22 +184,61 @@ const NotificationsScreen: React.FC = () => {
     }
   };
 
+  // Dynamic styles
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.containerBackground,
+    },
+    header: {
+      backgroundColor: colors.headerBackground,
+      borderBottomColor: colors.borderColor,
+    },
+    headerTitle: {
+      color: colors.primaryText,
+    },
+    sectionTitle: {
+      color: colors.secondaryText,
+    },
+    card: {
+      backgroundColor: colors.cardBackground,
+    },
+    cardTitle: {
+      color: colors.primaryText,
+    },
+    cardMessage: {
+      color: colors.secondaryText,
+    },
+    cardTime: {
+      color: colors.placeholderText,
+    },
+    emptyTitle: {
+      color: colors.primaryText,
+    },
+    emptySubtitle: {
+      color: colors.secondaryText,
+    },
+    loadingContainer: {
+      backgroundColor: colors.containerBackground,
+    },
+  }), [colors]);
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <SafeAreaView style={[styles.loadingContainer, dynamicStyles.loadingContainer]}>
         <ActivityIndicator size="large" color="#20B2AA" />
-        <Text style={{ marginTop: 12, color: "#666" }}>Đang tải thông báo...</Text>
+        <ThemedText style={{ marginTop: 12, color: colors.secondaryText }}>Đang tải thông báo...</ThemedText>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]}>Notifications</ThemedText>
         <View style={{ width: 24 }} />
       </View>
 
@@ -203,12 +246,13 @@ const NotificationsScreen: React.FC = () => {
         sections={sections}
         keyExtractor={(item) => item.id}
         renderSectionHeader={({ section }) => (
-          <Text style={styles.sectionTitle}>{section.title}</Text>
+          <ThemedText style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>{section.title}</ThemedText>
         )}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={[
               styles.card,
+              dynamicStyles.card,
               item.status !== "read" ? styles.cardUnread : undefined,
             ]}
             activeOpacity={0.9}
@@ -232,26 +276,26 @@ const NotificationsScreen: React.FC = () => {
               </View>
             )}
             <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardMessage} numberOfLines={2}>
+              <ThemedText style={[styles.cardTitle, dynamicStyles.cardTitle]}>{item.title}</ThemedText>
+              <ThemedText style={[styles.cardMessage, dynamicStyles.cardMessage]} numberOfLines={2}>
                 {item.message}
-              </Text>
-              <Text style={styles.cardTime}>
+              </ThemedText>
+              <ThemedText style={[styles.cardTime, dynamicStyles.cardTime]}>
                 {new Date(item.timestamp || Date.now()).toLocaleTimeString("vi-VN", {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
-              </Text>
+              </ThemedText>
             </View>
           </TouchableOpacity>
         )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <MaterialIcons name="notifications-off" size={40} color="#a0afb3" />
-            <Text style={styles.emptyTitle}>Chưa có thông báo nào</Text>
-            <Text style={styles.emptySubtitle}>
+            <MaterialIcons name="notifications-off" size={40} color={colors.placeholderText} />
+            <ThemedText style={[styles.emptyTitle, dynamicStyles.emptyTitle]}>Chưa có thông báo nào</ThemedText>
+            <ThemedText style={[styles.emptySubtitle, dynamicStyles.emptySubtitle]}>
               Khi có tin nhắn mới hoặc thông báo từ admin, chúng sẽ hiển thị ở đây.
-            </Text>
+            </ThemedText>
           </View>
         }
         contentContainerStyle={styles.listContent}
@@ -262,25 +306,22 @@ const NotificationsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f7fb" },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "#fff",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#e1e5ec",
   },
-  headerTitle: { fontSize: 18, fontWeight: "700", color: "#1f2d3d" },
+  headerTitle: { fontSize: 18, fontWeight: "700" },
   sectionTitle: {
     marginTop: 18,
     marginBottom: 8,
     marginHorizontal: 16,
     fontSize: 13,
     fontWeight: "600",
-    color: "#7a8ca3",
   },
   card: {
     flexDirection: "row",
@@ -289,7 +330,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 14,
     borderRadius: 16,
-    backgroundColor: "#fff",
     shadowColor: "#000",
     shadowOpacity: 0.04,
     shadowRadius: 10,
@@ -324,19 +364,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
-  cardTitle: { fontSize: 15, fontWeight: "700", color: "#1f2d3d" },
-  cardMessage: { fontSize: 13, color: "#4a5568", marginTop: 4 },
-  cardTime: { fontSize: 11, color: "#8a99a8", marginTop: 8 },
+  cardTitle: { fontSize: 15, fontWeight: "700" },
+  cardMessage: { fontSize: 13, marginTop: 4 },
+  cardTime: { fontSize: 11, marginTop: 8 },
   emptyState: {
     alignItems: "center",
     paddingTop: 100,
     paddingHorizontal: 30,
   },
-  emptyTitle: { marginTop: 16, fontSize: 16, fontWeight: "700", color: "#4a5568" },
+  emptyTitle: { marginTop: 16, fontSize: 16, fontWeight: "700" },
   emptySubtitle: {
     marginTop: 6,
     fontSize: 13,
-    color: "#7a8ca3",
     textAlign: "center",
   },
   listContent: {
@@ -347,7 +386,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f7fb",
   },
 });
 

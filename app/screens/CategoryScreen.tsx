@@ -1,7 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FlatList,
   Image,
@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 import { RootStackParamList } from "../navigation/AppNavigator";
 import { getCategories, updateAllCategoryCounts } from "../api/api";
 
@@ -52,6 +53,7 @@ const getIconSource = (categoryName: string) => {
 
 const CategoryScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const colors = useThemeColors();
   const [categories, setCategories] = useState<Category[]>([]);
   const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -100,6 +102,38 @@ const CategoryScreen: React.FC = () => {
     }
   }, [searchText, categories]);
 
+  // Dynamic styles
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.containerBackground,
+    },
+    header: {
+      backgroundColor: colors.headerBackground,
+    },
+    headerTitle: {
+      color: colors.primaryText,
+    },
+    searchContainer: {
+      backgroundColor: colors.headerBackground,
+    },
+    searchBar: {
+      backgroundColor: colors.searchBackground,
+    },
+    searchInput: {
+      color: colors.primaryText,
+    },
+    categoryItem: {
+      backgroundColor: colors.cardBackground,
+    },
+    categoryName: {
+      color: colors.primaryText,
+    },
+    courseCount: {
+      color: colors.secondaryText,
+    },
+  }), [colors]);
+
   const renderCategoryItem = ({
     item,
     index,
@@ -118,7 +152,7 @@ const CategoryScreen: React.FC = () => {
         ]}
       >
         <TouchableOpacity
-          style={styles.categoryItem}
+          style={[styles.categoryItem, dynamicStyles.categoryItem]}
           activeOpacity={0.7}
           onPress={() =>
             navigation.navigate("CourseList", {
@@ -134,9 +168,9 @@ const CategoryScreen: React.FC = () => {
               resizeMode="contain"
             />
           </View>
-          <ThemedText style={styles.categoryName}>{item.name}</ThemedText>
+          <ThemedText style={[styles.categoryName, dynamicStyles.categoryName]}>{item.name}</ThemedText>
           {item.courseCount !== undefined && (
-            <ThemedText style={styles.courseCount}>
+            <ThemedText style={[styles.courseCount, dynamicStyles.courseCount]}>
               {item.courseCount} khóa học
             </ThemedText>
           )}
@@ -147,18 +181,18 @@ const CategoryScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <ThemedView style={[styles.container, styles.centerContent]}>
+      <ThemedView style={[styles.container, dynamicStyles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color="#20B2AA" />
-        <ThemedText style={{ marginTop: 16 }}>Đang tải danh mục...</ThemedText>
+        <ThemedText style={{ marginTop: 16, color: colors.secondaryText }}>Đang tải danh mục...</ThemedText>
       </ThemedView>
     );
   }
 
   if (error) {
     return (
-      <ThemedView style={[styles.container, styles.centerContent]}>
+      <ThemedView style={[styles.container, dynamicStyles.container, styles.centerContent]}>
         <MaterialIcons name="error-outline" size={40} color="#e74c3c" />
-        <ThemedText style={{ marginTop: 16 }}>{error}</ThemedText>
+        <ThemedText style={{ marginTop: 16, color: colors.primaryText }}>{error}</ThemedText>
         <TouchableOpacity
           style={styles.retryButton}
           onPress={() => {
@@ -177,15 +211,15 @@ const CategoryScreen: React.FC = () => {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
+    <ThemedView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
         </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>Danh mục</ThemedText>
+        <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]}>Danh mục</ThemedText>
         <TouchableOpacity
           style={styles.refreshButton}
           onPress={async () => {
@@ -221,13 +255,13 @@ const CategoryScreen: React.FC = () => {
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={20} color="#999" />
+      <View style={[styles.searchContainer, dynamicStyles.searchContainer]}>
+        <View style={[styles.searchBar, dynamicStyles.searchBar]}>
+          <MaterialIcons name="search" size={20} color={colors.placeholderText} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, dynamicStyles.searchInput]}
             placeholder="Tìm kiếm danh mục..."
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholderText}
             value={searchText}
             onChangeText={setSearchText}
           />
@@ -237,7 +271,7 @@ const CategoryScreen: React.FC = () => {
             style={styles.clearButton}
             onPress={() => setSearchText("")}
           >
-            <MaterialIcons name="close" size={20} color="#999" />
+            <MaterialIcons name="close" size={20} color={colors.placeholderText} />
           </TouchableOpacity>
         )}
       </View>
@@ -254,7 +288,7 @@ const CategoryScreen: React.FC = () => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialIcons name="category" size={40} color="#ccc" />
-            <ThemedText style={styles.emptyText}>
+            <ThemedText style={[styles.emptyText, { color: colors.secondaryText }]}>
               {searchText.trim()
                 ? `Không tìm thấy danh mục nào cho "${searchText}"`
                 : "Không có danh mục nào"}

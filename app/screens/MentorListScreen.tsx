@@ -13,6 +13,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/AppNavigator";
 import { getUsers, getCourses } from "../api/api";
+import { useThemeColors } from "../../hooks/use-theme-colors";
+import { ThemedText } from "../../components/themed-text";
 
 type Props = NativeStackScreenProps<RootStackParamList, "MentorList">;
 
@@ -31,6 +33,31 @@ const MentorListScreen: React.FC<Props> = ({ navigation }) => {
   const [categoryFilters, setCategoryFilters] = useState<string[]>(["Tất cả"]);
   const [selectedCategoryFilter, setSelectedCategoryFilter] =
     useState<string>("Tất cả");
+  const colors = useThemeColors();
+
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { backgroundColor: colors.containerBackground },
+        header: { backgroundColor: colors.headerBackground },
+        headerTitle: { color: colors.primaryText },
+        searchContainer: { backgroundColor: colors.headerBackground, borderBottomColor: colors.borderColor },
+        searchBar: { backgroundColor: colors.searchBackground, borderColor: colors.borderColor },
+        searchInput: { color: colors.primaryText },
+        resultText: { color: colors.secondaryText },
+        resultHighlight: { color: colors.tint || "#20B2AA" },
+        resultCountText: { color: colors.tint || "#20B2AA" },
+        item: { backgroundColor: colors.cardBackground },
+        name: { color: colors.primaryText },
+        sub: { color: colors.secondaryText },
+        modalContent: { backgroundColor: colors.cardBackground },
+        modalTitle: { color: colors.primaryText },
+        modalItemText: { color: colors.primaryText },
+        modalItemTextActive: { color: colors.tint || "#20B2AA" },
+        modalDivider: { backgroundColor: colors.borderColor },
+      }),
+    [colors]
+  );
 
   useEffect(() => {
     (async () => {
@@ -92,38 +119,48 @@ const MentorListScreen: React.FC<Props> = ({ navigation }) => {
   }, [query, instructors, selectedCategoryFilter]);
 
   const renderItem = ({ item }: { item: InstructorItem & { categoryLabel?: string } }) => (
-    <TouchableOpacity style={styles.item} activeOpacity={0.85} onPress={() => navigation.navigate("InstructorDetail", { instructorId: item.uid })}>
+    <TouchableOpacity
+      style={[styles.item, dynamicStyles.item]}
+      activeOpacity={0.85}
+      onPress={() => navigation.navigate("InstructorDetail", { instructorId: item.uid })}
+    >
       {item.profileImage ? (
         <Image source={{ uri: item.profileImage }} style={styles.avatar} />
       ) : (
-        <View style={styles.avatar}><Text style={styles.initial}>{(item.fullName || "?").charAt(0)}</Text></View>
+        <View style={styles.avatar}>
+          <Text style={styles.initial}>{(item.fullName || "?").charAt(0)}</Text>
+        </View>
       )}
       <View style={{ flex: 1 }}>
-        <Text style={styles.name} numberOfLines={1}>{item.fullName}</Text>
-        <Text style={styles.sub} numberOfLines={1}>{item.categoryLabel || "General"}</Text>
+        <ThemedText style={[styles.name, dynamicStyles.name]} numberOfLines={1}>
+          {item.fullName}
+        </ThemedText>
+        <ThemedText style={[styles.sub, dynamicStyles.sub]} numberOfLines={1}>
+          {item.categoryLabel || "General"}
+        </ThemedText>
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Người hướng dẫn</Text>
+        <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]}>Người hướng dẫn</ThemedText>
       </View>
 
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={20} color="#999" />
+      <View style={[styles.searchContainer, dynamicStyles.searchContainer]}>
+        <View style={[styles.searchBar, dynamicStyles.searchBar]}>
+          <MaterialIcons name="search" size={20} color={colors.placeholderText} />
           <TextInput
             placeholder="Tìm kiếm mentor..."
-            placeholderTextColor="#999"
-            style={styles.searchInput}
+            placeholderTextColor={colors.placeholderText}
+            style={[styles.searchInput, dynamicStyles.searchInput]}
             value={query}
             onChangeText={setQuery}
           />
@@ -137,12 +174,12 @@ const MentorListScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       <View style={styles.resultRow}>
-        <Text style={styles.resultText}>
+        <ThemedText style={[styles.resultText, dynamicStyles.resultText]}>
           Kết quả cho{" "}
-          <Text style={styles.resultHighlight}>“{query || "All"}”</Text>
-        </Text>
+          <Text style={[styles.resultHighlight, dynamicStyles.resultHighlight]}>“{query || "All"}”</Text>
+        </ThemedText>
         <View style={styles.resultCountButton}>
-          <Text style={styles.resultCountText}>
+          <Text style={[styles.resultCountText, dynamicStyles.resultCountText]}>
             {loading ? "…" : `${filtered.length} Kết quả tìm thấy`}
           </Text>
           <MaterialIcons name="chevron-right" size={20} color="#20B2AA" />
@@ -164,9 +201,9 @@ const MentorListScreen: React.FC<Props> = ({ navigation }) => {
         onRequestClose={() => setFilterModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn lĩnh vực</Text>
+              <ThemedText style={[styles.modalTitle, dynamicStyles.modalTitle]}>Chọn lĩnh vực</ThemedText>
               <TouchableOpacity
                 style={styles.modalCloseButton}
                 onPress={() => setFilterModalVisible(false)}
@@ -193,7 +230,9 @@ const MentorListScreen: React.FC<Props> = ({ navigation }) => {
                     <Text
                       style={[
                         styles.modalItemText,
+                        dynamicStyles.modalItemText,
                         isActive && styles.modalItemTextActive,
+                        isActive && dynamicStyles.modalItemTextActive,
                       ]}
                     >
                       {item}
@@ -219,7 +258,6 @@ const MentorListScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f8f8",
   },
   header: {
     flexDirection: "row",
@@ -227,7 +265,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 16,
-    backgroundColor: "#fff",
   },
   backButton: {
     marginRight: 16,
@@ -235,30 +272,28 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#333",
   },
   searchContainer: {
     flexDirection: "row",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: "#fff",
     alignItems: "center",
     gap: 12,
+    borderBottomWidth: 1,
   },
   searchBar: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
     borderRadius: 24,
     paddingHorizontal: 16,
     height: 48,
     gap: 8,
+    borderWidth: 1,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: "#333",
   },
   filterButton: {
     width: 48,
@@ -277,11 +312,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   resultText: {
-    color: "#666",
     fontSize: 14,
   },
   resultHighlight: {
-    color: "#20B2AA",
     fontWeight: "600",
   },
   resultCountButton: {
@@ -289,7 +322,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   resultCountText: {
-    color: "#20B2AA",
     fontSize: 13,
     marginRight: 4,
   },
@@ -300,7 +332,6 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 12,
     marginBottom: 14,
@@ -325,12 +356,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   name: {
-    color: "#111",
     fontWeight: "700",
     fontSize: 16,
   },
   sub: {
-    color: "#6b7280",
     fontSize: 13,
     marginTop: 2,
   },
@@ -341,7 +370,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 20,
     maxHeight: "70%",
@@ -355,14 +383,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#111",
   },
   modalCloseButton: {
     padding: 4,
   },
   modalDivider: {
     height: 1,
-    backgroundColor: "#f0f0f0",
   },
   modalItem: {
     flexDirection: "row",
@@ -372,10 +398,8 @@ const styles = StyleSheet.create({
   },
   modalItemText: {
     fontSize: 15,
-    color: "#444",
   },
   modalItemTextActive: {
-    color: "#20B2AA",
     fontWeight: "600",
   },
 });

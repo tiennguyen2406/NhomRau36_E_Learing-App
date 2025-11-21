@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   SafeAreaView,
   StyleSheet,
@@ -17,6 +17,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { chatWithAI, getUserByUsername, getUserCourses, getLessonsByCourse } from "../api/api";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 
 // Lấy BASE_URL từ api.ts
 const BASE_URL = "https://three6learningbackend.onrender.com";
@@ -65,6 +66,35 @@ const AIChatScreen: React.FC = () => {
   const [lessonsLoading, setLessonsLoading] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const listRef = useRef<FlatList>(null);
+  const colors = useThemeColors();
+
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { backgroundColor: colors.containerBackground },
+        header: { backgroundColor: colors.headerBackground, borderBottomColor: colors.borderColor },
+        headerTitle: { color: colors.primaryText },
+        headerActionButton: { backgroundColor: colors.searchBackground },
+        aiBubble: { backgroundColor: colors.cardBackground, borderColor: colors.borderColor },
+        aiText: { color: colors.primaryText },
+        aiTimestamp: { color: colors.secondaryText },
+        loadingText: { color: colors.secondaryText },
+        inputContainer: { backgroundColor: colors.headerBackground, borderTopColor: colors.borderColor },
+        input: { backgroundColor: colors.searchBackground, color: colors.primaryText },
+        selectedCourseBadge: { backgroundColor: colors.cardBackground },
+        selectedCourseText: { color: colors.primaryText },
+        selectedLessonBadge: { backgroundColor: colors.headerBackground },
+        selectedLessonText: { color: colors.primaryText },
+        modalContent: { backgroundColor: colors.cardBackground },
+        modalTitle: { color: colors.primaryText },
+        courseItemTitle: { color: colors.primaryText },
+        courseItemDesc: { color: colors.secondaryText },
+        courseItemDivider: { backgroundColor: colors.borderColor },
+        lessonItemTitle: { color: colors.primaryText },
+        lessonItemDesc: { color: colors.secondaryText },
+      }),
+    [colors]
+  );
 
   useEffect(() => {
     // Cuộn xuống cuối khi có tin nhắn mới
@@ -303,11 +333,29 @@ const handleSummarizeVideo = async () => {
 
     return (
       <View style={[styles.messageContainer, isUser ? styles.userMessageContainer : styles.aiMessageContainer]}>
-        <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble]}>
-          <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>
+        <View
+          style={[
+            styles.messageBubble,
+            isUser ? styles.userBubble : styles.aiBubble,
+            !isUser && dynamicStyles.aiBubble,
+          ]}
+        >
+          <Text
+            style={[
+              styles.messageText,
+              isUser ? styles.userText : styles.aiText,
+              !isUser && dynamicStyles.aiText,
+            ]}
+          >
             {item.content}
           </Text>
-          <Text style={[styles.timestamp, isUser ? styles.userTimestamp : styles.aiTimestamp]}>
+          <Text
+            style={[
+              styles.timestamp,
+              isUser ? styles.userTimestamp : styles.aiTimestamp,
+              !isUser && dynamicStyles.aiTimestamp,
+            ]}
+          >
             {item.timestamp.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
           </Text>
         </View>
@@ -316,18 +364,18 @@ const handleSummarizeVideo = async () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <MaterialIcons name="psychology" size={24} color="#20B2AA" />
-          <Text style={styles.headerTitle}>AI Trợ Lý</Text>
+          <Text style={[styles.headerTitle, dynamicStyles.headerTitle]}>AI Trợ Lý</Text>
         </View>
         <TouchableOpacity
           onPress={() => (navigation as any).navigate("VideoSummary")}
-          style={styles.headerActionButton}
+          style={[styles.headerActionButton, dynamicStyles.headerActionButton]}
         >
           <MaterialIcons name="video-library" size={22} color="#20B2AA" />
         </TouchableOpacity>
@@ -335,9 +383,9 @@ const handleSummarizeVideo = async () => {
 
       {selectedCourse ? (
         <View style={styles.selectedBadgeContainer}>
-          <View style={styles.selectedCourseBadge}>
+          <View style={[styles.selectedCourseBadge, dynamicStyles.selectedCourseBadge]}>
             <MaterialIcons name="bookmark" size={18} color="#20B2AA" />
-            <Text style={styles.selectedCourseText} numberOfLines={1}>
+            <Text style={[styles.selectedCourseText, dynamicStyles.selectedCourseText]} numberOfLines={1}>
               Đang tập trung: {selectedCourse.title}
             </Text>
             <TouchableOpacity
@@ -352,9 +400,9 @@ const handleSummarizeVideo = async () => {
             </TouchableOpacity>
           </View>
           {selectedLesson ? (
-            <View style={styles.selectedLessonBadge}>
+            <View style={[styles.selectedLessonBadge, dynamicStyles.selectedLessonBadge]}>
               <MaterialIcons name="video-library" size={16} color="#ffa940" />
-              <Text style={styles.selectedLessonText} numberOfLines={1}>
+              <Text style={[styles.selectedLessonText, dynamicStyles.selectedLessonText]} numberOfLines={1}>
                 Bài học: {selectedLesson.title}
               </Text>
               <TouchableOpacity
@@ -380,17 +428,18 @@ const handleSummarizeVideo = async () => {
       {(loading || summarizing) && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color="#20B2AA" />
-          <Text style={styles.loadingText}>
+          <Text style={[styles.loadingText, dynamicStyles.loadingText]}>
             {summarizing ? "Đang tóm tắt video..." : "AI đang suy nghĩ..."}
           </Text>
         </View>
       )}
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, dynamicStyles.inputContainer]}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, dynamicStyles.input]}
             placeholder="Nhập câu hỏi của bạn..."
+            placeholderTextColor={colors.placeholderText}
             value={input}
             onChangeText={setInput}
             multiline
@@ -475,9 +524,9 @@ const handleSummarizeVideo = async () => {
         onRequestClose={() => setCourseModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn khóa học của tôi</Text>
+              <Text style={[styles.modalTitle, dynamicStyles.modalTitle]}>Chọn khóa học của tôi</Text>
               <TouchableOpacity onPress={() => setCourseModalVisible(false)}>
                 <MaterialIcons name="close" size={22} color="#333" />
               </TouchableOpacity>
@@ -485,7 +534,7 @@ const handleSummarizeVideo = async () => {
             {coursesLoading ? (
               <View style={styles.modalLoading}>
                 <ActivityIndicator size="small" color="#20B2AA" />
-                <Text style={styles.loadingText}>Đang tải danh sách...</Text>
+                <Text style={[styles.loadingText, dynamicStyles.loadingText]}>Đang tải danh sách...</Text>
               </View>
             ) : myCourses.length ? (
               <FlatList
@@ -496,20 +545,22 @@ const handleSummarizeVideo = async () => {
                     style={styles.courseItem}
                     onPress={() => handleSelectCourse(item)}
                   >
-                    <Text style={styles.courseItemTitle}>{item.title}</Text>
+                    <Text style={[styles.courseItemTitle, dynamicStyles.courseItemTitle]}>{item.title}</Text>
                     {item.description ? (
-                      <Text style={styles.courseItemDesc} numberOfLines={2}>
+                      <Text style={[styles.courseItemDesc, dynamicStyles.courseItemDesc]} numberOfLines={2}>
                         {item.description}
                       </Text>
                     ) : null}
                   </TouchableOpacity>
                 )}
-                ItemSeparatorComponent={() => <View style={styles.courseItemDivider} />}
+                ItemSeparatorComponent={() => (
+                  <View style={[styles.courseItemDivider, dynamicStyles.courseItemDivider]} />
+                )}
               />
             ) : (
               <View style={styles.modalLoading}>
                 <MaterialIcons name="info" size={20} color="#999" />
-                <Text style={styles.loadingText}>Bạn chưa tham gia khóa học nào.</Text>
+                <Text style={[styles.loadingText, dynamicStyles.loadingText]}>Bạn chưa tham gia khóa học nào.</Text>
               </View>
             )}
             {selectedCourse ? (
@@ -538,9 +589,9 @@ const handleSummarizeVideo = async () => {
         onRequestClose={() => setLessonModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
+              <Text style={[styles.modalTitle, dynamicStyles.modalTitle]}>
                 {selectedCourse ? `Bài học: ${selectedCourse.title}` : "Chọn Bài Học"}
               </Text>
               <TouchableOpacity onPress={() => setLessonModalVisible(false)}>
@@ -550,7 +601,7 @@ const handleSummarizeVideo = async () => {
             {lessonsLoading ? (
               <View style={styles.modalLoading}>
                 <ActivityIndicator size="small" color="#20B2AA" />
-                <Text style={styles.loadingText}>Đang tải danh sách bài học...</Text>
+                <Text style={[styles.loadingText, dynamicStyles.loadingText]}>Đang tải danh sách bài học...</Text>
               </View>
             ) : lessons.length > 0 ? (
               <FlatList
@@ -566,9 +617,9 @@ const handleSummarizeVideo = async () => {
                   >
                     <MaterialIcons name="play-circle-outline" size={20} color="#20B2AA" />
                     <View style={{ flex: 1, marginLeft: 8 }}>
-                      <Text style={styles.lessonItemTitle}>{item.title}</Text>
+                      <Text style={[styles.lessonItemTitle, dynamicStyles.lessonItemTitle]}>{item.title}</Text>
                       {item.description ? (
-                        <Text style={styles.lessonItemDesc} numberOfLines={2}>
+                        <Text style={[styles.lessonItemDesc, dynamicStyles.lessonItemDesc]} numberOfLines={2}>
                           {item.description}
                         </Text>
                       ) : null}
@@ -576,7 +627,9 @@ const handleSummarizeVideo = async () => {
                     <MaterialIcons name="chevron-right" size={20} color="#999" />
                   </TouchableOpacity>
                 )}
-                ItemSeparatorComponent={() => <View style={styles.courseItemDivider} />}
+                ItemSeparatorComponent={() => (
+                  <View style={[styles.courseItemDivider, dynamicStyles.courseItemDivider]} />
+                )}
               />
             ) : (
               <View style={styles.modalLoading}>
@@ -608,7 +661,6 @@ const handleSummarizeVideo = async () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f8f8",
   },
   header: {
     flexDirection: "row",
@@ -616,9 +668,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
   },
   headerTitleContainer: {
     flexDirection: "row",
@@ -628,7 +678,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#333",
   },
   headerActionButton: {
     width: 40,
@@ -636,7 +685,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f0f9f8",
   },
   messagesList: {
     padding: 16,
@@ -662,10 +710,8 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   aiBubble: {
-    backgroundColor: "#fff",
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
   },
   messageText: {
     fontSize: 15,
@@ -674,9 +720,7 @@ const styles = StyleSheet.create({
   userText: {
     color: "#fff",
   },
-  aiText: {
-    color: "#333",
-  },
+  aiText: {},
   timestamp: {
     fontSize: 11,
     marginTop: 4,
@@ -685,9 +729,7 @@ const styles = StyleSheet.create({
   userTimestamp: {
     color: "#f0f0f0",
   },
-  aiTimestamp: {
-    color: "#666",
-  },
+  aiTimestamp: {},
   loadingContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -697,20 +739,16 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 12,
-    color: "#666",
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "flex-end",
     padding: 12,
-    backgroundColor: "#fff",
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
     gap: 6,
   },
   input: {
     flex: 1,
-    backgroundColor: "#f2f2f2",
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -781,7 +819,6 @@ const styles = StyleSheet.create({
   selectedCourseBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#e6f7f5",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -789,7 +826,6 @@ const styles = StyleSheet.create({
   },
   selectedCourseText: {
     flex: 1,
-    color: "#116c67",
     fontSize: 13,
     fontWeight: "600",
   },
@@ -804,7 +840,6 @@ const styles = StyleSheet.create({
   selectedLessonBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff3e0",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -812,7 +847,6 @@ const styles = StyleSheet.create({
   },
   selectedLessonText: {
     flex: 1,
-    color: "#e65100",
     fontSize: 12,
     fontWeight: "600",
   },
@@ -834,7 +868,6 @@ const styles = StyleSheet.create({
   modalContent: {
     width: "100%",
     maxHeight: "70%",
-    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
   },
@@ -847,7 +880,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#116c67",
   },
   modalLoading: {
     alignItems: "center",
@@ -861,16 +893,13 @@ const styles = StyleSheet.create({
   courseItemTitle: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#1f3c3c",
   },
   courseItemDesc: {
     fontSize: 13,
-    color: "#546e7a",
     marginTop: 4,
   },
   courseItemDivider: {
     height: 1,
-    backgroundColor: "#f0f0f0",
   },
   lessonItem: {
     flexDirection: "row",
@@ -881,11 +910,9 @@ const styles = StyleSheet.create({
   lessonItemTitle: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#1f3c3c",
   },
   lessonItemDesc: {
     fontSize: 13,
-    color: "#546e7a",
     marginTop: 4,
   },
   clearSelectionBtn: {

@@ -1,13 +1,14 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
   ScrollView,
   StyleSheet,
+  Switch,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -17,6 +18,8 @@ import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
 import { ProfileStackParamList } from "../navigation/AppNavigator";
 import { getUserByUsername, updateUser, uploadProofFile } from "../api/api";
+import { useTheme } from "../../contexts/ThemeContext";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 
 type NavigationProp = NativeStackNavigationProp<ProfileStackParamList>;
 
@@ -44,6 +47,8 @@ interface User {
 
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { isDark, toggleTheme } = useTheme();
+  const colors = useThemeColors();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -93,6 +98,63 @@ const ProfileScreen: React.FC = () => {
       loadUserProfile();
     }, [loadUserProfile])
   );
+
+  // Dynamic styles dựa trên theme
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.containerBackground,
+        },
+        header: {
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 20,
+          paddingTop: 50,
+          paddingBottom: 20,
+          backgroundColor: colors.headerBackground,
+        },
+        profileSection: {
+          alignItems: "center",
+          paddingVertical: 30,
+          backgroundColor: colors.sectionBackground,
+          marginBottom: 16,
+        },
+        menuSection: {
+          backgroundColor: colors.cardBackground,
+          borderRadius: 8,
+          marginHorizontal: 16,
+          marginBottom: 20,
+          paddingVertical: 8,
+        },
+        menuItem: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingVertical: 16,
+          paddingHorizontal: 20,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.borderColor,
+        },
+        menuItemText: {
+          fontSize: 16,
+          color: colors.primaryText,
+        },
+        profileName: { color: colors.primaryText },
+        profileEmail: { color: colors.secondaryText },
+        roleContainer: { backgroundColor: colors.sectionBackground },
+        roleText: { color: colors.tint },
+        valueText: { color: colors.tint },
+        loadingText: { color: colors.secondaryText },
+        errorText: { color: colors.tint },
+        retryButton: { backgroundColor: colors.tint },
+        retryButtonText: { color: colors.headerBackground },
+      }),
+    [colors]
+  );
+  const iconColor = colors.secondaryText;
+  const dangerColor = "#ff6b6b";
 
   const handleLogout = async () => {
     try {
@@ -257,10 +319,11 @@ const ProfileScreen: React.FC = () => {
   ];
 
   const renderIcon = (item: MenuItem) => {
+    const color = item.id === "logout" ? dangerColor : iconColor;
     if (item.iconType === "MaterialIcons") {
-      return <MaterialIcons name={item.icon as any} size={22} color="#666" />;
+      return <MaterialIcons name={item.icon as any} size={22} color={color} />;
     }
-    return <Ionicons name={item.icon as any} size={22} color="#666" />;
+    return <Ionicons name={item.icon as any} size={22} color={color} />;
   };
 
   const handleMenuPress = (item: MenuItem) => {
@@ -280,36 +343,58 @@ const ProfileScreen: React.FC = () => {
       case "help":
         navigation.navigate("HelpCenter");
         break;
+      case "dark_mode":
+        toggleTheme();
+        break;
       default:
         Alert.alert("Thông báo", `Tính năng ${item.label} đang được phát triển`);
     }
   };
 
-  const renderMenuItem = (item: MenuItem) => (
-    <TouchableOpacity
-      key={item.id}
-      style={styles.menuItem}
-      onPress={() => handleMenuPress(item)}
-    >
-      <View style={styles.menuItemLeft}>
-        <View style={styles.iconContainer}>{renderIcon(item)}</View>
-        <ThemedText style={styles.menuItemText}>{item.label}</ThemedText>
-      </View>
-      <View style={styles.menuItemRight}>
-        {item.value && (
-          <ThemedText style={styles.valueText}>{item.value}</ThemedText>
-        )}
-        <MaterialIcons name="chevron-right" size={24} color="#999" />
-      </View>
-    </TouchableOpacity>
-  );
+  const renderMenuItem = (item: MenuItem) => {
+    if (item.id === "dark_mode") {
+      return (
+        <View key={item.id} style={[styles.menuItem, dynamicStyles.menuItem]}>
+          <View style={styles.menuItemLeft}>
+            <View style={styles.iconContainer}>{renderIcon(item)}</View>
+            <ThemedText style={[styles.menuItemText, dynamicStyles.menuItemText]}>{item.label}</ThemedText>
+          </View>
+          <Switch
+            value={isDark}
+            onValueChange={toggleTheme}
+            trackColor={{ false: colors.borderColor, true: colors.tint }}
+            thumbColor={isDark ? colors.cardBackground : colors.cardBackground}
+          />
+        </View>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={[styles.menuItem, dynamicStyles.menuItem]}
+        onPress={() => handleMenuPress(item)}
+      >
+        <View style={styles.menuItemLeft}>
+          <View style={styles.iconContainer}>{renderIcon(item)}</View>
+          <ThemedText style={[styles.menuItemText, dynamicStyles.menuItemText]}>{item.label}</ThemedText>
+        </View>
+        <View style={styles.menuItemRight}>
+          {item.value && (
+            <ThemedText style={[styles.valueText, dynamicStyles.valueText]}>{item.value}</ThemedText>
+          )}
+          <MaterialIcons name="chevron-right" size={24} color={colors.placeholderText} />
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   // Hiển thị trạng thái loading
   if (loading) {
     return (
-      <ThemedView style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#20B2AA" />
-        <ThemedText style={styles.loadingText}>
+      <ThemedView style={[styles.container, dynamicStyles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color={colors.tint} />
+        <ThemedText style={[styles.loadingText, dynamicStyles.loadingText]}>
           Đang tải thông tin...
         </ThemedText>
       </ThemedView>
@@ -319,14 +404,14 @@ const ProfileScreen: React.FC = () => {
   // Hiển thị trạng thái lỗi
   if (error) {
     return (
-      <ThemedView style={[styles.container, styles.centerContent]}>
-        <MaterialIcons name="error-outline" size={40} color="#e74c3c" />
-        <ThemedText style={styles.errorText}>{error}</ThemedText>
+      <ThemedView style={[styles.container, dynamicStyles.container, styles.centerContent]}>
+        <MaterialIcons name="error-outline" size={40} color={dangerColor} />
+        <ThemedText style={[styles.errorText, dynamicStyles.errorText]}>{error}</ThemedText>
         <TouchableOpacity
-          style={styles.retryButton}
+          style={[styles.retryButton, dynamicStyles.retryButton]}
           onPress={() => navigation.getParent()?.navigate("Auth" as never)}
         >
-          <ThemedText style={styles.retryButtonText}>
+          <ThemedText style={[styles.retryButtonText, dynamicStyles.retryButtonText]}>
             Quay lại đăng nhập
           </ThemedText>
         </TouchableOpacity>
@@ -335,19 +420,19 @@ const ProfileScreen: React.FC = () => {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
+    <ThemedView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
         </TouchableOpacity>
         <ThemedText style={styles.headerTitle}>Tài khoản</ThemedText>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.profileSection}>
+        <View style={[styles.profileSection, dynamicStyles.profileSection]}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
               {user?.profileImage ? (
@@ -373,15 +458,15 @@ const ProfileScreen: React.FC = () => {
               )}
             </TouchableOpacity>
           </View>
-          <ThemedText style={styles.profileName}>
+          <ThemedText style={[styles.profileName, dynamicStyles.profileName]}>
             {user?.fullName || user?.username || "Chưa cập nhật tên"}
           </ThemedText>
-          <ThemedText style={styles.profileEmail}>
+          <ThemedText style={[styles.profileEmail, dynamicStyles.profileEmail]}>
             {user?.email || "Chưa cập nhật email"}
           </ThemedText>
           {user?.role && (
-            <View style={styles.roleContainer}>
-              <ThemedText style={styles.roleText}>
+            <View style={[styles.roleContainer, dynamicStyles.roleContainer]}>
+              <ThemedText style={[styles.roleText, dynamicStyles.roleText]}>
                 {user.role === "student"
                   ? "Học viên"
                   : user.role === "teacher"
@@ -392,7 +477,7 @@ const ProfileScreen: React.FC = () => {
           )}
         </View>
 
-        <View style={styles.menuSection}>{menuItems.map(renderMenuItem)}</View>
+        <View style={[styles.menuSection, dynamicStyles.menuSection]}>{menuItems.map(renderMenuItem)}</View>
       </ScrollView>
     </ThemedView>
   );
@@ -401,11 +486,13 @@ const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f8f8",
   },
   centerContent: {
     justifyContent: "center",
     alignItems: "center",
+  },
+  backButton: {
+    marginRight: 16,
   },
   header: {
     flexDirection: "row",
@@ -413,15 +500,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 20,
-    backgroundColor: "#fff",
-  },
-  backButton: {
-    marginRight: 16,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#333",
   },
   content: {
     flex: 1,
@@ -429,8 +511,21 @@ const styles = StyleSheet.create({
   profileSection: {
     alignItems: "center",
     paddingVertical: 30,
-    backgroundColor: "#fff",
     marginBottom: 16,
+  },
+  menuSection: {
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginBottom: 20,
+    paddingVertical: 8,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
   },
   avatarContainer: {
     position: "relative",
@@ -491,22 +586,6 @@ const styles = StyleSheet.create({
     color: "#20B2AA",
     fontWeight: "500",
   },
-  menuSection: {
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    marginHorizontal: 16,
-    marginBottom: 20,
-    paddingVertical: 8,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
   menuItemLeft: {
     flexDirection: "row",
     alignItems: "center",
@@ -520,7 +599,6 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
-    color: "#333",
   },
   menuItemRight: {
     flexDirection: "row",

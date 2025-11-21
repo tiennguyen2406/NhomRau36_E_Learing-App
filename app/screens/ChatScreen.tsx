@@ -35,6 +35,9 @@ import { uploadProofFile } from "../api/api";
 import { addNotification } from "../utils/notifications";
 import { Video, ResizeMode } from "expo-av";
 import { RootStackNavProps } from "../navigation/AppNavigator";
+import { ThemedText } from "../../components/themed-text";
+import { ThemedView } from "../../components/themed-view";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 
 const JITSI_ROOM_URL =
   "https://8x8.vc/vpaas-magic-cookie-29d1be449b2f4aaf91fe689e3687c128/meeting1";
@@ -63,6 +66,7 @@ const DAILY_ROOM_URL = "https://your-daily-room.daily.co/demo";
 const ChatScreen: React.FC = () => {
   const navigation = useNavigation<RootStackNavProps>();
   const route = useRoute<any>();
+  const colors = useThemeColors();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -396,7 +400,7 @@ const ChatScreen: React.FC = () => {
             style={{ marginRight: 6 }}
           />
           <View style={{ flexShrink: 1 }}>
-            <Text
+            <ThemedText
               style={[
                 styles.attachmentName,
                 item.fromMe ? styles.attachmentTextDark : styles.attachmentTextLight,
@@ -404,16 +408,16 @@ const ChatScreen: React.FC = () => {
               numberOfLines={1}
             >
               {item.attachmentName || "Tệp đính kèm"}
-            </Text>
+            </ThemedText>
             {item.attachmentSize ? (
-              <Text
+              <ThemedText
                 style={[
                   styles.attachmentSize,
                   item.fromMe ? styles.attachmentTextDark : styles.attachmentTextLight,
                 ]}
               >
                 {formatFileSize(item.attachmentSize)}
-              </Text>
+              </ThemedText>
             ) : null}
           </View>
         </TouchableOpacity>
@@ -430,18 +434,18 @@ const ChatScreen: React.FC = () => {
         >
           {renderAttachment()}
           {item.text ? (
-            <Text style={[styles.bubbleText, !item.fromMe ? styles.bubbleTextDark : null]}>
+            <ThemedText style={[styles.bubbleText, !item.fromMe ? styles.bubbleTextDark : null]}>
               {item.text}
-            </Text>
+            </ThemedText>
           ) : null}
-          <Text
+          <ThemedText
             style={[
               hasMediaOnly ? styles.bubbleTimeMedia : styles.bubbleTime,
               !item.fromMe ? styles.bubbleTimeDark : null,
             ]}
           >
             {item.time}
-          </Text>
+          </ThemedText>
       </View>
     </View>
   );
@@ -455,13 +459,46 @@ const ChatScreen: React.FC = () => {
     navigation.navigate("VideoCall", { roomUrl: url, title: name });
   };
 
+  // Dynamic styles
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.containerBackground,
+    },
+    header: {
+      backgroundColor: colors.headerBackground,
+      borderBottomColor: colors.borderColor,
+    },
+    headerTitle: {
+      color: colors.primaryText,
+    },
+    inputContainer: {
+      backgroundColor: colors.headerBackground,
+      borderTopColor: colors.borderColor,
+    },
+    input: {
+      backgroundColor: colors.searchBackground,
+      color: colors.primaryText,
+    },
+    attachmentPreview: {
+      backgroundColor: colors.cardBackground,
+      borderTopColor: colors.borderColor,
+    },
+    attachmentPreviewName: {
+      color: colors.primaryText,
+    },
+    attachmentPreviewSize: {
+      color: colors.secondaryText,
+    },
+  }), [colors]);
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{name}</Text>
+        <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]}>{name}</ThemedText>
         <TouchableOpacity onPress={startVideoCall} style={styles.videoCallBtn}>
           <MaterialIcons name="videocam" size={24} color="#20B2AA" />
         </TouchableOpacity>
@@ -484,10 +521,10 @@ const ChatScreen: React.FC = () => {
               style={{ marginRight: 8 }}
             />
             <View style={{ flexShrink: 1 }}>
-              <Text style={styles.attachmentPreviewName} numberOfLines={1}>
+              <ThemedText style={[styles.attachmentPreviewName, dynamicStyles.attachmentPreviewName]} numberOfLines={1}>
                 {attachment.name || "Tệp đính kèm"}
-              </Text>
-              <Text style={styles.attachmentPreviewSize}>{formatFileSize(attachment.size)}</Text>
+              </ThemedText>
+              <ThemedText style={[styles.attachmentPreviewSize, dynamicStyles.attachmentPreviewSize]}>{formatFileSize(attachment.size)}</ThemedText>
             </View>
           </View>
           <TouchableOpacity onPress={removeAttachment} style={styles.removeAttachmentBtn}>
@@ -496,10 +533,11 @@ const ChatScreen: React.FC = () => {
         </View>
       ) : null}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <View style={styles.inputRow}>
+        <View style={[styles.inputRow, dynamicStyles.inputContainer]}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, dynamicStyles.input]}
             placeholder="Nhập tin nhắn..."
+            placeholderTextColor={colors.placeholderText}
             value={input}
             onChangeText={setInput}
             multiline
@@ -547,9 +585,9 @@ const ChatScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8f8f8" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "#fff" },
-  headerTitle: { fontSize: 16, fontWeight: "700", color: "#333" },
+  container: { flex: 1 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12 },
+  headerTitle: { fontSize: 16, fontWeight: "700" },
   videoCallBtn: {
     width: 36,
     height: 36,
@@ -610,7 +648,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#e6f7f5",
     marginHorizontal: 10,
     marginBottom: 6,
     borderRadius: 12,
@@ -618,8 +655,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   attachmentPreviewInfo: { flexDirection: "row", alignItems: "center", flex: 1 },
-  attachmentPreviewName: { fontWeight: "600", color: "#116c67", marginBottom: 2 },
-  attachmentPreviewSize: { color: "#458c87", fontSize: 12 },
+  attachmentPreviewName: { fontWeight: "600", marginBottom: 2 },
+  attachmentPreviewSize: { fontSize: 12 },
   removeAttachmentBtn: {
     width: 28,
     height: 28,
@@ -633,9 +670,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 10,
-    backgroundColor: "#fff",
     borderTopWidth: 1,
-    borderTopColor: "#eee",
   },
   attachBtn: {
     width: 36,
@@ -661,7 +696,6 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: "#f2f2f2",
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 10,

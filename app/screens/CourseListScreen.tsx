@@ -1,7 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FlatList,
   StyleSheet,
@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 import { RootStackParamList } from "../navigation/AppNavigator";
 import {
   getCategoryById,
@@ -60,6 +61,7 @@ type FilterCategory = {
 const CourseListScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
+  const colors = useThemeColors();
   const { categoryName: initialCategoryName, categoryId, searchQuery } =
     route.params as RouteParams;
   const [activeTab, setActiveTab] = useState("courses");
@@ -268,7 +270,7 @@ const CourseListScreen: React.FC = () => {
 
     return (
       <TouchableOpacity 
-        style={styles.courseItem} 
+        style={[styles.courseItem, dynamicStyles.courseItem]} 
         activeOpacity={0.8} 
         onPress={() => {
           console.log('CourseListScreen - Navigate to CourseDetail with courseId:', item.id);
@@ -286,7 +288,7 @@ const CourseListScreen: React.FC = () => {
           <ThemedText style={styles.courseCategory}>
             {categoryDisplay}
           </ThemedText>
-          <ThemedText style={styles.courseTitle} numberOfLines={2}>
+          <ThemedText style={[styles.courseTitle, dynamicStyles.courseTitle]} numberOfLines={2}>
             {item.title}
           </ThemedText>
           <View style={styles.priceContainer}>
@@ -301,12 +303,12 @@ const CourseListScreen: React.FC = () => {
           <View style={styles.courseStats}>
             <View style={styles.ratingContainer}>
               <MaterialIcons name="star" size={14} color="#FFD700" />
-              <ThemedText style={styles.rating}>{item.rating || 0}</ThemedText>
+              <ThemedText style={[styles.rating, dynamicStyles.rating]}>{item.rating || 0}</ThemedText>
             </View>
-            <ThemedText style={styles.studentCount}>
+            <ThemedText style={[styles.studentCount, dynamicStyles.studentCount]}>
               {item.students || 0} học viên
             </ThemedText>
-            <ThemedText style={styles.lessonCount}>
+            <ThemedText style={[styles.lessonCount, dynamicStyles.lessonCount]}>
               {item.totalLessons || 0} bài
             </ThemedText>
           </View>
@@ -319,7 +321,7 @@ const CourseListScreen: React.FC = () => {
             <MaterialIcons
               name={savedCourses[item.id] ? "bookmark" : "bookmark-border"}
               size={20}
-              color={savedCourses[item.id] ? "#20B2AA" : "#666"}
+              color={savedCourses[item.id] ? "#20B2AA" : colors.secondaryText}
             />
           </TouchableOpacity>
         </View>
@@ -327,12 +329,104 @@ const CourseListScreen: React.FC = () => {
     );
   };
 
+  // Dynamic styles dựa trên theme
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.containerBackground,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 20,
+      paddingTop: 50,
+      paddingBottom: 20,
+      backgroundColor: colors.headerBackground,
+    },
+    searchContainer: {
+      flexDirection: "row",
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      backgroundColor: colors.headerBackground,
+    },
+    searchBarContainer: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.searchBackground,
+      borderRadius: 24,
+      paddingHorizontal: 16,
+      marginRight: 12,
+      height: 48,
+    },
+    searchInput: {
+      flex: 1,
+      paddingLeft: 8,
+      fontSize: 16,
+      color: colors.primaryText,
+    },
+    tabButton: {
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+      borderRadius: 24,
+      backgroundColor: colors.tabBackground,
+      marginRight: 12,
+    },
+    tabText: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: colors.primaryText,
+    },
+    courseItem: {
+      flexDirection: "row",
+      backgroundColor: colors.cardBackground,
+      borderRadius: 12,
+      marginBottom: 16,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+      overflow: "hidden",
+    },
+    courseTitle: {
+      fontSize: 14,
+      fontWeight: "bold",
+      color: colors.primaryText,
+      marginBottom: 6,
+    },
+    courseCategory: {
+      fontSize: 12,
+      color: "#FF8C00",
+      marginBottom: 4,
+    },
+    rating: {
+      fontSize: 12,
+      color: colors.secondaryText,
+      marginLeft: 4,
+    },
+    studentCount: {
+      fontSize: 12,
+      color: colors.secondaryText,
+      marginLeft: 8,
+    },
+    lessonCount: {
+      fontSize: 12,
+      color: colors.secondaryText,
+      marginLeft: 8,
+    },
+    resultText: {
+      fontSize: 14,
+      color: colors.secondaryText,
+    },
+  }), [colors]);
+
   // Hiển thị trạng thái loading
   if (loading) {
     return (
-      <ThemedView style={[styles.container, styles.loadingContainer]}>
+      <ThemedView style={[styles.container, dynamicStyles.container, styles.loadingContainer]}>
         <ActivityIndicator size="large" color="#20B2AA" />
-        <ThemedText style={styles.loadingText}>Đang tải khóa học...</ThemedText>
+        <ThemedText style={[styles.loadingText, { color: colors.secondaryText }]}>Đang tải khóa học...</ThemedText>
       </ThemedView>
     );
   }
@@ -340,7 +434,7 @@ const CourseListScreen: React.FC = () => {
   // Hiển thị trạng thái lỗi
   if (error) {
     return (
-      <ThemedView style={[styles.container, styles.errorContainer]}>
+      <ThemedView style={[styles.container, dynamicStyles.container, styles.errorContainer]}>
         <MaterialIcons name="error-outline" size={40} color="#e74c3c" />
         <ThemedText style={styles.errorText}>{error}</ThemedText>
         <TouchableOpacity
@@ -368,27 +462,27 @@ const CourseListScreen: React.FC = () => {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
+    <ThemedView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
         </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>{categoryName}</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: colors.primaryText }]}>{categoryName}</ThemedText>
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBarContainer}>
-          <MaterialIcons name="search" size={20} color="#999" />
+      <View style={[styles.searchContainer, dynamicStyles.searchContainer]}>
+        <View style={[styles.searchBarContainer, dynamicStyles.searchBarContainer]}>
+          <MaterialIcons name="search" size={20} color={colors.placeholderText} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, dynamicStyles.searchInput]}
             value={searchText}
             onChangeText={setSearchText}
             placeholder="Tìm kiếm khóa học..."
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholderText}
             onSubmitEditing={() => {
               // Filter courses khi nhấn Enter
             }}
@@ -407,6 +501,7 @@ const CourseListScreen: React.FC = () => {
         <TouchableOpacity
           style={[
             styles.tabButton,
+            dynamicStyles.tabButton,
             activeTab === "courses" && styles.activeTabButton,
           ]}
           onPress={() => setActiveTab("courses")}
@@ -414,6 +509,7 @@ const CourseListScreen: React.FC = () => {
           <ThemedText
             style={[
               styles.tabText,
+              dynamicStyles.tabText,
               activeTab === "courses" && styles.activeTabText,
             ]}
           >
@@ -424,7 +520,7 @@ const CourseListScreen: React.FC = () => {
 
       {/* Result Count */}
       <View style={styles.resultContainer}>
-        <ThemedText style={styles.resultText}>
+        <ThemedText style={[styles.resultText, dynamicStyles.resultText]}>
           Kết quả cho{" "}
           <ThemedText style={styles.resultHighlight}>
             &quot;{searchText}&quot;
@@ -447,7 +543,7 @@ const CourseListScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <ThemedText style={styles.emptyText}>
+            <ThemedText style={[styles.emptyText, { color: colors.secondaryText }]}>
               {searchText && searchText.trim()
                 ? `Không tìm thấy khóa học nào cho "${searchText}"`
                 : "Không tìm thấy khóa học nào trong danh mục này"}
@@ -464,16 +560,16 @@ const CourseListScreen: React.FC = () => {
         onRequestClose={() => setFilterModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
             <View style={styles.modalHeader}>
-              <ThemedText style={styles.modalTitle}>
+              <ThemedText style={[styles.modalTitle, { color: colors.primaryText }]}>
                 Chọn danh mục
               </ThemedText>
               <TouchableOpacity
                 onPress={() => setFilterModalVisible(false)}
                 style={styles.modalCloseButton}
               >
-                <MaterialIcons name="close" size={22} color="#333" />
+                <MaterialIcons name="close" size={22} color={colors.primaryText} />
               </TouchableOpacity>
             </View>
             <FlatList
@@ -501,6 +597,7 @@ const CourseListScreen: React.FC = () => {
                       <ThemedText
                         style={[
                           styles.modalItemText,
+                          { color: isActive ? "#20B2AA" : colors.primaryText },
                           isActive && styles.modalItemTextActive,
                         ]}
                       >
@@ -528,7 +625,6 @@ const CourseListScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f8f8",
   },
   header: {
     flexDirection: "row",
@@ -536,7 +632,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 20,
-    backgroundColor: "#fff",
   },
   backButton: {
     marginRight: 16,
@@ -544,19 +639,16 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#333",
   },
   searchContainer: {
     flexDirection: "row",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: "#fff",
   },
   searchBarContainer: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
     borderRadius: 24,
     paddingHorizontal: 16,
     marginRight: 12,
@@ -566,7 +658,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingLeft: 8,
     fontSize: 16,
-    color: "#333",
   },
   filterButton: {
     width: 48,
@@ -585,7 +676,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 24,
-    backgroundColor: "#f0f0f0",
     marginRight: 12,
   },
   activeTabButton: {
@@ -594,7 +684,6 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#666",
   },
   activeTabText: {
     color: "#fff",
@@ -629,7 +718,6 @@ const styles = StyleSheet.create({
   },
   courseItem: {
     flexDirection: "row",
-    backgroundColor: "#fff",
     borderRadius: 12,
     marginBottom: 16,
     shadowColor: "#000",
@@ -667,7 +755,6 @@ const styles = StyleSheet.create({
   courseTitle: {
     fontSize: 14,
     fontWeight: "bold",
-    color: "#333",
     marginBottom: 6,
   },
   priceContainer: {

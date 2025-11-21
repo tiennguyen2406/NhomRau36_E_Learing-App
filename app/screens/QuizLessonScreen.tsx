@@ -12,6 +12,9 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getUserByUsername, saveQuizResult } from "../api/api";
+import { ThemedText } from "../../components/themed-text";
+import { ThemedView } from "../../components/themed-view";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 
 type QuizQuestion = {
   text: string;
@@ -32,6 +35,7 @@ type RouteParams = {
 const QuizLessonScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const colors = useThemeColors();
   const {
     courseId,
     lessonId,
@@ -197,43 +201,94 @@ const QuizLessonScreen: React.FC = () => {
     ? Math.round((correctCount / totalQuestions) * 100)
     : 0;
 
+  // Dynamic styles
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.containerBackground,
+    },
+    header: {
+      backgroundColor: colors.headerBackground,
+    },
+    headerTitle: {
+      color: colors.primaryText,
+    },
+    quizCard: {
+      backgroundColor: colors.cardBackground,
+    },
+    questionText: {
+      color: colors.primaryText,
+    },
+    optionBtn: {
+      backgroundColor: colors.cardBackground,
+      borderColor: colors.borderColor,
+    },
+    optionText: {
+      color: colors.primaryText,
+    },
+    emptyText: {
+      color: colors.secondaryText,
+    },
+    resultTitle: {
+      color: colors.primaryText,
+    },
+    resultScore: {
+      color: colors.primaryText,
+    },
+    resultHint: {
+      color: colors.secondaryText,
+    },
+    descriptionTitle: {
+      color: colors.primaryText,
+    },
+    descriptionText: {
+      color: colors.secondaryText,
+    },
+    explanationTitle: {
+      color: colors.primaryText,
+    },
+    explanationText: {
+      color: colors.secondaryText,
+    },
+  }), [colors]);
+
   if (!totalQuestions) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+        <View style={[styles.header, dynamicStyles.header]}>
           <TouchableOpacity onPress={() => (navigation as any).goBack()}>
-            <MaterialIcons name="arrow-back" size={24} color="#333" />
+            <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+          <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]} numberOfLines={1}>
             {title || "Quiz"}
-          </Text>
+          </ThemedText>
         </View>
         <View style={styles.empty}>
-          <MaterialIcons name="help-outline" size={42} color="#aaa" />
-          <Text style={styles.emptyText}>
+          <MaterialIcons name="help-outline" size={42} color={colors.placeholderText} />
+          <ThemedText style={[styles.emptyText, dynamicStyles.emptyText]}>
             Bài quiz này chưa có câu hỏi nào.
-          </Text>
+          </ThemedText>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity onPress={() => (navigation as any).goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
+        <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]} numberOfLines={1}>
           {title || "Quiz"}
-        </Text>
+        </ThemedText>
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.quizCard}>
-          <Text style={styles.questionIndex}>
+        <View style={[styles.quizCard, dynamicStyles.quizCard]}>
+          <ThemedText style={styles.questionIndex}>
             Câu {currentIndex + 1}/{totalQuestions}
-          </Text>
-          <Text style={styles.questionText}>{currentQuestion?.text}</Text>
+          </ThemedText>
+          <ThemedText style={[styles.questionText, dynamicStyles.questionText]}>{currentQuestion?.text}</ThemedText>
           {currentQuestion?.options?.map((option, idx) => {
             const selected = answers[currentIndex] === idx;
             const isCorrect =
@@ -245,6 +300,7 @@ const QuizLessonScreen: React.FC = () => {
                 key={idx}
                 style={[
                   styles.optionBtn,
+                  dynamicStyles.optionBtn,
                   selected && styles.optionSelected,
                   isCorrect && styles.optionCorrect,
                   isWrong && styles.optionWrong,
@@ -252,23 +308,24 @@ const QuizLessonScreen: React.FC = () => {
                 onPress={() => handleSelect(idx)}
                 activeOpacity={0.8}
               >
-                <Text
+                <ThemedText
                   style={[
                     styles.optionText,
+                    dynamicStyles.optionText,
                     selected && styles.optionTextSelected,
                   ]}
                 >
                   {option || `Lựa chọn ${idx + 1}`}
-                </Text>
+                </ThemedText>
               </TouchableOpacity>
             );
           })}
           {submitted && currentQuestion?.explanation ? (
             <View style={styles.explanationBox}>
-              <Text style={styles.explanationTitle}>Giải thích</Text>
-              <Text style={styles.explanationText}>
+              <ThemedText style={[styles.explanationTitle, dynamicStyles.explanationTitle]}>Giải thích</ThemedText>
+              <ThemedText style={[styles.explanationText, dynamicStyles.explanationText]}>
                 {currentQuestion.explanation}
-              </Text>
+              </ThemedText>
             </View>
           ) : null}
         </View>
@@ -298,42 +355,42 @@ const QuizLessonScreen: React.FC = () => {
           onPress={confirmSubmit}
           disabled={submitted}
         >
-          <Text style={styles.submitBtnText}>
+          <ThemedText style={styles.submitBtnText}>
             {submitted ? "Đã nộp bài" : "Nộp bài"}
-          </Text>
+          </ThemedText>
         </TouchableOpacity>
         {submitted ? (
-          <View style={styles.resultBox}>
-            <Text style={styles.resultTitle}>Kết quả</Text>
-            <Text style={styles.resultScore}>
+          <View style={[styles.resultBox, { backgroundColor: colors.cardBackground }]}>
+            <ThemedText style={[styles.resultTitle, dynamicStyles.resultTitle]}>Kết quả</ThemedText>
+            <ThemedText style={[styles.resultScore, dynamicStyles.resultScore]}>
               {correctCount}/{totalQuestions} câu đúng ({resultPercent}%)
-            </Text>
-            <Text style={styles.resultHint}>
+            </ThemedText>
+            <ThemedText style={[styles.resultHint, dynamicStyles.resultHint]}>
               Bạn có thể xem lại từng câu để xem đáp án đúng.
-            </Text>
+            </ThemedText>
             {savingResult ? (
-              <Text style={styles.resultStatus}>Đang lưu kết quả...</Text>
+              <ThemedText style={styles.resultStatus}>Đang lưu kết quả...</ThemedText>
             ) : saveError ? (
-              <Text style={[styles.resultStatus, styles.resultStatusError]}>
+              <ThemedText style={[styles.resultStatus, styles.resultStatusError]}>
                 {saveError}
-              </Text>
+              </ThemedText>
             ) : saveMessage ? (
-              <Text style={[styles.resultStatus, styles.resultStatusSuccess]}>
+              <ThemedText style={[styles.resultStatus, styles.resultStatusSuccess]}>
                 {saveMessage}
-              </Text>
+              </ThemedText>
             ) : null}
           </View>
         ) : null}
         {submitted ? (
-          <TouchableOpacity style={styles.retryBtn} onPress={restartQuiz}>
+          <TouchableOpacity style={[styles.retryBtn, { backgroundColor: colors.cardBackground }]} onPress={restartQuiz}>
             <MaterialIcons name="refresh" size={18} color="#20B2AA" />
-            <Text style={styles.retryText}>Làm lại</Text>
+            <ThemedText style={styles.retryText}>Làm lại</ThemedText>
           </TouchableOpacity>
         ) : null}
         {description ? (
-          <View style={styles.descriptionBox}>
-            <Text style={styles.descriptionTitle}>Mô tả</Text>
-            <Text style={styles.descriptionText}>{description}</Text>
+          <View style={[styles.descriptionBox, { backgroundColor: colors.cardBackground }]}>
+            <ThemedText style={[styles.descriptionTitle, dynamicStyles.descriptionTitle]}>Mô tả</ThemedText>
+            <ThemedText style={[styles.descriptionText, dynamicStyles.descriptionText]}>{description}</ThemedText>
           </View>
         ) : null}
       </ScrollView>
@@ -344,7 +401,6 @@ const QuizLessonScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f8f8",
   },
   header: {
     flexDirection: "row",
@@ -352,13 +408,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 50,
     paddingBottom: 12,
-    backgroundColor: "#fff",
   },
   headerTitle: {
     marginLeft: 12,
     fontSize: 18,
     fontWeight: "700",
-    color: "#333",
     flex: 1,
   },
   scrollContent: {
@@ -366,7 +420,6 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   quizCard: {
-    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
     shadowColor: "#000",
@@ -382,17 +435,14 @@ const styles = StyleSheet.create({
   questionText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#222",
     marginBottom: 12,
   },
   optionBtn: {
     borderWidth: 1,
-    borderColor: "#d9d9d9",
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 10,
-    backgroundColor: "#fff",
   },
   optionSelected: {
     borderColor: "#20B2AA",
@@ -408,7 +458,6 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontSize: 14,
-    color: "#333",
   },
   optionTextSelected: {
     fontWeight: "700",
@@ -452,7 +501,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   resultBox: {
-    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -463,7 +511,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 6,
-    color: "#333",
   },
   resultScore: {
     fontSize: 18,
@@ -472,20 +519,16 @@ const styles = StyleSheet.create({
   },
   resultHint: {
     marginTop: 4,
-    color: "#555",
   },
   descriptionBox: {
-    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
   },
   descriptionTitle: {
     fontWeight: "700",
     marginBottom: 6,
-    color: "#333",
   },
   descriptionText: {
-    color: "#555",
     lineHeight: 20,
   },
   explanationBox: {
@@ -497,7 +540,6 @@ const styles = StyleSheet.create({
   explanationTitle: {
     fontWeight: "700",
     marginBottom: 4,
-    color: "#333",
   },
   explanationText: {
     color: "#555",
@@ -511,7 +553,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     marginTop: 12,
-    color: "#777",
   },
   resultStatus: {
     marginTop: 8,
@@ -532,7 +573,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 12,
     marginBottom: 16,
-    backgroundColor: "#fff",
   },
   retryText: {
     color: "#20B2AA",

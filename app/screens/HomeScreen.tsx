@@ -2,7 +2,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useWindowDimensions } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -17,10 +17,13 @@ import {
   RefreshControl,
   Alert,
 } from "react-native";
+import { ThemedView } from "../../components/themed-view";
+import { ThemedText } from "../../components/themed-text";
 import { RootStackParamList } from "../navigation/AppNavigator";
 import { database } from "../firebase";
 import { DataSnapshot, onValue, off, ref } from "firebase/database";
 import { getCategories, getCourses, getCoursesByCategory, getUsers, updateAllCategoryCounts, getUserByUsername, saveCourse, unsaveCourse, getSavedCourses } from '../api/api';
+import { useThemeColors } from "../../hooks/use-theme-colors";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -45,6 +48,7 @@ interface Instructor {
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const colors = useThemeColors();
   const [selectedCategory, setSelectedCategory] = useState(0);
   const [selectedFilter, setSelectedFilter] = useState(0);
   const [username, setUsername] = useState<string>("KhaiTien");
@@ -246,7 +250,7 @@ const HomeScreen: React.FC = () => {
   };
 
   const renderCourseCard = ({ item }: { item: Course }) => (
-    <TouchableOpacity style={styles.courseCard} activeOpacity={0.8} onPress={() => navigation.navigate('CourseDetail', { courseId: item.id })}>
+    <TouchableOpacity style={[styles.courseCard, dynamicStyles.courseCard]} activeOpacity={0.8} onPress={() => navigation.navigate('CourseDetail', { courseId: item.id })}>
       <View style={styles.courseImageContainer}>
         { (item.thumbnailUrl || item.image) ? (
           <Image source={{ uri: (item.thumbnailUrl || item.image) as string }} style={styles.courseImage} resizeMode="cover" />
@@ -263,56 +267,186 @@ const HomeScreen: React.FC = () => {
           <MaterialIcons
             name={savedCourses[item.id] ? "bookmark" : "bookmark-border"}
             size={20}
-            color={savedCourses[item.id] ? "#20B2AA" : "#666"}
+            color={savedCourses[item.id] ? "#20B2AA" : colors.secondaryText}
           />
         </TouchableOpacity>
       </View>
-      <Text style={styles.courseCategory} numberOfLines={1}>{item.categoryName || item.category || 'Course'}</Text>
-      <Text style={styles.courseTitle} numberOfLines={2}>
+      <ThemedText style={[styles.courseCategory, dynamicStyles.courseCategory]} numberOfLines={1}>{item.categoryName || item.category || 'Course'}</ThemedText>
+      <ThemedText style={[styles.courseTitle, dynamicStyles.courseTitle]} numberOfLines={2}>
         {item.title}
-      </Text>
+      </ThemedText>
       <View style={styles.courseStats}>
-        <Text style={styles.lessonCount}>{item.totalLessons} bài</Text>
+        <ThemedText style={[styles.lessonCount, dynamicStyles.lessonCount]}>{item.totalLessons} bài</ThemedText>
         <View style={styles.ratingContainer}>
           <MaterialIcons name="star" size={14} color="#FFD700" />
-          <Text style={styles.rating}>{item.rating}</Text>
+          <ThemedText style={[styles.rating, dynamicStyles.rating]}>{item.rating}</ThemedText>
         </View>
-        <Text style={styles.studentCount}>{item.students} Std</Text>
+        <ThemedText style={[styles.studentCount, dynamicStyles.studentCount]}>{item.students} Std</ThemedText>
       </View>
     </TouchableOpacity>
   );
 
   const renderInstructor = ({ item }: { item: Instructor }) => (
     <TouchableOpacity
-      style={styles.instructorItem}
+      style={[styles.instructorItem, dynamicStyles.instructorItem]}
       activeOpacity={0.85}
       onPress={() => navigation.navigate('InstructorDetail', { instructorId: item.uid })}
     >
       {item.profileImage ? (
         <Image source={{ uri: item.profileImage }} style={styles.instructorAvatar} />
       ) : (
-        <View style={styles.instructorAvatar}>
-          <Text style={styles.instructorInitial}>{(item.fullName || "?").charAt(0)}</Text>
+        <View style={[styles.instructorAvatar, dynamicStyles.instructorAvatar]}>
+          <ThemedText style={styles.instructorInitial}>{(item.fullName || "?").charAt(0)}</ThemedText>
         </View>
       )}
-      <Text style={styles.instructorName} numberOfLines={1}>{item.fullName}</Text>
+      <ThemedText style={[styles.instructorName, dynamicStyles.instructorName]} numberOfLines={1}>{item.fullName}</ThemedText>
     </TouchableOpacity>
   );
 
-  if (loading) return <View style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text>Đang tải...</Text></View>;
-  if (error) return <View style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text>{error}</Text></View>;
+  // Dynamic styles dựa trên theme
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.containerBackground,
+    },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      paddingHorizontal: 20,
+      paddingTop: 50,
+      paddingBottom: 20,
+      backgroundColor: colors.headerBackground,
+    },
+    greeting: {
+      fontSize: 24,
+      fontWeight: "bold",
+      color: colors.primaryText,
+      marginBottom: 4,
+    },
+    subGreeting: {
+      fontSize: 16,
+      color: colors.secondaryText,
+    },
+    searchBar: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.searchBackground,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      marginRight: 12,
+    },
+    searchInput: {
+      flex: 1,
+      marginLeft: 8,
+      fontSize: 16,
+      color: colors.primaryText,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: "bold",
+      color: colors.primaryText,
+    },
+    viewAllText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.tint,
+    },
+    courseCategory: {
+      fontSize: 12,
+      color: "#FF8C00",
+      marginBottom: 4,
+    },
+    courseTitle: {
+      fontSize: 14,
+      fontWeight: "bold",
+      color: colors.primaryText,
+      marginBottom: 6,
+    },
+    rating: {
+      fontSize: 12,
+      color: colors.secondaryText,
+      marginLeft: 4,
+    },
+    studentCount: {
+      fontSize: 12,
+      color: colors.secondaryText,
+      marginLeft: 8,
+    },
+    lessonCount: {
+      fontSize: 12,
+      color: colors.secondaryText,
+    },
+    instructorName: {
+      fontSize: 12,
+      color: colors.primaryText,
+      marginTop: 4,
+      textAlign: "center",
+    },
+    categoryText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.primaryText,
+    },
+    categoryCountText: {
+      fontSize: 11,
+      color: colors.secondaryText,
+      marginTop: 2,
+    },
+    filterText: {
+      fontSize: 13,
+      fontWeight: "500",
+      color: colors.primaryText,
+    },
+    emptyText: {
+      color: colors.secondaryText,
+    },
+    categoryChip: {
+      backgroundColor: colors.tabBackground,
+    },
+    filterChip: {
+      backgroundColor: colors.tabBackground,
+    },
+    courseCard: {
+      backgroundColor: colors.cardBackground,
+    },
+    section: {
+      backgroundColor: colors.sectionBackground,
+    },
+    instructorItem: {
+      backgroundColor: colors.cardBackground,
+      borderWidth: 1,
+      borderColor: colors.borderColor,
+    },
+    instructorAvatar: {
+      backgroundColor: colors.tint,
+    },
+  }), [colors]);
+
+  if (loading) return (
+    <ThemedView style={{flex:1,justifyContent:'center',alignItems:'center'}}>
+      <ThemedText>Đang tải...</ThemedText>
+    </ThemedView>
+  );
+  if (error) return (
+    <ThemedView style={{flex:1,justifyContent:'center',alignItems:'center'}}>
+      <ThemedText>{error}</ThemedText>
+    </ThemedView>
+  );
 
   return (
-    <View style={styles.container}>
+    <ThemedView style={[styles.container, dynamicStyles.container]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchAll(false)} />}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, dynamicStyles.header]}>
           <View style={styles.greetingContainer}>
-            <Text style={styles.greeting}>Xin chào, {username}</Text>
-            <Text style={styles.subGreeting}>Bạn muốn học gì vào hôm nay?</Text>
+            <ThemedText style={[styles.greeting, dynamicStyles.greeting]}>Xin chào, {username}</ThemedText>
+            <ThemedText style={[styles.subGreeting, dynamicStyles.subGreeting]}>Bạn muốn học gì vào hôm nay?</ThemedText>
           </View>
           <TouchableOpacity
             style={styles.notificationButton}
@@ -330,15 +464,15 @@ const HomeScreen: React.FC = () => {
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <TouchableOpacity
-            style={styles.searchBar}
+            style={[styles.searchBar, dynamicStyles.searchBar]}
             onPress={() => navigation.navigate("Search")}
             activeOpacity={0.8}
           >
-            <MaterialIcons name="search" size={20} color="#999" />
+            <MaterialIcons name="search" size={20} color={colors.placeholderText} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, dynamicStyles.searchInput]}
               placeholder="Tìm kiếm..."
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholderText}
               editable={false}
               pointerEvents="none"
             />
@@ -368,9 +502,9 @@ const HomeScreen: React.FC = () => {
                 style={[styles.banner, { width: screenWidth - 40 }]}
               >
                 <View style={styles.bannerContent}>
-                  <Text style={styles.bannerDiscount}>SPECIAL</Text>
-                  <Text style={styles.bannerTitle}>{item.title}</Text>
-                  <Text style={styles.bannerDescription}>{item.desc}</Text>
+                  <ThemedText style={styles.bannerDiscount}>SPECIAL</ThemedText>
+                  <ThemedText style={styles.bannerTitle}>{item.title}</ThemedText>
+                  <ThemedText style={styles.bannerDescription}>{item.desc}</ThemedText>
                 </View>
               </LinearGradient>
             )}
@@ -388,11 +522,11 @@ const HomeScreen: React.FC = () => {
         </View>
 
         {/* Khám phá Section */}
-        <View style={styles.section}>
+        <View style={[styles.section, dynamicStyles.section]}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Khám phá</Text>
+            <ThemedText style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>Khám phá</ThemedText>
             <TouchableOpacity onPress={() => navigation.navigate("Category")}>
-              <Text style={styles.viewAllText}>XEM TẤT CẢ</Text>
+              <ThemedText style={[styles.viewAllText, dynamicStyles.viewAllText]}>XEM TẤT CẢ</ThemedText>
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -405,6 +539,7 @@ const HomeScreen: React.FC = () => {
                 key={category.id}
                 style={[
                   styles.categoryChip,
+                  dynamicStyles.categoryChip,
                   selectedCategory === index && styles.categoryChipActive,
                 ]}
                 onPress={() => {
@@ -414,22 +549,24 @@ const HomeScreen: React.FC = () => {
                   }
                 }}
               >
-                <Text
+                <ThemedText
                   style={[
                     styles.categoryText,
+                    dynamicStyles.categoryText,
                     selectedCategory === index && styles.categoryTextActive,
                   ]}
                 >
                   {category.name}
-                </Text>
-                <Text
+                </ThemedText>
+                <ThemedText
                   style={[
                     styles.categoryCountText,
+                    dynamicStyles.categoryCountText,
                     selectedCategory === index && styles.categoryCountTextActive,
                   ]}
                 >
                   {category.courseCount ?? 0} khóa học
-                </Text>
+                </ThemedText>
                 {category.iconUrl ? (
                   <Image
                     source={{ uri: category.iconUrl }}
@@ -443,9 +580,9 @@ const HomeScreen: React.FC = () => {
         </View>
 
         {/* Khóa học phổ biến Section */}
-        <View style={styles.section}>
+        <View style={[styles.section, dynamicStyles.section]}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Khóa học phổ biến</Text>
+            <ThemedText style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>Khóa học phổ biến</ThemedText>
             <TouchableOpacity
               onPress={() =>
                 navigation.navigate("CourseList", {
@@ -454,7 +591,7 @@ const HomeScreen: React.FC = () => {
                 })
               }
             >
-              <Text style={styles.viewAllText}>XEM TẤT CẢ</Text>
+              <ThemedText style={[styles.viewAllText, dynamicStyles.viewAllText]}>XEM TẤT CẢ</ThemedText>
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -467,6 +604,7 @@ const HomeScreen: React.FC = () => {
                 key={filter}
                 style={[
                   styles.filterChip,
+                  dynamicStyles.filterChip,
                   selectedFilter === index && styles.filterChipActive,
                 ]}
                 onPress={() => {
@@ -479,23 +617,24 @@ const HomeScreen: React.FC = () => {
                   setSelectedFilter(index);
                 }}
               >
-                <Text
+                <ThemedText
                   style={[
                     styles.filterText,
+                    dynamicStyles.filterText,
                     selectedFilter === index && styles.filterTextActive,
                   ]}
                 >
                   {filter}
-                </Text>
+                </ThemedText>
               </TouchableOpacity>
             ))}
           </ScrollView>
           {popularCourses.length === 0 ? (
             <View style={{ padding: 20, alignItems: 'center', minHeight: 200 }}>
-              <Text style={{ color: '#999' }}>Không có khóa học nào (count: {popularCourses.length})</Text>
-              <Text style={{ color: '#999', fontSize: 12, marginTop: 5 }}>
+              <ThemedText style={[dynamicStyles.emptyText]}>Không có khóa học nào (count: {popularCourses.length})</ThemedText>
+              <ThemedText style={[dynamicStyles.emptyText, { fontSize: 12, marginTop: 5 }]}>
                 Filter: {selectedFilter}, Categories: {categories.length}
-              </Text>
+              </ThemedText>
             </View>
           ) : (
             <FlatList
@@ -512,11 +651,11 @@ const HomeScreen: React.FC = () => {
         </View>
 
         {/* Người hướng dẫn hàng đầu Section */}
-        <View style={styles.section}>
+        <View style={[styles.section, dynamicStyles.section]}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Người hướng dẫn hàng đầu</Text>
+            <ThemedText style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>Người hướng dẫn hàng đầu</ThemedText>
             <TouchableOpacity onPress={() => navigation.navigate('MentorList')}>
-              <Text style={styles.viewAllText}>XEM TẤT CẢ</Text>
+              <ThemedText style={[styles.viewAllText, dynamicStyles.viewAllText]}>XEM TẤT CẢ</ThemedText>
             </TouchableOpacity>
           </View>
           <FlatList
@@ -529,7 +668,7 @@ const HomeScreen: React.FC = () => {
           />
         </View>
       </ScrollView>
-    </View>
+    </ThemedView>
   );
 };
 
@@ -589,7 +728,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -599,7 +737,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 8,
     fontSize: 16,
-    color: "#333",
   },
   filterButton: {
     width: 48,
@@ -662,7 +799,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#333",
   },
   viewAllText: {
     fontSize: 14,
@@ -681,7 +817,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 18,
-    backgroundColor: "#f5f5f5",
     minHeight: 140,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -694,7 +829,6 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 14,
-    color: "#444",
     fontWeight: "600",
     textAlign: "center",
     maxWidth: 116,
@@ -711,7 +845,6 @@ const styles = StyleSheet.create({
   },
   categoryCountText: {
     fontSize: 11,
-    color: "#888",
     fontWeight: "500",
     textAlign: "center",
     marginTop: 4,
@@ -738,14 +871,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 12,
-    backgroundColor: "#f5f5f5",
   },
   filterChipActive: {
     backgroundColor: "#20B2AA",
   },
   filterText: {
     fontSize: 14,
-    color: "#666",
     fontWeight: "500",
   },
   filterTextActive: {
@@ -757,7 +888,6 @@ const styles = StyleSheet.create({
   courseCard: {
     width: 200,
     marginRight: 15,
-    backgroundColor: "#fff",
     borderRadius: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -804,7 +934,6 @@ const styles = StyleSheet.create({
   courseTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#333",
     marginBottom: 8,
     paddingHorizontal: 12,
   },
@@ -827,12 +956,10 @@ const styles = StyleSheet.create({
   },
   rating: {
     fontSize: 12,
-    color: "#666",
     marginLeft: 2,
   },
   studentCount: {
     fontSize: 12,
-    color: "#666",
   },
   instructorsContainer: {
     paddingLeft: 20,
@@ -840,36 +967,36 @@ const styles = StyleSheet.create({
   instructorItem: {
     alignItems: "center",
     marginRight: 16,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
-    paddingVertical: 10,
+    borderRadius: 16,
+    paddingVertical: 16,
     paddingHorizontal: 12,
     width: 120,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 1,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   instructorAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#e0e0e0",
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 10,
     overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "#20B2AA",
   },
   instructorInitial: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: "bold",
     color: "#fff",
   },
   instructorName: {
-    fontSize: 14,
-    color: "#333",
-    fontWeight: "500",
+    fontSize: 13,
+    fontWeight: "600",
     textAlign: 'center',
+    maxWidth: 100,
   },
 });

@@ -7,6 +7,9 @@ import { ref, onValue, off, push, set, update, query, orderByChild, equalTo, get
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getUserByUsername, getUsers } from "../api/api";
 import { MaterialIcons } from "@expo/vector-icons";
+import { ThemedText } from "../../components/themed-text";
+import { ThemedView } from "../../components/themed-view";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 
 type ChatItem = {
   id: string;
@@ -21,6 +24,7 @@ type ChatItem = {
 const InboxScreen: React.FC = () => {
   const navigation = useNavigation<RootStackNavProps>();
   const route = useRoute<any>();
+  const colors = useThemeColors();
   const [tab, setTab] = useState<"chat" | "calls">("chat");
   const [search, setSearch] = useState("");
   const [chats, setChats] = useState<ChatItem[]>([]);
@@ -325,9 +329,63 @@ const InboxScreen: React.FC = () => {
     });
   };
 
+  // Dynamic styles
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.containerBackground,
+    },
+    header: {
+      backgroundColor: colors.headerBackground,
+    },
+    headerTitle: {
+      color: colors.primaryText,
+    },
+    searchBox: {
+      backgroundColor: colors.searchBackground,
+    },
+    searchInput: {
+      color: colors.primaryText,
+    },
+    row: {
+      backgroundColor: colors.cardBackground,
+    },
+    name: {
+      color: colors.primaryText,
+    },
+    preview: {
+      color: colors.secondaryText,
+    },
+    time: {
+      color: colors.secondaryText,
+    },
+    tabText: {
+      color: colors.primaryText,
+    },
+    emptyText: {
+      color: colors.secondaryText,
+    },
+    modalContentTop: {
+      backgroundColor: colors.cardBackground,
+    },
+    modalTitle: {
+      color: colors.primaryText,
+    },
+    modalSearchInput: {
+      color: colors.primaryText,
+      backgroundColor: colors.searchBackground,
+    },
+    userName: {
+      color: colors.primaryText,
+    },
+    userUsername: {
+      color: colors.secondaryText,
+    },
+  }), [colors]);
+
   const renderItem = ({ item }: { item: ChatItem }) => (
     <TouchableOpacity
-      style={[styles.row, item.unread ? styles.rowUnread : undefined]}
+      style={[styles.row, dynamicStyles.row, item.unread ? styles.rowUnread : undefined]}
       onPress={async () => {
         if (database && currentUserId) {
           try {
@@ -352,11 +410,11 @@ const InboxScreen: React.FC = () => {
         </View>
       )}
       <View style={styles.rowCenter}>
-        <Text numberOfLines={1} style={styles.name}>{item.name}</Text>
-        <Text numberOfLines={1} style={styles.preview}>{item.lastMessage}</Text>
+        <ThemedText numberOfLines={1} style={[styles.name, dynamicStyles.name]}>{item.name}</ThemedText>
+        <ThemedText numberOfLines={1} style={[styles.preview, dynamicStyles.preview]}>{item.lastMessage}</ThemedText>
       </View>
       <View style={styles.rowRight}>
-        <Text style={styles.time}>{item.time}</Text>
+        <ThemedText style={[styles.time, dynamicStyles.time]}>{item.time}</ThemedText>
         {item.unread ? <View style={styles.unreadDot} /> : null}
       </View>
     </TouchableOpacity>
@@ -364,37 +422,37 @@ const InboxScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+        <View style={[styles.header, dynamicStyles.header]}>
           <View style={styles.headerLeft}>
             <TouchableOpacity
               style={styles.backButton}
               onPress={() => navigation.goBack()}
             >
-              <MaterialIcons name="arrow-back" size={24} color="#333" />
+              <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
             </TouchableOpacity>
-        <Text style={styles.headerTitle}>Tin nhắn</Text>
+        <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]}>Tin nhắn</ThemedText>
           </View>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#20B2AA" />
-          <Text style={styles.loadingText}>Đang tải...</Text>
+          <ThemedText style={[styles.loadingText, { color: colors.secondaryText }]}>Đang tải...</ThemedText>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <MaterialIcons name="arrow-back" size={24} color="#333" />
+            <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Tin nhắn</Text>
+          <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]}>Tin nhắn</ThemedText>
         </View>
         <TouchableOpacity onPress={createNewChat} style={styles.newChatButton}>
           <Text style={styles.newChatButtonText}>+ Mới</Text>
@@ -402,18 +460,19 @@ const InboxScreen: React.FC = () => {
       </View>
       <View style={styles.tabs}>
         <TouchableOpacity style={[styles.tabBtn, tab === "chat" && styles.tabActive]} onPress={() => setTab("chat")}>
-          <Text style={[styles.tabText, tab === "chat" && styles.tabTextActive]}>Các cuộc hội thoại</Text>
+          <ThemedText style={[styles.tabText, dynamicStyles.tabText, tab === "chat" && styles.tabTextActive]}>Các cuộc hội thoại</ThemedText>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.tabBtn, tab === "calls" && styles.tabActive]} onPress={() => setTab("calls")}>
-          <Text style={[styles.tabText, tab === "calls" && styles.tabTextActive]}>Các cuộc gọi</Text>
+          <ThemedText style={[styles.tabText, dynamicStyles.tabText, tab === "calls" && styles.tabTextActive]}>Các cuộc gọi</ThemedText>
         </TouchableOpacity>
       </View>
-      <View style={styles.searchBox}>
+      <View style={[styles.searchBox, dynamicStyles.searchBox]}>
         <TextInput
           placeholder="Tìm kiếm..."
+          placeholderTextColor={colors.placeholderText}
           value={search}
           onChangeText={setSearch}
-          style={styles.searchInput}
+          style={[styles.searchInput, dynamicStyles.searchInput]}
         />
       </View>
       <FlatList
@@ -423,8 +482,8 @@ const InboxScreen: React.FC = () => {
         ItemSeparatorComponent={() => <View style={styles.sep} />}
         ListEmptyComponent={() => (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Chưa có cuộc hội thoại nào</Text>
-            <Text style={styles.emptySubtext}>Nhấn nút "+ Mới" để bắt đầu trò chuyện</Text>
+            <ThemedText style={[styles.emptyText, dynamicStyles.emptyText]}>Chưa có cuộc hội thoại nào</ThemedText>
+            <ThemedText style={[styles.emptySubtext, { color: colors.secondaryText }]}>Nhấn nút "+ Mới" để bắt đầu trò chuyện</ThemedText>
           </View>
         )}
       />
@@ -437,23 +496,24 @@ const InboxScreen: React.FC = () => {
         onRequestClose={() => !creatingConversation && setShowUserPicker(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContentTop}>
+          <View style={[styles.modalContentTop, dynamicStyles.modalContentTop]}>
             {/* Header cố định */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn người dùng</Text>
+              <ThemedText style={[styles.modalTitle, dynamicStyles.modalTitle]}>Chọn người dùng</ThemedText>
               <TouchableOpacity 
                 onPress={() => !creatingConversation && setShowUserPicker(false)}
                 disabled={creatingConversation}
               >
-                <MaterialIcons name="close" size={24} color={creatingConversation ? "#ccc" : "#333"} />
+                <MaterialIcons name="close" size={24} color={creatingConversation ? colors.placeholderText : colors.primaryText} />
               </TouchableOpacity>
             </View>
             
             {/* Search input cố định */}
             <View style={styles.modalSearchContainer}>
               <TextInput
-                style={styles.modalSearchInput}
+                style={[styles.modalSearchInput, dynamicStyles.modalSearchInput]}
                 placeholder="Tìm kiếm theo tên hoặc username..."
+                placeholderTextColor={colors.placeholderText}
                 value={userSearchQuery}
                 onChangeText={setUserSearchQuery}
                 editable={!creatingConversation}
@@ -464,7 +524,7 @@ const InboxScreen: React.FC = () => {
             {creatingConversation && (
               <View style={styles.creatingOverlay}>
                 <ActivityIndicator size="large" color="#20B2AA" />
-                <Text style={styles.creatingText}>Đang tạo cuộc hội thoại...</Text>
+                <ThemedText style={[styles.creatingText, { color: colors.primaryText }]}>Đang tạo cuộc hội thoại...</ThemedText>
               </View>
             )}
 
@@ -489,9 +549,9 @@ const InboxScreen: React.FC = () => {
                       </View>
                     )}
                     <View style={styles.userInfo}>
-                      <Text style={styles.userName}>{item.fullName || item.username || "Unknown User"}</Text>
+                      <ThemedText style={[styles.userName, dynamicStyles.userName]}>{item.fullName || item.username || "Unknown User"}</ThemedText>
                       {item.username && item.fullName ? (
-                        <Text style={styles.userUsername}>@{item.username}</Text>
+                        <ThemedText style={[styles.userUsername, dynamicStyles.userUsername]}>@{item.username}</ThemedText>
                       ) : null}
                     </View>
                   </View>
@@ -500,7 +560,7 @@ const InboxScreen: React.FC = () => {
               ItemSeparatorComponent={() => <View style={styles.userSeparator} />}
               ListEmptyComponent={() => (
                 <View style={styles.emptyUserList}>
-                  <Text style={styles.emptyUserText}>Không tìm thấy người dùng</Text>
+                  <ThemedText style={[styles.emptyUserText, { color: colors.secondaryText }]}>Không tìm thấy người dùng</ThemedText>
                 </View>
               )}
               scrollEnabled={!creatingConversation}
@@ -513,7 +573,7 @@ const InboxScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8f8f8" },
+  container: { flex: 1 },
   header: { 
     flexDirection: "row",
     alignItems: "center",
@@ -534,7 +594,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  headerTitle: { fontSize: 20, fontWeight: "700", color: "#333", marginLeft: 8 },
+  headerTitle: { fontSize: 20, fontWeight: "700", marginLeft: 8 },
   newChatButton: {
     backgroundColor: "#20B2AA",
     paddingHorizontal: 12,
@@ -553,7 +613,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: "#666",
   },
   emptyContainer: {
     flex: 1,
@@ -564,31 +623,29 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#333",
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#666",
     textAlign: "center",
     paddingHorizontal: 40,
   },
   tabs: { flexDirection: "row", paddingHorizontal: 20, marginBottom: 8 },
   tabBtn: { flex: 1, backgroundColor: "#e9eef3", borderRadius: 16, paddingVertical: 10, alignItems: "center", marginRight: 8 },
   tabActive: { backgroundColor: "#20B2AA" },
-  tabText: { fontWeight: "700", color: "#333" },
+  tabText: { fontWeight: "700" },
   tabTextActive: { color: "#fff" },
   searchBox: { paddingHorizontal: 20, marginBottom: 8 },
-  searchInput: { backgroundColor: "#fff", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: "#e6e6e6" },
-  row: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 12 },
+  searchInput: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1 },
+  row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12 },
   rowUnread: { backgroundColor: "#f6fffb" },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#20B2AA", marginRight: 12, justifyContent: "center", alignItems: "center", overflow: "hidden" },
   avatarText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
   rowCenter: { flex: 1 },
-  name: { fontWeight: "700", color: "#222" },
-  preview: { color: "#666", marginTop: 2 },
+  name: { fontWeight: "700" },
+  preview: { marginTop: 2 },
   rowRight: { alignItems: "center", flexDirection: "row", gap: 6 },
-  time: { color: "#999", fontSize: 12 },
+  time: { fontSize: 12 },
   unreadDot: {
     width: 10,
     height: 10,
@@ -603,7 +660,6 @@ const styles = StyleSheet.create({
     paddingTop: 50,
   },
   modalContentTop: {
-    backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: "90%",
@@ -621,18 +677,14 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#333",
   },
   modalSearchContainer: {
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 8,
-    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
   },
   modalSearchInput: {
-    backgroundColor: "#f2f2f2",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,

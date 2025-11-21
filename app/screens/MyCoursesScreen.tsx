@@ -1,7 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +15,9 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RootStackParamList } from "../navigation/AppNavigator";
+import { ThemedText } from "../../components/themed-text";
+import { ThemedView } from "../../components/themed-view";
+import { useThemeColors } from "../../hooks/use-theme-colors";
 import {
   getUserByUsername,
   getUserCourses,
@@ -45,6 +48,7 @@ interface Course {
 
 const MyCoursesScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const colors = useThemeColors();
   const [activeTab, setActiveTab] = useState<
     "completed" | "ongoing" | "created" | "saved"
   >("ongoing");
@@ -224,26 +228,64 @@ const MyCoursesScreen: React.FC = () => {
       (c.title || "").toLowerCase().includes(searchText.toLowerCase())
   );
 
+  // Dynamic styles
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.containerBackground,
+    },
+    header: {
+      backgroundColor: colors.headerBackground,
+    },
+    headerTitle: {
+      color: colors.primaryText,
+    },
+    searchBar: {
+      backgroundColor: colors.searchBackground,
+    },
+    searchInput: {
+      color: colors.primaryText,
+    },
+    tabButton: {
+      backgroundColor: colors.tabBackground,
+    },
+    tabText: {
+      color: colors.primaryText,
+    },
+    card: {
+      backgroundColor: colors.cardBackground,
+    },
+    category: {
+      color: colors.secondaryText,
+    },
+    title: {
+      color: colors.primaryText,
+    },
+    mutedSmall: {
+      color: colors.secondaryText,
+    },
+  }), [colors]);
+
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
+      <ThemedView style={[styles.container, dynamicStyles.container, styles.center]}>
         <ActivityIndicator size="large" color="#20B2AA" />
-        <Text style={styles.muted}>Đang tải khóa học...</Text>
-      </View>
+        <ThemedText style={[styles.muted, { color: colors.secondaryText }]}>Đang tải khóa học...</ThemedText>
+      </ThemedView>
     );
   }
   if (error) {
     return (
-      <View style={[styles.container, styles.center]}>
+      <ThemedView style={[styles.container, dynamicStyles.container, styles.center]}>
         <MaterialIcons name="error-outline" size={40} color="#e74c3c" />
-        <Text style={styles.error}>{error}</Text>
-      </View>
+        <ThemedText style={[styles.error, { color: colors.primaryText }]}>{error}</ThemedText>
+      </ThemedView>
     );
   }
 
   const renderEnrolledCourse = ({ item }: { item: Course }) => (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, dynamicStyles.card]}
       activeOpacity={0.8}
       onPress={() =>
         navigation.navigate("CourseLessons" as any, {
@@ -264,18 +306,18 @@ const MyCoursesScreen: React.FC = () => {
         <View style={styles.thumb} />
       )}
       <View style={styles.cardBody}>
-        <Text style={styles.category} numberOfLines={1}>
+        <ThemedText style={[styles.category, dynamicStyles.category]} numberOfLines={1}>
           {item.categoryName || item.category || "Course"}
-        </Text>
-        <Text style={styles.title} numberOfLines={2}>
+        </ThemedText>
+        <ThemedText style={[styles.title, dynamicStyles.title]} numberOfLines={2}>
           {item.title || item.id}
-        </Text>
+        </ThemedText>
         <View style={styles.metaRow}>
           <View style={styles.ratingRow}>
             <MaterialIcons name="star" size={14} color="#FFD700" />
-            <Text style={styles.mutedSmall}>{item.rating ?? 0}</Text>
+            <ThemedText style={[styles.mutedSmall, dynamicStyles.mutedSmall]}>{item.rating ?? 0}</ThemedText>
           </View>
-          <Text style={styles.mutedSmall}>{item.totalLessons ?? 0} bài</Text>
+          <ThemedText style={[styles.mutedSmall, dynamicStyles.mutedSmall]}>{item.totalLessons ?? 0} bài</ThemedText>
         </View>
         <View style={styles.ctaRow}>
           <TouchableOpacity
@@ -313,7 +355,7 @@ const MyCoursesScreen: React.FC = () => {
 
   const renderCreatedItem = ({ item }: { item: Course }) => (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, dynamicStyles.card]}
       activeOpacity={0.8}
       onPress={() =>
         navigation.navigate("CourseDetail" as any, { courseId: item.id })
@@ -332,9 +374,9 @@ const MyCoursesScreen: React.FC = () => {
       )}
       <View style={styles.cardBody}>
         <View style={styles.categoryRow}>
-          <Text style={styles.category} numberOfLines={1}>
+          <ThemedText style={[styles.category, dynamicStyles.category]} numberOfLines={1}>
             {item.categoryName || item.category || "Course"}
-          </Text>
+          </ThemedText>
           <View
             style={[
               styles.statusBadge,
@@ -346,15 +388,15 @@ const MyCoursesScreen: React.FC = () => {
             </Text>
           </View>
         </View>
-        <Text style={styles.title} numberOfLines={2}>
+        <ThemedText style={[styles.title, dynamicStyles.title]} numberOfLines={2}>
           {item.title || item.id}
-        </Text>
+        </ThemedText>
         <View style={styles.metaRow}>
           <View style={styles.ratingRow}>
             <MaterialIcons name="people" size={14} color="#20B2AA" />
-            <Text style={styles.mutedSmall}>{item.students ?? 0} học viên</Text>
+            <ThemedText style={[styles.mutedSmall, dynamicStyles.mutedSmall]}>{item.students ?? 0} học viên</ThemedText>
           </View>
-          <Text style={styles.mutedSmall}>{item.totalLessons ?? 0} bài</Text>
+          <ThemedText style={[styles.mutedSmall, dynamicStyles.mutedSmall]}>{item.totalLessons ?? 0} bài</ThemedText>
         </View>
         <View style={styles.ctaRow}>
           <TouchableOpacity
@@ -376,21 +418,21 @@ const MyCoursesScreen: React.FC = () => {
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <ThemedView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.primaryText} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Khóa học của tôi</Text>
+        <ThemedText style={[styles.headerTitle, dynamicStyles.headerTitle]}>Khóa học của tôi</ThemedText>
       </View>
 
       <View style={styles.searchRow}>
-        <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={20} color="#999" />
+        <View style={[styles.searchBar, dynamicStyles.searchBar]}>
+          <MaterialIcons name="search" size={20} color={colors.placeholderText} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, dynamicStyles.searchInput]}
             placeholder="Tìm kiếm khóa học..."
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholderText}
             value={searchText}
             onChangeText={setSearchText}
           />
@@ -402,36 +444,39 @@ const MyCoursesScreen: React.FC = () => {
 
       <View style={styles.tabs}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === "completed" && styles.tabActive]}
+          style={[styles.tab, dynamicStyles.tabButton, activeTab === "completed" && styles.tabActive]}
           onPress={() => setActiveTab("completed")}
         >
-          <Text
+          <ThemedText
             style={[
               styles.tabText,
+              dynamicStyles.tabText,
               activeTab === "completed" && styles.tabTextActive,
             ]}
             numberOfLines={1}
           >
             Hoàn thành
-          </Text>
+          </ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === "ongoing" && styles.tabActive]}
+          style={[styles.tab, dynamicStyles.tabButton, activeTab === "ongoing" && styles.tabActive]}
           onPress={() => setActiveTab("ongoing")}
         >
-          <Text
+          <ThemedText
             style={[
               styles.tabText,
+              dynamicStyles.tabText,
               activeTab === "ongoing" && styles.tabTextActive,
             ]}
             numberOfLines={1}
           >
             Đang học
-          </Text>
+          </ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.tab,
+            dynamicStyles.tabButton,
             activeTab === "created" && styles.tabActive,
             userRole !== "instructor" && styles.tabLocked,
           ]}
@@ -452,34 +497,36 @@ const MyCoursesScreen: React.FC = () => {
             <MaterialIcons
               name="lock"
               size={12}
-              color="#999"
+              color={colors.placeholderText}
               style={{ marginRight: 2 }}
             />
           )}
-          <Text
+          <ThemedText
             style={[
               styles.tabText,
+              dynamicStyles.tabText,
               activeTab === "created" && styles.tabTextActive,
               userRole !== "instructor" && styles.tabTextLocked,
             ]}
             numberOfLines={1}
           >
             Đã tạo
-          </Text>
+          </ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === "saved" && styles.tabActive]}
+          style={[styles.tab, dynamicStyles.tabButton, activeTab === "saved" && styles.tabActive]}
           onPress={() => setActiveTab("saved")}
         >
-          <Text
+          <ThemedText
             style={[
               styles.tabText,
+              dynamicStyles.tabText,
               activeTab === "saved" && styles.tabTextActive,
             ]}
             numberOfLines={1}
           >
             Đã lưu
-          </Text>
+          </ThemedText>
         </TouchableOpacity>
       </View>
       {activeTab === "created" ? (
@@ -509,11 +556,11 @@ const MyCoursesScreen: React.FC = () => {
           refreshing={refreshing}
           onRefresh={onRefresh}
           ListEmptyComponent={
-            <Text
-              style={[styles.muted, { textAlign: "center", marginTop: 40 }]}
+            <ThemedText
+              style={[{ textAlign: "center", marginTop: 40, color: colors.secondaryText }]}
             >
               Chưa có khóa học đã lưu
-            </Text>
+            </ThemedText>
           }
         />
       ) : (
@@ -526,20 +573,20 @@ const MyCoursesScreen: React.FC = () => {
           refreshing={refreshing}
           onRefresh={onRefresh}
           ListEmptyComponent={
-            <Text
-              style={[styles.muted, { textAlign: "center", marginTop: 40 }]}
+            <ThemedText
+              style={[{ textAlign: "center", marginTop: 40, color: colors.secondaryText }]}
             >
               Chưa có khóa học
-            </Text>
+            </ThemedText>
           }
         />
       )}
-    </View>
+    </ThemedView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8f8f8" },
+  container: { flex: 1 },
   center: { justifyContent: "center", alignItems: "center" },
   header: {
     flexDirection: "row",
@@ -547,30 +594,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 16,
-    backgroundColor: "#fff",
   },
   headerTitle: {
     marginLeft: 12,
     fontSize: 18,
     fontWeight: "700",
-    color: "#333",
   },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
     padding: 20,
-    backgroundColor: "#fff",
   },
   searchBar: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 44,
   },
-  searchInput: { flex: 1, marginLeft: 8, color: "#333" },
+  searchInput: { flex: 1, marginLeft: 8 },
   searchBtn: {
     marginLeft: 10,
     width: 44,
@@ -594,12 +637,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderRadius: 20,
-    backgroundColor: "#eee",
   },
   tabActive: { backgroundColor: "#20B2AA" },
   tabLocked: { backgroundColor: "#f5f5f5", opacity: 0.6 },
   tabText: { 
-    color: "#666", 
     fontWeight: "600",
     fontSize: 12,
     textAlign: "center",
@@ -608,7 +649,6 @@ const styles = StyleSheet.create({
   tabTextLocked: { color: "#999" },
   card: {
     flexDirection: "row",
-    backgroundColor: "#fff",
     borderRadius: 12,
     overflow: "hidden",
     marginBottom: 14,
@@ -626,7 +666,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 4,
   },
-  category: { color: "#FF8C00", fontSize: 12, marginBottom: 4 },
+  category: { fontSize: 12, marginBottom: 4 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   statusPublished: { backgroundColor: "#d4edda" },
   statusPending: { backgroundColor: "#fff3cd" },

@@ -203,15 +203,18 @@ const TabNavigator = () => {
     (async () => {
       try {
         const username = await AsyncStorage.getItem("currentUsername");
-        if (mounted) setIsAdmin(username === "admin");
         if (username) {
           try {
             const user = await getUserByUsername(username);
-            if (mounted)
-              setIsInstructor(
-                (user?.role || "").toLowerCase() === "instructor"
-              );
-          } catch {}
+            if (mounted) {
+              const userRole = (user?.role || "").toLowerCase();
+              setIsAdmin(userRole === "admin" || username === "admin");
+              setIsInstructor(userRole === "instructor");
+            }
+          } catch {
+            // Fallback: check username nếu không lấy được user data
+            if (mounted) setIsAdmin(username === "admin");
+          }
         }
       } catch {}
     })();
@@ -266,38 +269,28 @@ const TabNavigator = () => {
         tabBarLabelStyle: styles.tabLabel,
       })}
     >
-      {/* Common: HOME */}
-      <Tab.Screen
-        name="HomeStack"
-        component={HomeStackNavigator}
-        options={{ tabBarLabel: "HOME" }}
-      />
-
       {isAdmin ? (
         <>
+          {/* Admin chỉ có 2 tabs: Quản lý và Thống kê */}
           <Tab.Screen
             name="AdminManage"
             component={AdminManageScreen}
             options={{ tabBarLabel: "QUẢN LÝ" }}
           />
-          {/* <Tab.Screen
-            name="AdminStats"
-            component={AdminStatsScreen}
-            options={{ tabBarLabel: "TÌM KIẾM" }}
-          /> */}
           <Tab.Screen
             name="AdminStats"
             component={AdminStatsScreen}
             options={{ tabBarLabel: "THỐNG KÊ" }}
           />
-          <Tab.Screen
-            name="ProfileStack"
-            component={ProfileStackNavigator}
-            options={{ tabBarLabel: "PROFILE" }}
-          />
         </>
       ) : (
         <>
+          {/* Common: HOME cho user thường */}
+          <Tab.Screen
+            name="HomeStack"
+            component={HomeStackNavigator}
+            options={{ tabBarLabel: "HOME" }}
+          />
           <Tab.Screen
             name="Courses"
             component={MyCoursesScreen}

@@ -164,27 +164,39 @@ const CourseLessonsScreen: React.FC = () => {
     },
   }), [colors]);
 
-  const renderItem = ({ item }: { item: Lesson }) => {
-    const isQuiz = (item.kind || "").toLowerCase() === "quiz";
+  // Tách lessons thành video lessons và quiz lessons
+  const { videoLessons, quizLessons } = useMemo(() => {
+    const videos: Lesson[] = [];
+    const quizzes: Lesson[] = [];
+    
+    lessons.forEach(lesson => {
+      if ((lesson.kind || "").toLowerCase() === "quiz") {
+        quizzes.push(lesson);
+      } else {
+        videos.push(lesson);
+      }
+    });
+    
+    // Sắp xếp theo order
+    videos.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    quizzes.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    
+    return { videoLessons: videos, quizLessons: quizzes };
+  }, [lessons]);
+
+  const renderVideoLesson = ({ item, index }: { item: Lesson; index: number }) => {
     return (
       <View style={[styles.lessonItem, dynamicStyles.lessonItem]}>
         <View style={styles.lessonLeft}>
           <View style={styles.lessonIndex}>
             <Text style={styles.lessonIndexText}>
-              {(item.order ?? 0).toString().padStart(2, "0")}
+              {(index + 1).toString().padStart(2, "0")}
             </Text>
           </View>
           <View style={{ flex: 1 }}>
-            <View style={styles.lessonTitleRow}>
-              <ThemedText style={[styles.lessonTitle, dynamicStyles.lessonTitle]} numberOfLines={1}>
-                {item.title || "Bài học"}
-              </ThemedText>
-              {isQuiz ? (
-                <View style={styles.quizChip}>
-                  <Text style={styles.quizChipText}>Quiz</Text>
-                </View>
-              ) : null}
-            </View>
+            <ThemedText style={[styles.lessonTitle, dynamicStyles.lessonTitle]} numberOfLines={1}>
+              {item.title || "Bài học"}
+            </ThemedText>
             {item.duration ? (
               <ThemedText style={[styles.lessonDuration, dynamicStyles.lessonDuration]} numberOfLines={1}>
                 {typeof item.duration === "number"
@@ -195,20 +207,7 @@ const CourseLessonsScreen: React.FC = () => {
           </View>
         </View>
         <View style={styles.lessonRight}>
-          {isQuiz ? (
-            <TouchableOpacity
-              style={styles.quizProgressBtn}
-              onPress={() => openQuizLesson(item)}
-            >
-              <Text style={styles.quizProgressText}>
-                {typeof quizProgress[item.id] === "number"
-                  ? `${quizProgress[item.id]}%`
-                  : progressLoading
-                  ? "..."
-                  : "Làm bài"}
-              </Text>
-            </TouchableOpacity>
-          ) : item.videoUrl ? (
+          {item.videoUrl ? (
             <TouchableOpacity
               style={styles.playBtn}
               onPress={() =>
@@ -222,6 +221,64 @@ const CourseLessonsScreen: React.FC = () => {
             </TouchableOpacity>
           ) : null}
         </View>
+      </View>
+    );
+  };
+
+  const renderQuizLesson = ({ item, index }: { item: Lesson; index: number }) => {
+    const progressPercent = quizProgress[item.id];
+    const hasProgress = typeof progressPercent === "number";
+    
+    return (
+      <View style={[styles.quizItem, dynamicStyles.lessonItem]}>
+        <View style={styles.quizIconContainer}>
+          <MaterialIcons name="quiz" size={28} color="#20B2AA" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <View style={styles.quizTitleRow}>
+            <ThemedText style={[styles.quizTitle, dynamicStyles.lessonTitle]} numberOfLines={1}>
+              {item.title || "Bài quiz"}
+            </ThemedText>
+            <View style={styles.quizChip}>
+              <Text style={styles.quizChipText}>Quiz {index + 1}</Text>
+            </View>
+          </View>
+          {item.description ? (
+            <ThemedText style={[styles.quizDescription, dynamicStyles.lessonDuration]} numberOfLines={2}>
+              {item.description}
+            </ThemedText>
+          ) : null}
+          {item.questions && item.questions.length > 0 ? (
+            <ThemedText style={[styles.quizInfo, dynamicStyles.lessonDuration]}>
+              {item.questions.length} câu hỏi
+            </ThemedText>
+          ) : null}
+        </View>
+        <TouchableOpacity
+          style={[
+            styles.quizActionBtn,
+            hasProgress && progressPercent === 100 && styles.quizActionBtnCompleted
+          ]}
+          onPress={() => openQuizLesson(item)}
+        >
+          {hasProgress ? (
+            <>
+              <MaterialIcons 
+                name={progressPercent === 100 ? "check-circle" : "pending"} 
+                size={18} 
+                color="#fff" 
+              />
+              <Text style={styles.quizActionText}>{progressPercent}%</Text>
+            </>
+          ) : progressLoading ? (
+            <Text style={styles.quizActionText}>...</Text>
+          ) : (
+            <>
+              <MaterialIcons name="play-circle-outline" size={18} color="#fff" />
+              <Text style={styles.quizActionText}>Bắt đầu</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
     );
   };
@@ -246,12 +303,38 @@ const CourseLessonsScreen: React.FC = () => {
           <MaterialIcons name="star" size={22} color="#FFD700" />
         </TouchableOpacity>
       </View>
+      
       <FlatList
-        data={lessons}
-        renderItem={renderItem}
+        data={videoLessons}
+        renderItem={renderVideoLesson}
         keyExtractor={(i) => i.id}
         contentContainerStyle={{ padding: 16 }}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        ListEmptyComponent={
+          <ThemedView style={styles.emptySection}>
+            <ThemedText style={[styles.emptyText, { color: colors.secondaryText }]}>
+              Chưa có bài học video nào
+            </ThemedText>
+          </ThemedView>
+        }
+        ListFooterComponent={
+          quizLessons.length > 0 ? (
+            <View style={styles.quizSection}>
+              <View style={[styles.quizSectionHeader, dynamicStyles.lessonItem]}>
+                <MaterialIcons name="assignment" size={24} color="#20B2AA" />
+                <ThemedText style={[styles.quizSectionTitle, dynamicStyles.lessonTitle]}>
+                  Bài test kết thúc khóa học
+                </ThemedText>
+              </View>
+              {quizLessons.map((quiz, index) => (
+                <View key={quiz.id}>
+                  {renderQuizLesson({ item: quiz, index })}
+                  {index < quizLessons.length - 1 && <View style={{ height: 10 }} />}
+                </View>
+              ))}
+            </View>
+          ) : null
+        }
       />
     </ThemedView>
   );
@@ -263,19 +346,79 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 50, paddingBottom: 12 },
   headerTitle: { marginLeft: 12, fontSize: 18, fontWeight: '700', flex: 1 },
   reviewBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff8e1', alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
+  
+  // Video lesson styles
   lessonItem: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, padding: 12 },
   lessonLeft: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   lessonIndex: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#eef6f6', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   lessonIndexText: { color: '#20B2AA', fontWeight: '700' },
-  lessonTitleRow: { flexDirection: 'row', alignItems: 'center' },
   lessonTitle: { fontSize: 14, fontWeight: '700', flexShrink: 1 },
   lessonRight: { marginLeft: 10 },
   lessonDuration: { fontSize: 12, marginTop: 2 },
   playBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#20B2AA', alignItems: 'center', justifyContent: 'center' },
-  quizProgressBtn: { minWidth: 64, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#20B2AA', alignItems: 'center', justifyContent: 'center' },
-  quizProgressText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  
+  // Quiz section styles
+  quizSection: { marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e0e0e0' },
+  quizSectionHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 12, 
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  quizSectionTitle: { 
+    fontSize: 16, 
+    fontWeight: '700', 
+    marginLeft: 10,
+  },
+  
+  // Quiz item styles
+  quizItem: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    borderRadius: 12, 
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#20B2AA',
+  },
+  quizIconContainer: { 
+    width: 48, 
+    height: 48, 
+    borderRadius: 24, 
+    backgroundColor: '#e7f7f5', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginRight: 12 
+  },
+  quizTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  quizTitle: { fontSize: 15, fontWeight: '700', flexShrink: 1 },
+  quizDescription: { fontSize: 12, marginTop: 2, lineHeight: 16 },
+  quizInfo: { fontSize: 11, marginTop: 4, fontWeight: '600', opacity: 0.7 },
+  
+  // Quiz action button
+  quizActionBtn: { 
+    minWidth: 80,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14, 
+    paddingVertical: 10, 
+    borderRadius: 20, 
+    backgroundColor: '#20B2AA',
+    marginLeft: 12,
+  },
+  quizActionBtnCompleted: {
+    backgroundColor: '#4CAF50',
+  },
+  quizActionText: { color: '#fff', fontWeight: '700', fontSize: 13, marginLeft: 4 },
+  
   quizChip: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: '#e7f7f5', borderRadius: 8 },
   quizChipText: { color: '#20B2AA', fontSize: 11, fontWeight: '700' },
+  
+  // Empty section
+  emptySection: { paddingVertical: 20, alignItems: 'center' },
+  emptyText: { fontSize: 14, fontStyle: 'italic' },
 });
 
 export default CourseLessonsScreen;

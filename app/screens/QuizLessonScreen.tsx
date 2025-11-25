@@ -291,32 +291,47 @@ const QuizLessonScreen: React.FC = () => {
           <ThemedText style={[styles.questionText, dynamicStyles.questionText]}>{currentQuestion?.text}</ThemedText>
           {currentQuestion?.options?.map((option, idx) => {
             const selected = answers[currentIndex] === idx;
-            const isCorrect =
-              submitted && currentQuestion?.correctIndex === idx;
-            const isWrong =
-              submitted && selected && currentQuestion?.correctIndex !== idx;
+            const isCorrectAnswer = currentQuestion?.correctIndex === idx;
+            
+            // Sau khi submit: hiển thị đáp án đúng (màu xanh) và đáp án sai được chọn (màu đỏ)
+            const showCorrect = submitted && isCorrectAnswer;
+            const showWrong = submitted && selected && !isCorrectAnswer;
+            const showSelected = !submitted && selected;
+            
             return (
               <TouchableOpacity
                 key={idx}
                 style={[
                   styles.optionBtn,
                   dynamicStyles.optionBtn,
-                  selected && styles.optionSelected,
-                  isCorrect && styles.optionCorrect,
-                  isWrong && styles.optionWrong,
+                  showSelected && styles.optionSelected,
+                  showCorrect && styles.optionCorrect,
+                  showWrong && styles.optionWrong,
                 ]}
                 onPress={() => handleSelect(idx)}
                 activeOpacity={0.8}
+                disabled={submitted}
               >
-                <ThemedText
-                  style={[
-                    styles.optionText,
-                    dynamicStyles.optionText,
-                    selected && styles.optionTextSelected,
-                  ]}
-                >
-                  {option || `Lựa chọn ${idx + 1}`}
-                </ThemedText>
+                <View style={styles.optionContent}>
+                  <View style={styles.optionLabel}>
+                    <Text style={styles.optionLabelText}>{String.fromCharCode(65 + idx)}</Text>
+                  </View>
+                  <ThemedText
+                    style={[
+                      styles.optionText,
+                      dynamicStyles.optionText,
+                      (showSelected || showCorrect || showWrong) && styles.optionTextSelected,
+                    ]}
+                  >
+                    {option || `Lựa chọn ${idx + 1}`}
+                  </ThemedText>
+                  {showCorrect && (
+                    <MaterialIcons name="check-circle" size={24} color="#4caf50" />
+                  )}
+                  {showWrong && (
+                    <MaterialIcons name="cancel" size={24} color="#f44336" />
+                  )}
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -438,11 +453,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   optionBtn: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 10,
+    borderColor: "#e0e0e0",
   },
   optionSelected: {
     borderColor: "#20B2AA",
@@ -456,11 +472,30 @@ const styles = StyleSheet.create({
     borderColor: "#f44336",
     backgroundColor: "#ffebee",
   },
+  optionContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  optionLabel: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#f0f0f0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  optionLabelText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#666",
+  },
   optionText: {
     fontSize: 14,
+    flex: 1,
   },
   optionTextSelected: {
-    fontWeight: "700",
+    fontWeight: "600",
   },
   navigationRow: {
     flexDirection: "row",

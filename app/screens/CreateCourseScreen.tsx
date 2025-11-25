@@ -11,7 +11,7 @@ import {
   Switch,
 } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
-import { createProofCourse, getCategories, uploadProofFile, getUserByUsername, getCourseById, updateCourse } from "../api/api";
+import { createProofCourse, getCategories, uploadProofFile, getUserByUsername, getCourseById, updateCourse, getLessonsByCourse } from "../api/api";
 import { useNavigation, useFocusEffect, useRoute, RouteProp } from "@react-navigation/native";
 import { RootStackNavProps, RootStackParamList } from "../navigation/AppNavigator";
 import * as ImagePicker from "expo-image-picker";
@@ -40,6 +40,7 @@ const CreateCourseScreen: React.FC = () => {
   const [thumbnailLocal, setThumbnailLocal] = useState<{ uri: string; type?: string; name?: string } | null>(null);
   const [editMode, setEditMode] = useState<boolean>(false);
   const [lessonUploadProgress, setLessonUploadProgress] = useState<Record<number, number>>({});
+  const [expandedQuizzes, setExpandedQuizzes] = useState<Set<number>>(new Set());
 
   const dynamicStyles = useMemo(
     () =>
@@ -91,8 +92,12 @@ const CreateCourseScreen: React.FC = () => {
       (async () => {
         try {
           setLoading(true);
-          const course = await getCourseById(courseId);
+          const [course, courseLessons] = await Promise.all([
+            getCourseById(courseId),
+            getLessonsByCourse(courseId).catch(() => [])
+          ]);
           console.log('Loaded course for edit:', course);
+          console.log('Loaded lessons for edit:', courseLessons);
           
           setTitle(course.title || "");
           setDescription(course.description || "");
@@ -102,7 +107,30 @@ const CreateCourseScreen: React.FC = () => {
           setIsPublished(course.isPublished || false);
           setEditMode(true);
           
-          Alert.alert('Chế độ chỉnh sửa', 'Đang tải thông tin khóa học...');
+          // Load lessons - chuyển đổi từ API format sang local format
+          if (Array.isArray(courseLessons) && courseLessons.length > 0) {
+            const formattedLessons = courseLessons.map((lesson: any) => {
+              const isQuiz = (lesson.kind || "").toLowerCase() === "quiz";
+              return {
+                id: lesson.id || lesson._id,
+                kind: isQuiz ? "quiz" : "video",
+                title: lesson.title || "",
+                description: lesson.description || "",
+                order: String(lesson.order || 0),
+                videoUrl: isQuiz ? "" : (lesson.videoUrl || ""),
+                questions: isQuiz ? (lesson.questions || []).map((q: any) => ({
+                  text: q.text || "",
+                  options: Array.isArray(q.options) ? q.options : [],
+                  correctIndex: Number(q.correctIndex) || 0,
+                  explanation: q.explanation || "",
+                })) : undefined,
+              };
+            });
+            setLessons(formattedLessons);
+            console.log('Formatted lessons:', formattedLessons);
+          }
+          
+          Alert.alert('Chế độ chỉnh sửa', `Đã tải ${courseLessons.length} bài học`);
         } catch (error: any) {
           console.error('Load course error:', error);
           Alert.alert('Lỗi', 'Không thể tải thông tin khóa học');
@@ -175,9 +203,10 @@ const CreateCourseScreen: React.FC = () => {
       thumbnailUrl: thumbnailUrl.trim(),
     };
     
-    // Chỉ thêm lessons nếu không phải edit mode
-    if (!editMode && lessons.length) {
+    // Thêm lessons cho cả create và edit mode
+    if (lessons.length) {
       payload.lessons = lessons.map((l) => ({
+        id: l.id, // Giữ lại ID nếu có (cho edit mode)
         title: String(l.title || ""),
         description: String(l.description || ""),
         order: Number(l.order) || 0,
@@ -382,6 +411,18 @@ const CreateCourseScreen: React.FC = () => {
     setLessons((ls) => ls.filter((_, i) => i !== index));
   };
 
+  const toggleQuizExpand = (index: number) => {
+    setExpandedQuizzes((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <SafeAreaView style={[styles.container, dynamicStyles.container]}>
       <View style={[styles.header, dynamicStyles.header]}>
@@ -538,50 +579,104 @@ const CreateCourseScreen: React.FC = () => {
                 </>
               ) : (
                 <View>
-                  <ThemedText style={[styles.smallLabel, dynamicStyles.smallLabel]}>Câu hỏi</ThemedText>
-                  {(l.questions || []).map((q: any, qi: number) => (
-                    <View key={qi} style={styles.qRow}>
-                      <TextInput
-                        style={[styles.input, dynamicStyles.input]}
-                        placeholder={`Câu hỏi ${qi + 1}`}
-                        placeholderTextColor={colors.placeholderText}
-                        value={q.text}
-                        onChangeText={(t) => updateQuizQuestion(idx, qi, { text: t })}
-                      />
-                      <ThemedText style={[styles.smallLabel, dynamicStyles.smallLabel]}>Lựa chọn</ThemedText>
-                      {(q.options || []).map((op: string, oi: number) => (
-                        <TextInput
-                          key={oi}
-                          style={[styles.input, dynamicStyles.input]}
-                          placeholder={`Lựa chọn ${oi + 1}`}
-                          placeholderTextColor={colors.placeholderText}
-                          value={op}
-                          onChangeText={(t) => {
-                            const opts = [...(q.options || [])];
-                            opts[oi] = t;
-                            updateQuizQuestion(idx, qi, { options: opts });
-                          }}
-                        />
-                      ))}
-                      <TouchableOpacity style={[styles.smallBtn, dynamicStyles.smallBtn]} onPress={() => addQuizOption(idx, qi)}>
-                        <ThemedText style={[styles.smallBtnText, dynamicStyles.smallBtnText]}>+ Lựa chọn</ThemedText>
-                      </TouchableOpacity>
-                      <ThemedText style={[styles.smallLabel, dynamicStyles.smallLabel]}>Đáp án đúng (chỉ số)</ThemedText>
-                      <TextInput
-                        style={[styles.input, dynamicStyles.input]}
-                        placeholder="0,1,2..."
-                        placeholderTextColor={colors.placeholderText}
-                        keyboardType="numeric"
-                        value={String(q.correctIndex)}
-                        onChangeText={(t) =>
-                          updateQuizQuestion(idx, qi, { correctIndex: Math.max(0, parseInt(t) || 0) })
-                        }
-                      />
-                    </View>
-                  ))}
-                  <TouchableOpacity style={[styles.smallBtn, dynamicStyles.smallBtn]} onPress={() => addQuizQuestionRow(idx)}>
-                    <ThemedText style={[styles.smallBtnText, dynamicStyles.smallBtnText]}>+ Câu hỏi</ThemedText>
+                  <TouchableOpacity 
+                    style={styles.quizToggleBtn}
+                    onPress={() => toggleQuizExpand(idx)}
+                  >
+                    <ThemedText style={[styles.smallLabel, dynamicStyles.smallLabel]}>
+                      📝 Câu hỏi Quiz ({(l.questions || []).length} câu)
+                    </ThemedText>
+                    <MaterialIcons 
+                      name={expandedQuizzes.has(idx) ? "expand-less" : "expand-more"} 
+                      size={24} 
+                      color={colors.primaryText} 
+                    />
                   </TouchableOpacity>
+                  
+                  {expandedQuizzes.has(idx) && (
+                    <View style={styles.quizContent}>
+                      {(l.questions || []).map((q: any, qi: number) => (
+                        <View key={qi} style={styles.qRow}>
+                          <View style={styles.questionHeader}>
+                            <ThemedText style={[styles.questionNumber, dynamicStyles.smallLabel]}>
+                              Câu {qi + 1}
+                            </ThemedText>
+                          </View>
+                          <TextInput
+                            style={[styles.input, dynamicStyles.input]}
+                            placeholder={`Nội dung câu hỏi ${qi + 1}`}
+                            placeholderTextColor={colors.placeholderText}
+                            value={q.text}
+                            onChangeText={(t) => updateQuizQuestion(idx, qi, { text: t })}
+                            multiline
+                          />
+                          <ThemedText style={[styles.smallLabel, dynamicStyles.smallLabel]}>Lựa chọn</ThemedText>
+                          {(q.options || []).map((op: string, oi: number) => (
+                            <View key={oi} style={styles.optionRow}>
+                              <View style={[
+                                styles.optionIndicator,
+                                q.correctIndex === oi && styles.optionIndicatorCorrect
+                              ]}>
+                                <Text style={[
+                                  styles.optionIndicatorText,
+                                  q.correctIndex === oi && styles.optionIndicatorTextCorrect
+                                ]}>
+                                  {String.fromCharCode(65 + oi)}
+                                </Text>
+                              </View>
+                              <TextInput
+                                style={[styles.input, styles.optionInput, dynamicStyles.input]}
+                                placeholder={`Lựa chọn ${String.fromCharCode(65 + oi)}`}
+                                placeholderTextColor={colors.placeholderText}
+                                value={op}
+                                onChangeText={(t) => {
+                                  const opts = [...(q.options || [])];
+                                  opts[oi] = t;
+                                  updateQuizQuestion(idx, qi, { options: opts });
+                                }}
+                              />
+                            </View>
+                          ))}
+                          <TouchableOpacity 
+                            style={[styles.smallBtn, dynamicStyles.smallBtn, styles.addOptionBtn]} 
+                            onPress={() => addQuizOption(idx, qi)}
+                          >
+                            <MaterialIcons name="add" size={16} color={colors.primaryText} />
+                            <ThemedText style={[styles.smallBtnText, dynamicStyles.smallBtnText]}>Thêm lựa chọn</ThemedText>
+                          </TouchableOpacity>
+                          <ThemedText style={[styles.smallLabel, dynamicStyles.smallLabel]}>
+                            Đáp án đúng (chọn số: 0={String.fromCharCode(65)}, 1={String.fromCharCode(66)}, ...)
+                          </ThemedText>
+                          <TextInput
+                            style={[styles.input, dynamicStyles.input]}
+                            placeholder="Nhập 0, 1, 2..."
+                            placeholderTextColor={colors.placeholderText}
+                            keyboardType="numeric"
+                            value={String(q.correctIndex)}
+                            onChangeText={(t) =>
+                              updateQuizQuestion(idx, qi, { correctIndex: Math.max(0, parseInt(t) || 0) })
+                            }
+                          />
+                          <ThemedText style={[styles.smallLabel, dynamicStyles.smallLabel]}>Giải thích (tùy chọn)</ThemedText>
+                          <TextInput
+                            style={[styles.input, styles.textArea, dynamicStyles.input]}
+                            placeholder="Giải thích tại sao đây là đáp án đúng..."
+                            placeholderTextColor={colors.placeholderText}
+                            value={q.explanation || ""}
+                            onChangeText={(t) => updateQuizQuestion(idx, qi, { explanation: t })}
+                            multiline
+                          />
+                        </View>
+                      ))}
+                      <TouchableOpacity 
+                        style={[styles.smallBtn, dynamicStyles.smallBtn, styles.addQuestionBtn]} 
+                        onPress={() => addQuizQuestionRow(idx)}
+                      >
+                        <MaterialIcons name="add-circle-outline" size={18} color={colors.primaryText} />
+                        <ThemedText style={[styles.smallBtnText, dynamicStyles.smallBtnText]}>Thêm câu hỏi</ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
               )}
             </View>
@@ -680,7 +775,15 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   smallLabel: { fontSize: 12, color: "#666", marginTop: 6, marginBottom: 6 },
-  qRow: { marginTop: 6, marginBottom: 6 },
+  qRow: { 
+    marginTop: 10, 
+    marginBottom: 10,
+    padding: 12,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
   lessonHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -691,6 +794,73 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     backgroundColor: "#ff4d4f",
     borderRadius: 14,
+  },
+  quizToggleBtn: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "#e7f7f5",
+    borderRadius: 8,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  quizContent: {
+    marginTop: 8,
+  },
+  questionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  questionNumber: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#20B2AA",
+  },
+  optionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  optionIndicator: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#f0f0f0",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+    borderWidth: 2,
+    borderColor: "#d0d0d0",
+  },
+  optionIndicatorCorrect: {
+    backgroundColor: "#e7f7f5",
+    borderColor: "#20B2AA",
+  },
+  optionIndicatorText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#666",
+  },
+  optionIndicatorTextCorrect: {
+    color: "#20B2AA",
+  },
+  optionInput: {
+    flex: 1,
+  },
+  addOptionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  addQuestionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 12,
   },
   deleteChipText: { color: "#fff", fontWeight: "700", fontSize: 12 },
   rowBetween: {

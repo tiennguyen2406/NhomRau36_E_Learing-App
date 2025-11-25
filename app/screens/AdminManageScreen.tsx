@@ -15,6 +15,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Switch,
+  Platform,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Dropdown } from "react-native-element-dropdown";
@@ -41,6 +42,8 @@ import {
   uploadProofFile,
 } from "../api/api";
 import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from "@react-navigation/native";
 
 type EntityType = "users" | "categories" | "lessons" | "courses" | "proofs" | "proofCourses";
 
@@ -57,6 +60,7 @@ const defaultCourseForm = {
 };
 
 const AdminManageScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const [entity, setEntity] = useState<EntityType>("users");
   const [items, setItems] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -70,6 +74,7 @@ const AdminManageScreen: React.FC = () => {
   const [processingModalVisible, setProcessingModalVisible] = useState<boolean>(false);
   const [processingStatus, setProcessingStatus] = useState<"processing" | "success" | "error">("processing");
   const [processingMessage, setProcessingMessage] = useState<string>("");
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
 
   // Form states for each entity
   const [userForm, setUserForm] = useState({
@@ -243,6 +248,36 @@ const AdminManageScreen: React.FC = () => {
       } catch {}
     })();
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem("currentUsername");
+        if (stored) {
+          setCurrentUsername(stored);
+        }
+      } catch (error) {
+        console.warn("Không thể lấy username hiện tại:", error);
+      }
+    })();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        "currentUsername",
+        "authToken",
+        "currentUserId",
+      ]);
+    } catch (error) {
+      console.warn("Không thể xóa thông tin đăng nhập:", error);
+    }
+    navigation.reset?.({
+      index: 0,
+      routes: [{ name: "Auth" as never }],
+    });
+    navigation.navigate?.("Auth" as never);
+  };
 
   useEffect(() => {
     (async () => {
@@ -616,9 +651,7 @@ const AdminManageScreen: React.FC = () => {
   const openPreview = (proof: any) => {
     if (!proof?.url) return;
     if (!isImageProof(proof)) {
-      Linking.openURL(proof.url).catch(() =>
-        Alert.alert("Lỗi", "Không thể mở đường dẫn minh chứng.")
-      );
+      openProofUrl(proof.url);
       return;
     }
     setPreviewProof(proof);
@@ -633,81 +666,109 @@ const AdminManageScreen: React.FC = () => {
   const handleProofDecision = (proof: any, status: "approved" | "rejected") => {
     if (!proof?.id) return;
     const actionText = status === "approved" ? "Duyệt" : "Từ chối";
-    Alert.alert(
-      `${actionText} minh chứng`,
-      `Bạn có chắc muốn ${status === "approved" ? "duyệt" : "từ chối"} yêu cầu này?`,
-      [
-        { text: "Hủy", style: "cancel" },
-        {
-          text: actionText,
-          style: status === "approved" ? "default" : "destructive",
-          onPress: async () => {
-            try {
-              setLoading(true);
-              await updateProofStatus(proof.id, status);
-              await load();
-              if (status === "approved") {
-                Alert.alert("Đã duyệt", "Vai trò người dùng đã được cập nhật.");
-              } else {
-                Alert.alert("Đã từ chối", "Yêu cầu đã được từ chối.");
-              }
-              setSelectedProof(null);
-              setEditingId(null);
-            } catch (err: any) {
-              Alert.alert("Lỗi", err?.message || "Không thể cập nhật minh chứng");
-            } finally {
-              setLoading(false);
-            }
+    const runDecision = async () => {
+      try {
+        setLoading(true);
+        await updateProofStatus(proof.id, status);
+        await load();
+        if (status === "approved") {
+          Alert.alert("Đã duyệt", "Vai trò người dùng đã được cập nhật.");
+        } else {
+          Alert.alert("Đã từ chối", "Yêu cầu đã được từ chối.");
+        }
+        setSelectedProof(null);
+        setEditingId(null);
+      } catch (err: any) {
+        Alert.alert("Lỗi", err?.message || "Không thể cập nhật minh chứng");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (Platform.OS === "web") {
+      runDecision();
+    } else {
+      Alert.alert(
+        `${actionText} minh chứng`,
+        `Bạn có chắc muốn ${status === "approved" ? "duyệt" : "từ chối"} yêu cầu này?`,
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: actionText,
+            style: status === "approved" ? "default" : "destructive",
+            onPress: runDecision,
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const handleProofCourseDecision = (proofCourse: any, status: "approved" | "rejected") => {
     if (!proofCourse?.id) return;
     const actionText = status === "approved" ? "Duyệt" : "Từ chối";
-    Alert.alert(
-      `${actionText} khóa học`,
-      `Bạn có chắc muốn ${status === "approved" ? "duyệt" : "từ chối"} khóa học này?`,
-      [
-        { text: "Hủy", style: "cancel" },
-        {
-          text: actionText,
-          style: status === "approved" ? "default" : "destructive",
-          onPress: async () => {
-            try {
-              // Hiển thị modal xử lý
-              setProcessingModalVisible(true);
-              setProcessingStatus("processing");
-              setProcessingMessage(status === "approved" ? "Đang tạo khóa học và bài học..." : "Đang từ chối yêu cầu...");
-              setLoading(true);
-              
-              await updateProofCourseStatus(proofCourse.id, status);
-              await load();
-              
-              // Hiển thị thông báo thành công
-              setProcessingStatus("success");
-              setProcessingMessage(
-                status === "approved" 
-                  ? "Khóa học đã được tạo thành công!" 
-                  : "Yêu cầu tạo khóa học đã được từ chối."
-              );
-              
-              setSelectedProofCourse(null);
-              setEditingId(null);
-            } catch (err: any) {
-              // Hiển thị thông báo lỗi
-              setProcessingStatus("error");
-              setProcessingMessage(err?.message || "Không thể cập nhật trạng thái khóa học");
-            } finally {
-              setLoading(false);
-            }
+
+    const processDecision = async () => {
+      try {
+        setProcessingModalVisible(true);
+        setProcessingStatus("processing");
+        setProcessingMessage(status === "approved" ? "Đang tạo khóa học và bài học..." : "Đang từ chối yêu cầu...");
+        setLoading(true);
+        
+        await updateProofCourseStatus(proofCourse.id, status);
+        await load();
+        
+        setProcessingStatus("success");
+        setProcessingMessage(
+          status === "approved" 
+            ? "Khóa học đã được tạo thành công!" 
+            : "Yêu cầu tạo khóa học đã được từ chối."
+        );
+        
+        setSelectedProofCourse(null);
+        setEditingId(null);
+      } catch (err: any) {
+        setProcessingStatus("error");
+        setProcessingMessage(err?.message || "Không thể cập nhật trạng thái khóa học");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (Platform.OS === "web") {
+      processDecision();
+    } else {
+      Alert.alert(
+        `${actionText} khóa học`,
+        `Bạn có chắc muốn ${status === "approved" ? "duyệt" : "từ chối"} khóa học này?`,
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: actionText,
+            style: status === "approved" ? "default" : "destructive",
+            onPress: processDecision,
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
+
+  function openProofUrl(url?: string) {
+    if (!url) return;
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      Linking.openURL(url);
+    }
+  }
+
+  function handleProofOpen(proof: any) {
+    if (!proof?.url) return;
+    if (Platform.OS === "web") {
+      openProofUrl(proof.url);
+    } else {
+      openPreview(proof);
+    }
+  }
 
   const toggleCoursePublish = async (course: any) => {
     if (!course?.id) return;
@@ -779,9 +840,27 @@ const AdminManageScreen: React.FC = () => {
                   {(proof.status || "pending").toUpperCase()}
                 </Text>
               </Text>
+              {proof?.url && isImageProof(proof) ? (
+                <View style={styles.inlineProofPreview}>
+                  <Image source={{ uri: proof.url }} style={styles.inlineProofImage} />
+                  <TouchableOpacity
+                    style={[styles.previewExternalBtn, { marginTop: 10 }]}
+                    onPress={() => openProofUrl(proof.url)}
+                  >
+                    <Text style={styles.previewExternalText}>Mở ảnh toàn màn hình</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : proof?.url ? (
+                <TouchableOpacity
+                  style={styles.previewExternalBtn}
+                  onPress={() => openProofUrl(proof.url)}
+                >
+                  <Text style={styles.previewExternalText}>Mở minh chứng</Text>
+                </TouchableOpacity>
+              ) : null}
               <TouchableOpacity
                 style={styles.proofLinkBtn}
-                onPress={() => openPreview(proof)}
+                onPress={() => handleProofOpen(proof)}
               >
                 <Text style={styles.proofLinkText}>Xem minh chứng</Text>
               </TouchableOpacity>
@@ -1359,9 +1438,20 @@ const AdminManageScreen: React.FC = () => {
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
         <Text style={styles.screenTitle}>Quản lý</Text>
 
-        <SectionSelector />
-
-        {renderForm()}
+        <View style={styles.managementCard}>
+          <View style={styles.adminToolbar}>
+            <View>
+              <Text style={styles.toolbarLabel}>Xin chào</Text>
+              <Text style={styles.toolbarName}>{currentUsername || "Admin"}</Text>
+            </View>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <MaterialIcons name="logout" size={18} color="#fff" />
+              <Text style={styles.logoutText}>Đăng xuất</Text>
+            </TouchableOpacity>
+          </View>
+          <SectionSelector />
+          {renderForm()}
+        </View>
 
         <Modal
           visible={previewVisible}
@@ -1386,7 +1476,7 @@ const AdminManageScreen: React.FC = () => {
                   {previewProof?.url ? (
                     <TouchableOpacity
                       style={styles.previewExternalBtn}
-                      onPress={() => Linking.openURL(previewProof.url)}
+                    onPress={() => openProofUrl(previewProof.url)}
                     >
                       <Text style={styles.previewExternalText}>Mở bên ngoài</Text>
                     </TouchableOpacity>
@@ -1516,36 +1606,103 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   scrollContent: {
+    paddingTop: 4,
     paddingBottom: 24,
   },
   screenTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    paddingLeft: 30,
-    paddingTop: 30,
-    marginBottom: 12,
+    fontSize: 26,
+    fontWeight: "800",
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    marginBottom: 8,
+    color: "#111",
   },
   selectorRowContainer: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   selectorRow: {
     flexDirection: "row",
-    paddingLeft: 30,
-    paddingRight: 30,
+    flexWrap: "wrap",
+    gap: 12,
   },
   selectorBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "#eaeaea",
-    borderRadius: 8,
-    marginRight: 8,
+    flexGrow: 1,
+    minWidth: 120,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(32, 178, 170, 0.25)",
+    backgroundColor: "rgba(32, 178, 170, 0.07)",
+    shadowColor: "#1d9d95",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
+    alignItems: "center",
   },
   selectorBtnActive: {
     backgroundColor: "#20B2AA",
+    borderColor: "#20B2AA",
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 4,
+    transform: [{ translateY: -1 }],
+  },
+  managementCard: {
+    backgroundColor: "#fff",
+    borderRadius: 22,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    marginHorizontal: 8,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
+  adminToolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  toolbarLabel: {
+    fontSize: 13,
+    color: "#6b7280",
+    marginBottom: 2,
+    letterSpacing: 0.3,
+  },
+  toolbarName: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#0f766e",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    shadowColor: "#0f766e",
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  logoutText: {
+    color: "#fff",
+    fontWeight: "700",
+    letterSpacing: 0.4,
   },
   selectorText: {
-    color: "#333",
-    fontWeight: "600",
+    color: "#0f172a",
+    fontWeight: "700",
+    fontSize: 15,
+    letterSpacing: 0.3,
   },
   selectorTextActive: {
     color: "#fff",
@@ -1851,6 +2008,17 @@ const styles = StyleSheet.create({
   previewExternalText: {
     color: "#fff",
     fontWeight: "700",
+  },
+  inlineProofPreview: {
+    marginTop: 16,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#f5f5f5",
+  },
+  inlineProofImage: {
+    width: "100%",
+    height: 220,
+    backgroundColor: "#e2e8f0",
   },
   previewCloseBtn: {
     alignSelf: "stretch",

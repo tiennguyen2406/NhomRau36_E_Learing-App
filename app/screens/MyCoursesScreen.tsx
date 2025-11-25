@@ -24,6 +24,7 @@ import {
   unenrollCourse,
   getCoursesByInstructor,
   getSavedCourses,
+  getQuizResultsByCourse,
 } from "../api/api";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -61,6 +62,7 @@ const MyCoursesScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [unenrollingId, setUnenrollingId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("student");
+  const [completedCourseIds, setCompletedCourseIds] = useState<Set<string>>(new Set());
 
   const loadCourses = async () => {
     try {
@@ -75,6 +77,7 @@ const MyCoursesScreen: React.FC = () => {
       // Load enrolled courses
       const userCourses = await getUserCourses(user.uid);
       setCourses(userCourses || []);
+      await evaluateCompletedCourses(userCourses || [], user.uid);
 
       // Load created courses nếu là instructor - chỉ lấy các khóa học đã được duyệt
       if ((user.role || "").toLowerCase() === "instructor") {
@@ -210,10 +213,64 @@ const MyCoursesScreen: React.FC = () => {
     );
   };
 
+  const evaluateCompletedCourses = async (courseList: Course[], userId: string) => {
+    if (!Array.isArray(courseList) || !userId) {
+      setCompletedCourseIds(new Set());
+      return;
+    }
+
+    try {
+      const completedIds: string[] = [];
+      await Promise.all(
+        courseList.map(async (course) => {
+          if (!course?.id) return;
+          try {
+            const results = await getQuizResultsByCourse(course.id, userId);
+            if (!Array.isArray(results) || results.length === 0) return;
+
+            const isPerfect = results.every((result: any) => {
+              const total =
+                Number(result?.totalQuestions ?? result?.answers?.length ?? 0) || 0;
+              const correct = Number(result?.correctCount ?? 0);
+              const percentage =
+                typeof result?.percentage === "number"
+                  ? result.percentage
+                  : total > 0
+                  ? (correct / total) * 100
+                  : 0;
+
+              if (total <= 0) {
+                return correct > 0 && percentage >= 100;
+              }
+              return correct >= total || percentage >= 100;
+            });
+
+            if (isPerfect) {
+              completedIds.push(course.id);
+            }
+          } catch (error) {
+            console.warn("Không thể lấy quiz result cho course", course.id, error);
+          }
+        })
+      );
+      setCompletedCourseIds(new Set(completedIds));
+    } catch (error) {
+      console.warn("evaluateCompletedCourses error:", error);
+      setCompletedCourseIds(new Set());
+    }
+  };
+
   const filteredEnrolled = courses.filter(
     (c) =>
       !searchText ||
       (c.title || "").toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  const completedEnrolled = filteredEnrolled.filter((c) =>
+    completedCourseIds.has(c.id)
+  );
+  const ongoingEnrolled = filteredEnrolled.filter(
+    (c) => !completedCourseIds.has(c.id)
   );
 
   const filteredCreated = createdCourses.filter(
@@ -612,8 +669,17 @@ const MyCoursesScreen: React.FC = () => {
           }
         />
       ) : (
+        (() => {
+          const enrolledData =
+            activeTab === "completed" ? completedEnrolled : ongoingEnrolled;
+          const emptyMessage =
+            activeTab === "completed"
+              ? "Chưa có khóa học đã hoàn thành"
+              : "Chưa có khóa học đang học";
+
+          return (
         <FlatList
-          data={filteredEnrolled}
+          data={enrolledData}
           renderItem={renderEnrolledCourse}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
@@ -624,10 +690,12 @@ const MyCoursesScreen: React.FC = () => {
             <ThemedText
               style={[{ textAlign: "center", marginTop: 40, color: colors.secondaryText }]}
             >
-              Chưa có khóa học
+              {emptyMessage}
             </ThemedText>
           }
         />
+          );
+        })()
       )}
     </ThemedView>
   );
